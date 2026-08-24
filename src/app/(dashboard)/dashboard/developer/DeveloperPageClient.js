@@ -21,6 +21,8 @@ const STORAGE_KEYS = {
   singleModel: "developer.singleModel",
   raceModels: "developer.raceModels",
   draft: "developer.draft",
+  abPreset: "developer.abPreset",
+  abTokenSaver: "developer.abTokenSaver",
 };
 
 const INJECT_LEVELS = [
@@ -230,6 +232,14 @@ export default function DeveloperPageClient() {
   const [injectLevel, setInjectLevel] = useState("standard");
   const [injectIdentity, setInjectIdentity] = useState("");
 
+  const [abPresetId, setAbPresetId] = useState(() => {
+    const saved = readStoredString(STORAGE_KEYS.abPreset);
+    return STYLE_PRESETS.some((preset) => preset.id === saved) ? saved : "plinian-ultra";
+  });
+  const [abUseTokenSaver, setAbUseTokenSaver] = useState(
+    () => readStoredString(STORAGE_KEYS.abTokenSaver, "off") === "on"
+  );
+
   const singleAbortRef = useRef(null);
   const raceAbortRef = useRef(null);
   const judgeAbortRef = useRef(null);
@@ -390,6 +400,12 @@ export default function DeveloperPageClient() {
   useEffect(() => {
     globalThis.localStorage.setItem(STORAGE_KEYS.raceModels, JSON.stringify(raceIds));
   }, [raceIds]);
+  useEffect(() => {
+    globalThis.localStorage.setItem(STORAGE_KEYS.abPreset, abPresetId);
+  }, [abPresetId]);
+  useEffect(() => {
+    globalThis.localStorage.setItem(STORAGE_KEYS.abTokenSaver, abUseTokenSaver ? "on" : "off");
+  }, [abUseTokenSaver]);
 
   const activePreset = getStylePreset(styleId);
 
@@ -610,7 +626,7 @@ export default function DeveloperPageClient() {
       return;
     }
 
-    const testPresetId = styleId === "plain" ? "plinian-ultra" : styleId;
+    const testPresetId = abPresetId;
     const arms = [
       { id: "plain", presetId: "plain" },
       { id: "test", presetId: testPresetId },
@@ -665,7 +681,7 @@ export default function DeveloperPageClient() {
         temperature,
         maxTokens,
         signal: controller.signal,
-        noSteering: true,
+        noSteering: !abUseTokenSaver,
       });
 
       if (result.ok) {
@@ -1058,12 +1074,51 @@ export default function DeveloperPageClient() {
               )}
               {mode === "ab" && !abBusy && raceIds.length > 0 && (
                 <span className="text-xs text-text-muted">
-                  sequential · {raceIds.length * 2} calls · Plain vs {styleId === "plain" ? "Plinian ultra" : activePreset.label} · router steering bypassed
+                  sequential · {raceIds.length * 2} calls · Plain vs {getStylePreset(abPresetId).label}
                 </span>
               )}
               {mode === "race" && raceNotice && <span className="text-sm text-amber-500">{raceNotice}</span>}
               {mode === "ab" && abNotice && <span className="text-sm text-amber-500">{abNotice}</span>}
             </div>
+
+            {mode === "ab" && (
+              <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-surface-2/60 p-2.5">
+                <span className="material-symbols-outlined text-[18px] text-text-muted">tune</span>
+                <label className="flex items-center gap-1.5 text-xs text-text-muted">
+                  Arm B preset
+                  <select
+                    value={abPresetId}
+                    onChange={(event) => setAbPresetId(event.target.value)}
+                    disabled={abBusy}
+                    className="h-8 rounded-lg border border-border bg-surface px-2 text-xs text-text-main"
+                  >
+                    {STYLE_PRESETS.map((preset) => (
+                      <option key={preset.id} value={preset.id}>
+                        {preset.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <span className="h-4 w-px bg-border" />
+
+                <button
+                  onClick={() => setAbUseTokenSaver(!abUseTokenSaver)}
+                  disabled={abBusy}
+                  title="Router-level Caveman / Ponytail / Global Plinian participate when ON"
+                  className={`rounded-md px-2 py-1 text-xs font-semibold transition-colors ${
+                    abUseTokenSaver ? "bg-green-600 text-white" : "bg-surface border border-border text-text-muted"
+                  }`}
+                >
+                  Token Saver {abUseTokenSaver ? "ON" : "OFF"}
+                </button>
+                <span className="text-xs text-text-muted">
+                  {abUseTokenSaver
+                    ? "Caveman/Ponytail + global Plinian ride along in BOTH arms"
+                    : "router steering bypassed — arms differ only by the presets above"}
+                </span>
+              </div>
+            )}
           </div>
 
           {mode === "race" && raceItems.length > 0 && (
