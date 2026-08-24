@@ -1,10 +1,10 @@
-# Installing this fork (Azhar457/9router)
+# Installing this fork — package: `9router-plinian`
 
 This fork ships the same way upstream does: a CLI launcher package whose
 `app/` contains the prebuilt dashboard bundle (`cli/scripts/build-cli.js`
-produces it). The npm name `9router` on the public registry belongs to the
-**official** project — installs from this fork must use one of the routes
-below. None of them touch the official registry.
+produces it). This fork builds as its own npm package **`9router-plinian`** (binary
+`9router-plinian`), so it can coexist with the official `9router` install.
+The public-registry name `9router` belongs to upstream and is untouched.
 
 ## Route A — prebuilt release .tgz (recommended for users)
 
@@ -37,16 +37,15 @@ npm install -g ./9router-<version>.tgz
 
 ## Caveats
 
-- **Bin collision**: this fork installs the same `9router` binary name.
-  Install only one of (official | fork) globally at a time, or relink:
-  `npm i -g <tgz> && npm link` semantics mean the last global install wins
-  the symlink. To run both side-by-side, use `--prefix` into separate dirs.
+- **Coexistence**: binary is `9router-plinian`; official `9router` keeps
+  working alongside it. Ports still collide if both servers run at once —
+  start one of them with `-p <other-port>`.
 - **Shared data dir**: both builds persist state under `~/.9router/`
   (SQLite DB, runtime node_modules, logs). Switching between official and
   fork builds is fine, but expect schema migrations to be shared.
 - **postinstall scripts**: some npm setups block lifecycle scripts. The
   package needs its postinstall (runtime bootstrap). Allow it once:
-  `npm config set allow-scripts=9router --location=user`.
+  `npm config set allow-scripts=9router-plinian --location=user`.
 - **Verify which build you run**: a plinian-developer deployment stamps
   `<install>/app/.plinian-deploy.json`; the hub sidebar also shows the
   Developer item only in this fork.
