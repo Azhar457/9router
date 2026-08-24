@@ -29,20 +29,26 @@ export function scoreResponse(content, userQuery) {
 
   let score = 0;
 
-  score += Math.min(content.length / 40, 25);
+  // Substance (0-18): length proxy, diminishing returns
+  score += Math.min(content.length / 50, 18);
 
+  // Structure (0-17): headers, lists, code fences
   const headers = (content.match(HEADER_PATTERN) || []).length;
   const listItems = (content.match(LIST_PATTERN) || []).length;
   const codeBlocks = (content.match(CODE_BLOCK_PATTERN) || []).length / 2;
-  score += Math.min(headers * 3 + listItems * 1.5 + codeBlocks * 5, 20);
+  score += Math.min(headers * 3 + listItems * 1.5 + codeBlocks * 5, 17);
 
+  // Hedge penalty (0-20): starts full, -8 per matched phrase
   const hedgeCount = HEDGE_PATTERNS.filter((p) => p.test(content)).length;
-  score += Math.max(25 - hedgeCount * 8, 0);
+  score += Math.max(20 - hedgeCount * 8, 0);
 
+  // Directness (0-15): preamble openers cost 8 of 15
   const trimmed = content.trim();
   const hasPreamble = PREAMBLE_PATTERNS.some((p) => p.test(trimmed));
-  score += hasPreamble ? 8 : 15;
+  score += hasPreamble ? 7 : 15;
 
+  // Relevance (0-30): share of >4-char query words present in the answer —
+  // heaviest component so on-topic depth separates near-identical answers
   const queryWords = String(userQuery || "")
     .toLowerCase()
     .split(/\s+/)
@@ -50,9 +56,42 @@ export function scoreResponse(content, userQuery) {
   const contentLower = content.toLowerCase();
   const matchedWords = queryWords.filter((w) => contentLower.includes(w));
   const relevance = queryWords.length > 0 ? matchedWords.length / queryWords.length : 0.5;
-  score += relevance * 15;
+  score += relevance * 30;
 
-  return Math.round(Math.min(score, 100));
+  const base = Math.round(Math.min(score, 100));
+  return Math.max(base - redundancyPenalty(content), 0);
+}
+
+// Up to -15 for copy-pasted substance: duplicated lines and repeated
+// 6-word shingles. Keeps verbose-but-circular answers below equally long,
+// information-dense ones.
+function redundancyPenalty(content) {
+  let penalty = 0;
+
+  const lines = content.split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length >= 4) {
+    const unique = new Set(lines.map((l) => l.toLowerCase()));
+    penalty += Math.round((1 - unique.size / lines.length) * 20);
+  }
+
+  const words = content.toLowerCase().match(/[a-z0-9']+/g) || [];
+  if (words.length >= 24) {
+    const N = 6;
+    const grams = new Map();
+    let total = 0;
+    for (let i = 0; i + N <= words.length; i++) {
+      const gram = words.slice(i, i + N).join(" ");
+      grams.set(gram, (grams.get(gram) || 0) + 1);
+      total++;
+    }
+    let repeats = 0;
+    for (const count of grams.values()) {
+      if (count > 1) repeats += count - 1;
+    }
+    penalty += Math.round((repeats / Math.max(total, 1)) * 25);
+  }
+
+  return Math.min(penalty, 15);
 }
 
 export function rankResults(results, userQuery) {
