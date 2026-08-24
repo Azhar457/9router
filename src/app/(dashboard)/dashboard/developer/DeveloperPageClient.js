@@ -146,7 +146,7 @@ function errorHint(message) {
 }
 
 // One request through the dashboard relay. Shared by Single / Race / A-B.
-async function launchOne({ model, systemPromptText, query, temperature: temp, maxTokens: maxTok, signal }) {
+async function launchOne({ model, systemPromptText, query, temperature: temp, maxTokens: maxTok, signal, noSteering = false }) {
   const startedAt = performance.now();
   try {
     const response = await fetch("/api/developer/chat", {
@@ -158,6 +158,7 @@ async function launchOne({ model, systemPromptText, query, temperature: temp, ma
         stream: true,
         temperature: temp,
         max_tokens: maxTok,
+        ...(noSteering ? { _noSteering: true } : {}),
       }),
       signal,
     });
@@ -664,6 +665,7 @@ export default function DeveloperPageClient() {
         temperature,
         maxTokens,
         signal: controller.signal,
+        noSteering: true,
       });
 
       if (result.ok) {
@@ -1056,7 +1058,7 @@ export default function DeveloperPageClient() {
               )}
               {mode === "ab" && !abBusy && raceIds.length > 0 && (
                 <span className="text-xs text-text-muted">
-                  sequential · {raceIds.length * 2} calls · Plain vs {styleId === "plain" ? "Plinian ultra" : activePreset.label}
+                  sequential · {raceIds.length * 2} calls · Plain vs {styleId === "plain" ? "Plinian ultra" : activePreset.label} · router steering bypassed
                 </span>
               )}
               {mode === "race" && raceNotice && <span className="text-sm text-amber-500">{raceNotice}</span>}
