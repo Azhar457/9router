@@ -580,6 +580,10 @@ async function showInterfaceMenu(latestVersion) {
 
   const selected = await selectMenu(`Choose Interface (v${pkg.version})`, menuItems, 0, subtitle);
 
+  // Non-interactive stdin (systemd, nohup, CI): keep the router alive
+  // headless instead of treating the sentinel as "Exit".
+  if (selected < 0) return "headless";
+
   const offset = latestVersion ? 1 : 0;
 
   if (latestVersion && selected === 0) return "update";
@@ -739,6 +743,13 @@ function startServer(updatePromise) {
     try {
       while (true) {
         const choice = await showInterfaceMenu(latestVersion);
+
+        if (choice === "headless") {
+          console.log(`\n💡 No interactive terminal detected — running headless.`);
+          console.log(`   Dashboard: http://${displayHost}:${port}/dashboard`);
+          console.log(`   Stop with: pkill -f 9router-plinian\n`);
+          return;
+        }
 
         if (choice === "update") {
           isShuttingDown = true;
