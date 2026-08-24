@@ -10,7 +10,7 @@ import {
   STYLE_PRESETS,
   TIER_SIZES,
 } from "@/shared/constants/developerPresets";
-import { rankResults, scoreResponse } from "@/shared/lib/plinianScoring";
+import { countHedges, rankResults, scoreResponse } from "@/shared/lib/plinianScoring";
 
 const STORAGE_KEYS = {
   mode: "developer.mode",
@@ -145,6 +145,38 @@ function errorHint(message) {
   return "";
 }
 
+// One request through the dashboard relay. Shared by Single / Race / A-B.
+async function launchOne({ model, systemPromptText, query, temperature: temp, maxTokens: maxTok, signal }) {
+  const startedAt = performance.now();
+  try {
+    const response = await fetch("/api/developer/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+      body: JSON.stringify({
+        model: model.requestModel || model.id,
+        messages: buildMessages(systemPromptText, query),
+        stream: true,
+        temperature: temp,
+        max_tokens: maxTok,
+      }),
+      signal,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(textValue(errorData.error || errorData.message || `HTTP ${response.status}`));
+    }
+
+    const content = await readStreamedCompletion(response);
+    const duration_ms = Math.round(performance.now() - startedAt);
+    if (!content) throw new Error("Empty response");
+    return { ok: true, content, duration_ms };
+  } catch (error) {
+    const msg = error.name === "AbortError" ? "Cancelled" : textValue(error?.message) || "Failed";
+    return { ok: false, duration_ms: Math.round(performance.now() - startedAt), error: msg };
+  }
+}
+
 function readStoredString(key, fallback = "") {
   if (typeof window === "undefined") return fallback;
   return globalThis.localStorage.getItem(key) ?? fallback;
@@ -163,7 +195,7 @@ export default function DeveloperPageClient() {
 
   const [mode, setMode] = useState(() => {
     const saved = readStoredString(STORAGE_KEYS.mode, "single");
-    return saved === "single" || saved === "race" ? saved : "single";
+    return saved === "single" || saved === "race" || saved === "ab" ? saved : "single";
   });
   const [styleId, setStyleId] = useState(() => readStoredString(STORAGE_KEYS.style, "plain"));
   const [customPrompt, setCustomPrompt] = useState(() => readStoredString(STORAGE_KEYS.customPrompt));
@@ -184,6 +216,10 @@ export default function DeveloperPageClient() {
   const [raceBusy, setRaceBusy] = useState(false);
   const [raceNotice, setRaceNotice] = useState("");
 
+  const [abItems, setAbItems] = useState([]);
+  const [abBusy, setAbBusy] = useState(false);
+  const [abNotice, setAbNotice] = useState("");
+
   const [judgeModelId, setJudgeModelId] = useState("");
   const [judging, setJudging] = useState(false);
   const [judgeVerdict, setJudgeVerdict] = useState(null);
@@ -196,11 +232,13 @@ export default function DeveloperPageClient() {
   const singleAbortRef = useRef(null);
   const raceAbortRef = useRef(null);
   const judgeAbortRef = useRef(null);
+  const abAbortRef = useRef(null);
 
   useEffect(() => () => {
     singleAbortRef.current?.abort();
     raceAbortRef.current?.abort();
     judgeAbortRef.current?.abort();
+    abAbortRef.current?.abort();
   }, []);
 
   useEffect(() => {
@@ -354,18 +392,57 @@ export default function DeveloperPageClient() {
 
   const activePreset = getStylePreset(styleId);
 
-  const systemPrompt = useMemo(() => {
+  function buildSystemFor(presetId) {
     const parts = [];
     const custom = customPrompt.trim();
     if (custom) parts.push(custom);
-    if (activePreset.suffix) parts.push(activePreset.suffix);
+    const preset = getStylePreset(presetId);
+    if (preset.suffix) parts.push(preset.suffix);
     return parts.join("\n\n");
-  }, [customPrompt, activePreset]);
+  }
+
+  const systemPrompt = useMemo(
+    () => buildSystemFor(styleId),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [customPrompt, styleId]
+  );
 
   const raceRanked = useMemo(
     () => (raceItems.length > 0 ? rankResults(raceItems, draft) : []),
     [raceItems, draft]
   );
+
+  const abPairs = useMemo(() => {
+    const map = new Map();
+    for (const item of abItems) {
+      if (!map.has(item.model.id)) {
+        map.set(item.model.id, { model: item.model, plain: null, test: null });
+      }
+      map.get(item.model.id)[item.arm] = item;
+    }
+    return Array.from(map.values())
+      .map((row) => {
+        const bothDone = row.plain?.status === "done" && row.test?.status === "done";
+        return { ...row, delta: bothDone ? row.test.score - row.plain.score : null };
+      })
+      .sort((a, b) => (b.delta ?? -9999) - (a.delta ?? -9999));
+  }, [abItems]);
+
+  const abAggregate = useMemo(() => {
+    const deltas = abPairs.filter((row) => row.delta !== null).map((row) => row.delta);
+    if (deltas.length === 0) return null;
+    const mean = (arr) => arr.reduce((s, v) => s + v, 0) / arr.length;
+    const plainScores = abPairs.filter((r) => r.plain?.status === "done").map((r) => r.plain.score);
+    const testScores = abPairs.filter((r) => r.test?.status === "done").map((r) => r.test.score);
+    return {
+      pairs: deltas.length,
+      meanDelta: Math.round(mean(deltas)),
+      meanPlain: mean(plainScores).toFixed(1),
+      meanTest: mean(testScores).toFixed(1),
+      hedgePlain: abPairs.reduce((s, r) => s + (r.plain?.hedges || 0), 0),
+      hedgeTest: abPairs.reduce((s, r) => s + (r.test?.hedges || 0), 0),
+    };
+  }, [abPairs]);
 
   const toggleRaceModel = (modelId) => {
     setJudgeVerdict(null);
@@ -481,48 +558,32 @@ export default function DeveloperPageClient() {
       }
 
       updateEntry(entry.key, { status: "running" });
-      const startedAt = performance.now();
+      const result = await launchOne({
+        model: entry.model,
+        systemPromptText: systemPrompt,
+        query,
+        temperature,
+        maxTokens,
+        signal: controller.signal,
+      });
 
-      try {
-      const response = await fetch("/api/developer/chat", {
-          method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-          body: JSON.stringify({
-            model: entry.model.requestModel || entry.model.id,
-            messages: buildMessages(systemPrompt, query),
-            stream: true,
-            temperature,
-            max_tokens: maxTokens,
-          }),
-          signal: controller.signal,
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(textValue(errorData.error || errorData.message || `HTTP ${response.status}`));
-        }
-
-        const content = await readStreamedCompletion(response);
-        const duration_ms = Math.round(performance.now() - startedAt);
-        if (!content) throw new Error("Empty response");
-
+      if (result.ok) {
         updateEntry(entry.key, {
           status: "done",
-          content,
-          duration_ms,
-          score: scoreResponse(content, query),
+          content: result.content,
+          duration_ms: result.duration_ms,
+          score: scoreResponse(result.content, query),
         });
         successCount += 1;
         return true;
-      } catch (error) {
-        const msg = error.name === "AbortError" ? "Cancelled" : textValue(error?.message) || "Failed";
-        updateEntry(entry.key, {
-          status: "error",
-          duration_ms: Math.round(performance.now() - startedAt),
-          error: msg + (msg === "Cancelled" ? "" : errorHint(msg)),
-        });
-        return false;
       }
+
+      updateEntry(entry.key, {
+        status: "error",
+        duration_ms: result.duration_ms,
+        error: result.error + (result.error === "Cancelled" ? "" : errorHint(result.error)),
+      });
+      return false;
     };
 
     const launches = entries.map((entry, index) =>
@@ -536,6 +597,98 @@ export default function DeveloperPageClient() {
       raceAbortRef.current = null;
       setRaceBusy(false);
       if (successCount === 0) setRaceNotice("All racers failed — check provider connections.");
+    }
+  }
+
+  async function runAbTest() {
+    const query = draft.trim();
+    if (!query || abBusy) return;
+
+    if (raceIds.length < 1) {
+      setAbNotice("Pick at least one model (selection is shared with the Race tab).");
+      return;
+    }
+
+    const testPresetId = styleId === "plain" ? "plinian-ultra" : styleId;
+    const arms = [
+      { id: "plain", presetId: "plain" },
+      { id: "test", presetId: testPresetId },
+    ];
+    const testPreset = getStylePreset(testPresetId);
+
+    setAbBusy(true);
+    setAbNotice("");
+    abAbortRef.current?.abort();
+    const controller = new AbortController();
+    abAbortRef.current = controller;
+
+    const models = raceIds.map((id) => modelIndex.get(id)).filter(Boolean);
+    const entries = [];
+    for (const arm of arms) {
+      for (const model of models) {
+        entries.push({
+          key: `${arm.id}:${model.id}`,
+          arm: arm.id,
+          armLabel: arm.id === "plain" ? "Plain" : testPreset.label,
+          model,
+          status: "pending",
+          content: "",
+          duration_ms: 0,
+          score: 0,
+          hedges: 0,
+          error: "",
+        });
+      }
+    }
+    setAbItems(entries.map((e) => ({ ...e })));
+
+    const updateEntry = (key, patch) => {
+      setAbItems((prev) => prev.map((item) => (item.key === key ? { ...item, ...patch } : item)));
+    };
+
+    // Free-tier friendly: strictly sequential, one request in flight.
+    const hardTimer = setTimeout(() => controller.abort(), RACE_HARD_TIMEOUT_MS * arms.length);
+    let successCount = 0;
+
+    for (const entry of entries) {
+      if (controller.signal.aborted) {
+        updateEntry(entry.key, { status: "error", error: "Cancelled" });
+        continue;
+      }
+
+      updateEntry(entry.key, { status: "running" });
+      const result = await launchOne({
+        model: entry.model,
+        systemPromptText: buildSystemFor(arms.find((a) => a.id === entry.arm).presetId),
+        query,
+        temperature,
+        maxTokens,
+        signal: controller.signal,
+      });
+
+      if (result.ok) {
+        successCount += 1;
+        updateEntry(entry.key, {
+          status: "done",
+          content: result.content,
+          duration_ms: result.duration_ms,
+          score: scoreResponse(result.content, query),
+          hedges: countHedges(result.content),
+        });
+      } else {
+        updateEntry(entry.key, {
+          status: "error",
+          duration_ms: result.duration_ms,
+          error: result.error + (result.error === "Cancelled" ? "" : errorHint(result.error)),
+        });
+      }
+    }
+
+    clearTimeout(hardTimer);
+    if (abAbortRef.current === controller) {
+      abAbortRef.current = null;
+      setAbBusy(false);
+      if (successCount === 0) setAbNotice("All runs failed — check provider connections.");
     }
   }
 
@@ -653,6 +806,7 @@ export default function DeveloperPageClient() {
           {[
             { id: "single", label: "Single", icon: "chat" },
             { id: "race", label: "Race", icon: "sports_score" },
+            { id: "ab", label: "A/B", icon: "compare_arrows" },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -668,7 +822,7 @@ export default function DeveloperPageClient() {
           ))}
         </div>
 
-        {mode === "race" && (
+        {mode !== "single" && (
           <div className="flex items-center gap-1">
             {Object.keys(TIER_SIZES).map((tier) => (
               <Button key={tier} variant="outline" size="sm" onClick={() => applyTier(tier)}>
@@ -881,7 +1035,17 @@ export default function DeveloperPageClient() {
             />
 
             <div className="flex items-center gap-2">
-              {raceBusy ? (
+              {mode === "ab" ? (
+                abBusy ? (
+                  <Button variant="danger" icon="stop" onClick={() => abAbortRef.current?.abort()}>
+                    Stop A/B
+                  </Button>
+                ) : (
+                  <Button icon="compare_arrows" onClick={runAbTest}>
+                    Run A/B ({raceIds.length}×2)
+                  </Button>
+                )
+              ) : raceBusy ? (
                 <Button variant="danger" icon="stop" onClick={() => raceAbortRef.current?.abort()}>
                   Stop race
                 </Button>
@@ -890,11 +1054,17 @@ export default function DeveloperPageClient() {
                   Run race ({raceIds.length})
                 </Button>
               )}
-              {raceNotice && <span className="text-sm text-amber-500">{raceNotice}</span>}
+              {mode === "ab" && !abBusy && raceIds.length > 0 && (
+                <span className="text-xs text-text-muted">
+                  sequential · {raceIds.length * 2} calls · Plain vs {styleId === "plain" ? "Plinian ultra" : activePreset.label}
+                </span>
+              )}
+              {mode === "race" && raceNotice && <span className="text-sm text-amber-500">{raceNotice}</span>}
+              {mode === "ab" && abNotice && <span className="text-sm text-amber-500">{abNotice}</span>}
             </div>
           </div>
 
-          {raceItems.length > 0 && (
+          {mode === "race" && raceItems.length > 0 && (
             <div className="flex flex-col gap-2">
               {raceRanked.map((item, index) => (
                 <div
@@ -969,6 +1139,80 @@ export default function DeveloperPageClient() {
                   {judgeError && <span className="text-xs text-red-500">{judgeError}</span>}
                 </div>
               )}
+            </div>
+          )}
+
+          {mode === "ab" && abItems.length > 0 && (
+            <div className="flex flex-col gap-2">
+              {abAggregate && !abBusy && (
+                <div className="rounded-xl border border-border bg-surface/40 p-3 text-sm">
+                  <span className="font-medium text-text-main">A/B verdict</span>
+                  <span className="ml-2 text-text-muted">
+                    mean {abAggregate.meanPlain} → {abAggregate.meanTest}
+                    {" · "}
+                    Δ <span className={abAggregate.meanDelta >= 0 ? "text-green-500 font-semibold" : "text-red-500 font-semibold"}>
+                      {abAggregate.meanDelta >= 0 ? "+" : ""}{abAggregate.meanDelta}
+                    </span>
+                    {" · hedges "}
+                    {abAggregate.hedgePlain} → {abAggregate.hedgeTest}
+                    {" · "}
+                    {abAggregate.pairs} pair(s)
+                  </span>
+                </div>
+              )}
+
+              {abPairs.map((row) => (
+                <div key={row.model.id} className="rounded-xl border border-border bg-surface/40 p-3">
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="material-symbols-outlined text-[16px] text-text-muted">compare_arrows</span>
+                    <span className="font-medium text-text-main">{row.model.name}</span>
+                    <span className="text-xs text-text-muted">{row.model.providerName}</span>
+                    {row.delta !== null && (
+                      <span
+                        className={`ml-auto rounded-md px-2 py-0.5 text-xs font-semibold ${
+                          row.delta > 0
+                            ? "bg-green-500/10 text-green-500"
+                            : row.delta < 0
+                              ? "bg-red-500/10 text-red-500"
+                              : "bg-surface-2 text-text-muted"
+                        }`}
+                      >
+                        Δ {row.delta > 0 ? "+" : ""}{row.delta}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {[row.plain, row.test].map((side, sideIndex) => (
+                      <div key={sideIndex} className="rounded-lg bg-surface-2 p-2">
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className={`rounded px-1.5 py-0.5 font-semibold ${sideIndex === 0 ? "bg-surface text-text-muted" : "bg-primary text-white"}`}>
+                            {sideIndex === 0 ? "A · Plain" : `B · ${row.test?.armLabel || "Preset"}`}
+                          </span>
+                          {side?.status === "running" && (
+                            <span className="material-symbols-outlined animate-spin text-[14px] text-primary">progress_activity</span>
+                          )}
+                          {side?.status === "pending" && <span className="text-text-muted">queued</span>}
+                          {side?.score > 0 && <span className="font-semibold text-primary">{side.score}</span>}
+                          {side?.hedges > 0 && <span className="text-amber-500" title="hedge phrases">{side.hedges} hedge</span>}
+                          {side?.duration_ms > 0 && <span className="text-text-muted ml-auto">{(side.duration_ms / 1000).toFixed(1)}s</span>}
+                        </div>
+                        {side?.error && <div className="mt-1 text-xs text-red-500">{side.error}</div>}
+                        {side?.content && (
+                          <details className="mt-1">
+                            <summary className="cursor-pointer select-none text-xs text-text-muted hover:text-text-main">
+                              Response ({side.content.length} chars)
+                            </summary>
+                            <pre className="mt-1 max-h-72 overflow-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-text-main">
+                              {side.content}
+                            </pre>
+                          </details>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>

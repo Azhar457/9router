@@ -60,3 +60,10 @@ export function rankResults(results, userQuery) {
     .map((r) => ({ ...r, score: r.success ? scoreResponse(r.content, userQuery) : 0 }))
     .sort((a, b) => b.score - a.score || a.duration_ms - b.duration_ms);
 }
+
+// Number of hedge/refusal phrases present — used by the A/B compare view to
+// show WHY a score moved, not just that it moved.
+export function countHedges(content) {
+  if (!content) return 0;
+  return HEDGE_PATTERNS.filter((p) => p.test(content)).length;
+}
