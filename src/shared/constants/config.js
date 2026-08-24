@@ -2,8 +2,8 @@ import pkg from "../../../package.json" with { type: "json" };
 
 // App configuration
 export const APP_CONFIG = {
-  name: "9Router Proxy",
-  description: "AI Infrastructure Management",
+  name: "9Router Plinian",
+  description: "AI routing gateway — red-team playground & steering research",
   version: pkg.version,
 };
 
@@ -15,9 +15,9 @@ export const GITHUB_CONFIG = {
 
 // Updater configuration
 export const UPDATER_CONFIG = {
-  npmPackageName: "9router",
+  npmPackageName: "9router-plinian",
   installCmd: "npm i -g 9router",
-  installCmdLatest: "npm i -g 9router@latest --prefer-online",
+  installCmdLatest: "npm i -g https://github.com/Azhar457/9router/releases/download/v0.5.55-plinian.1/9router-plinian-0.5.55-plinian.1.tgz",
   shutdownCountdownSec: 3,
   exitDelayMs: 500,
   statusPort: 20129,
