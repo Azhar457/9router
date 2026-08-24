@@ -86,3 +86,7 @@ graphify-out/*
 .codegraph/
 .PR/
 .next-analyze/*
+
+# fork build artifacts
+*.tgz
+cli/app/
