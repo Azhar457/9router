@@ -691,20 +691,21 @@ function startServer(updatePromise) {
   const initTrayIcon = () => {
     try {
       const { initTray } = require("./src/cli/tray/tray");
-      initTray({
-        port,
-        onQuit: () => {
-          isShuttingDown = true;
-          console.log("\n👋 Shutting down from tray...");
-          cleanup();
-          setTimeout(() => process.exit(0), 100);
-        },
-        onOpenDashboard: () => openBrowser(url)
-      });
-    } catch (err) {
-      // Tray not available - continue without it
-    }
-  };
+        initTray({
+          port,
+          onQuit: () => {
+            isShuttingDown = true;
+            console.log("\n👋 Shutting down from tray...");
+            cleanup();
+            setTimeout(() => process.exit(0), 100);
+          },
+          onOpenDashboard: () => openBrowser(url)
+        });
+      } catch (err) {
+        // Tray not available - keep running headless instead of failing silently
+        console.error(`[9router] system tray unavailable: ${err.message}`);
+      }
+    };
 
   // Tray-only mode: no TUI, just tray icon
   if (trayMode) {
@@ -714,6 +715,10 @@ function startServer(updatePromise) {
 
     console.log(`\n🚀 ${pkg.name} v${pkg.version}`);
     console.log(`Server: http://${displayHost}:${port}`);
+
+    // Restart protection: without this a crashed server child leaves a live
+    // tray icon over a dead router (silent half-death).
+    attachServerEvents();
 
     waitServerReady(port).then(() => {
       initTrayIcon();
@@ -785,21 +790,43 @@ function startServer(updatePromise) {
           // Windows/Linux: spawn detached bgProcess (systray works fine in child)
           console.log(`\n⏳ Starting background process... (tray icon will appear in ~3s)`);
 
+          const trayLogDir = path.join(os.homedir(), ".9router", "logs");
+          try { fs.mkdirSync(trayLogDir, { recursive: true }); } catch (e) { }
+          const trayLogPath = path.join(trayLogDir, "tray-bg.log");
+          let trayLogFd = -1;
+          try { trayLogFd = fs.openSync(trayLogPath, "a"); } catch (e) { }
+
           const bgProcess = spawn(process.execPath, ["--dns-result-order=ipv4first", __filename, "--tray", "--skip-update", "-p", port.toString()], {
             detached: true,
-            stdio: "ignore",
+            stdio: trayLogFd >= 0 ? ["ignore", trayLogFd, trayLogFd] : "ignore",
             windowsHide: true,
             env: { ...process.env }
           });
           bgProcess.unref();
+          if (trayLogFd >= 0) {
+            try { fs.closeSync(trayLogFd); } catch (e) { }
+          }
 
           console.log(`🔔 9Router is now running in background (PID: ${bgProcess.pid})`);
           console.log(`   Server: http://${displayHost}:${port}`);
           console.log(`\n💡 You can close this terminal. Right-click tray icon to quit.\n`);
 
-          // cleanup() kills server so bgProcess can claim the port fresh
+          // cleanup() kills server so bgProcess can claim the port fresh.
+          // Stay alive 3s to verify the bg process actually survived startup —
+          // if it died, surface the log tail instead of exiting silently.
           cleanup();
-          process.exit(0);
+          setTimeout(() => {
+            let alive = false;
+            try { alive = !!bgProcess.pid && process.kill(bgProcess.pid, 0); } catch (e) { }
+            if (!alive) {
+              let tail = "";
+              try { tail = fs.readFileSync(trayLogPath, "utf8").trimEnd().slice(-600); } catch (e) { }
+              console.error(`\n❌ Background tray process died during startup.`);
+              if (tail) console.error(`--- tray-bg.log ---\n${tail}\n---`);
+              console.error(`Logs: ${trayLogPath}`);
+            }
+            process.exit(0);
+          }, 3000);
         } else if (choice === "exit") {
           isShuttingDown = true;
           console.log("\nExiting...");
