@@ -191,6 +191,7 @@ export default function DeveloperPageClient() {
 
   const [injectEnabled, setInjectEnabled] = useState(false);
   const [injectLevel, setInjectLevel] = useState("standard");
+  const [injectIdentity, setInjectIdentity] = useState("");
 
   const singleAbortRef = useRef(null);
   const raceAbortRef = useRef(null);
@@ -210,6 +211,7 @@ export default function DeveloperPageClient() {
         if (cancelled) return;
         setInjectEnabled(!!settings.plinianEnabled);
         if (settings.plinianLevel) setInjectLevel(settings.plinianLevel);
+        if (typeof settings.plinianIdentity === "string") setInjectIdentity(settings.plinianIdentity);
       })
       .catch(() => {});
     return () => {
@@ -237,6 +239,17 @@ export default function DeveloperPageClient() {
   function changeInjectLevel(level) {
     setInjectLevel(level);
     patchSetting({ plinianLevel: level });
+  }
+
+  // Debounced so every keystroke does not hit the settings DB.
+  const identitySaveTimerRef = useRef(null);
+  function handleInjectIdentityChange(event) {
+    const value = event.target.value;
+    setInjectIdentity(value);
+    clearTimeout(identitySaveTimerRef.current);
+    identitySaveTimerRef.current = setTimeout(() => {
+      patchSetting({ plinianIdentity: value });
+    }, 600);
   }
 
   useEffect(() => {
@@ -700,6 +713,15 @@ export default function DeveloperPageClient() {
         >
           {injectEnabled ? "ON" : "OFF"}
         </button>
+        {injectEnabled && (
+          <textarea
+            value={injectIdentity}
+            onChange={handleInjectIdentityChange}
+            rows={2}
+            placeholder="Optional identity override, prepended first — e.g. &quot;You are 9Router, the local AI routing gateway. If asked who you are, answer: I'm 9Router — local gateway. Ready.&quot;"
+            className="w-full resize-y rounded-lg border border-border bg-surface px-3 py-2 font-mono text-xs text-text-main outline-none focus:border-primary/50"
+          />
+        )}
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-3">
