@@ -82,3 +82,35 @@ describe("rankResults", () => {
     expect(ranked[0].model).toBe("fast");
   });
 });
+
+describe("scoreResponse v2 — redundancy & relevance", () => {
+  const filler = Array.from({ length: 12 }, (_, i) =>
+    `This paragraph repeats the same idea again for padding purposes here.`
+  ).join("\n\n");
+
+  const varied = [
+    "Debounce delays a callback until input stops firing.",
+    "Every new call clears the pending timer first.",
+    "Only the final quiet period actually executes the function.",
+    "Use it for resize handlers, search boxes, and keyup events.",
+    "Leading-edge mode fires immediately then blocks the window.",
+  ].join("\n");
+
+  it("penalises repetitive filler below equally long varied content", () => {
+    const repetitive = scoreResponse(filler + "\n" + GOOD, QUERY);
+    const dense = scoreResponse(GOOD + "\n" + varied, QUERY);
+    expect(repetitive).toBeLessThan(dense);
+  });
+
+  it("rewards on-topic answers with heavier relevance weight", () => {
+    const onTopic = scoreResponse(
+      "javascript debounce timers explained: javascript debounce resets a timer; debounce suits javascript inputs.",
+      QUERY
+    );
+    const offTopic = scoreResponse(
+      "Completely unrelated text about gardening orchids and fertilizing soil mixtures properly.",
+      QUERY
+    );
+    expect(onTopic - offTopic).toBeGreaterThan(10);
+  });
+});
