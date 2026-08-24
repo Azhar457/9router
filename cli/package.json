@@ -1,9 +1,9 @@
 {
-  "name": "9router",
-  "version": "0.5.55",
+  "name": "9router-plinian",
+  "version": "0.5.55-plinian.1",
   "description": "9Router CLI - Start and manage 9Router server",
   "bin": {
-    "9router": "./cli.js"
+    "9router-plinian": "./cli.js"
   },
   "files": [
     "cli.js",
