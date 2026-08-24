@@ -279,6 +279,7 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       ponytailLevel: chatSettings.ponytailLevel || "full",
       plinianEnabled: !!chatSettings.plinianEnabled,
       plinianLevel: chatSettings.plinianLevel || "standard",
+      plinianIdentity: chatSettings.plinianIdentity || "",
       pxpipeEnabled: !!chatSettings.pxpipeEnabled,
       pxpipeMinChars: chatSettings.pxpipeMinChars,
       pxpipeTimeoutMs: chatSettings.pxpipeTimeoutMs,

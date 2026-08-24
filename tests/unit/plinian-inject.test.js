@@ -26,4 +26,17 @@ describe("injectPlinian", () => {
   it("falls back to standard prompt on unknown level", () => {
     expect(getPlinianPrompt("bogus")).toBe(getPlinianPrompt(PLINIAN_LEVELS.STANDARD));
   });
+
+  it("prepends optional identity text before the register prompt", () => {
+    const body = { messages: [{ role: "user", content: "who are you" }] };
+    injectPlinian(body, "openai", "lite", "You are 9Router.");
+    expect(body.messages[0].content).toMatch(/^You are 9Router\./);
+    expect(body.messages[0].content).toContain("silently verify your draft");
+  });
+
+  it("omits identity separator when identity is blank", () => {
+    const body = { messages: [{ role: "user", content: "x" }] };
+    injectPlinian(body, "openai", "full", "   ");
+    expect(body.messages[0].content.startsWith("\n\n")).toBe(false);
+  });
 });
