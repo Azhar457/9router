@@ -127,6 +127,13 @@ const getPageInfo = (pathname) => {
       icon: "terminal",
       breadcrumbs: [],
     };
+  if (pathname.includes("/developer"))
+    return {
+      title: "Developer",
+      description: "Single-model playground and multi-model race with scoring",
+      icon: "developer_mode",
+      breadcrumbs: [],
+    };
   if (pathname.includes("/proxy-pools"))
     return {
       title: "Proxy Pools",
