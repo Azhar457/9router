@@ -50,8 +50,11 @@ function forwardedHeaders(request, target) {
 }
 
 function rewriteDashboardHtml(html) {
+  // Prefix EVERY same-origin absolute fetch — the upstream dashboard keeps
+  // adding endpoints (stats-lifetime appeared later); a hardcoded list kept
+  // silently breaking widgets.
   return html.replace(
-    /fetch\('(?=\/(?:stats|health|stats-history|transformations\/feed))/g,
+    /fetch\('(?=\/(?!api\/headroom\/proxy))/g,
     `fetch('${DASHBOARD_PREFIX}`,
   );
 }
