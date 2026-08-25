@@ -492,7 +492,7 @@ export default function DeveloperPageClient() {
         .catch(() => {});
     }, 250);
     return () => { cancelled = true; clearTimeout(t); };
-  }, [godmodeLevel, godmodeCustomText]);
+  }, [godmodeLevel, godmodeCustom]);
 
   // Debounced so every keystroke does not hit the settings DB.
   const identitySaveTimerRef = useRef(null);
