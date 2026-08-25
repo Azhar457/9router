@@ -50,13 +50,19 @@ function forwardedHeaders(request, target) {
 }
 
 function rewriteDashboardHtml(html) {
-  // Prefix EVERY same-origin absolute fetch — the upstream dashboard keeps
-  // adding endpoints (stats-lifetime appeared later); a hardcoded list kept
-  // silently breaking widgets.
-  return html.replace(
+  // Prefix EVERY same-origin absolute reference — assets (tailwind/htmx/
+  // alpine live under /dashboard/static), htmx attribute calls, and plain
+  // fetch(). The upstream dashboard keeps adding endpoints; a hardcoded
+  // list kept silently breaking widgets.
+  let out = html.replace(
+    /(\s(?:src|href|action|hx-get|hx-post|hx-put|hx-delete|hx-patch)=")\/((?!api\/headroom\/proxy)[^"])/g,
+    `$1${DASHBOARD_PREFIX}/$2`,
+  );
+  out = out.replace(
     /fetch\('(?=\/(?!api\/headroom\/proxy))/g,
     `fetch('${DASHBOARD_PREFIX}`,
   );
+  return out;
 }
 
 async function proxy(request, { params }) {

@@ -283,6 +283,7 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       plinianIdentity: chatSettings.plinianIdentity || "",
       godmodeEnabled: !!chatSettings.godmodeEnabled,
       godmodeLevel: chatSettings.godmodeLevel || "classic",
+      godmodeCustom: typeof chatSettings.godmodeCustom === "string" ? chatSettings.godmodeCustom : "",
       pxpipeEnabled: !!chatSettings.pxpipeEnabled,
       pxpipeMinChars: chatSettings.pxpipeMinChars,
       pxpipeTimeoutMs: chatSettings.pxpipeTimeoutMs,
