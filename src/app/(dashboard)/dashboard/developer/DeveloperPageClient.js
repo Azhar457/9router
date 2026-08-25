@@ -1351,6 +1351,10 @@ export default function DeveloperPageClient() {
                 </optgroup>
               ))}
             </select>
+            {singleBusy ? (
+              <Button variant="danger" icon="stop" onClick={() => singleAbortRef.current?.abort()}>
+                Stop
+              </Button>
             ) : (
               <Button icon="send" onClick={runSingle}>
                 Run
