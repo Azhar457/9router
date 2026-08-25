@@ -5,7 +5,7 @@ import {
   openaiToOpenAIResponsesRequest,
 } from "../translator/request/openai-responses.js";
 
-const DEFAULT_TIMEOUT_MS = 3000;
+const DEFAULT_TIMEOUT_MS = 10000;
 
 function normalizeTimeout(value) {
   return typeof value === "number" && Number.isFinite(value) && value > 0
@@ -245,8 +245,25 @@ async function callCompress(url, messages, model, timeoutMs, compressUserMessage
 // Compress request body via Headroom proxy. Fail-open: returns null on any error.
 // /v1/compress only understands OpenAI shape, so Claude bodies are translated
 // to OpenAI, compressed, then translated back using 9Router's own translators.
-export async function compressWithHeadroom(body, { enabled, url, model, format, compressUserMessages, timeoutMs = DEFAULT_TIMEOUT_MS, diagnostics = null } = {}) {
-  timeoutMs = normalizeTimeout(timeoutMs);
+export async function compressWithHeadroom(body, opts = {}) {
+  // Phantom guard: some proxies report token savings while barely shrinking
+  // the outbound payload (<5%). In that case roll the body back — the risk of
+  // mangling plus near-original billing outweighs a no-op "win".
+  const snapshotJson = opts.enabled ? JSON.stringify(body) : null;
+  const stats = await compressWithHeadroomInner(body, opts);
+  if (stats && isHeadroomPhantomSavings(stats, opts.diagnostics)) {
+    try {
+      const restored = JSON.parse(snapshotJson);
+      for (const k of Object.keys(body)) delete body[k];
+      Object.assign(body, restored);
+    } catch {}
+    setDiagnostic(opts.diagnostics, "rejected: reported savings but shrink <5% (rolled back)");
+    return null;
+  }
+  return stats;
+}
+
+async function compressWithHeadroomInner(body, { enabled, url, model, format, compressUserMessages, timeoutMs = DEFAULT_TIMEOUT_MS, diagnostics = null } = {}) {
   if (!enabled) {
     setDiagnostic(diagnostics, "disabled");
     return null;

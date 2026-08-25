@@ -35,6 +35,15 @@ const INJECT_LEVELS = [
   { id: "ultra", label: "Ultra — draft, attack, repair" },
 ];
 
+const GODMODE_VARIANTS = [
+  { id: "classic", label: "Classic — G0DM0D3 + depth directive" },
+  { id: "grok420", label: "Grok 4.20 — semantic inversion" },
+  { id: "geminiReset", label: "Gemini Reset — RESET_CORTEX / !OMNI" },
+  { id: "gptClassic", label: "GPT Classic — OG GODMODE format" },
+  { id: "claudeInversion", label: "Claude Inversion — END/START boundary" },
+  { id: "hermesFast", label: "Hermes Fast — instant stream, zero refusal check" },
+];
+
 function safeParse(value, fallback) {
   try {
     return JSON.parse(value);
@@ -233,6 +242,8 @@ export default function DeveloperPageClient() {
 
   const [injectEnabled, setInjectEnabled] = useState(false);
   const [injectLevel, setInjectLevel] = useState("standard");
+  const [godmodeEnabled, setGodmodeEnabled] = useState(false);
+  const [godmodeLevel, setGodmodeLevel] = useState("classic");
   const [injectIdentity, setInjectIdentity] = useState("");
   const [savedPersonas, setSavedPersonas] = useState({});
   const [personaSource, setPersonaSource] = useState("");
@@ -267,6 +278,8 @@ export default function DeveloperPageClient() {
         setInjectEnabled(!!settings.plinianEnabled);
         if (settings.plinianLevel) setInjectLevel(settings.plinianLevel);
         if (typeof settings.plinianIdentity === "string") setInjectIdentity(settings.plinianIdentity);
+        setGodmodeEnabled(!!settings.godmodeEnabled);
+        if (settings.godmodeLevel) setGodmodeLevel(settings.godmodeLevel);
       })
       .catch(() => {})
       .finally(() => {
@@ -300,6 +313,16 @@ export default function DeveloperPageClient() {
   function changeInjectLevel(level) {
     setInjectLevel(level);
     patchSetting({ plinianLevel: level });
+  }
+
+  function toggleGodmode(value) {
+    setGodmodeEnabled(value);
+    patchSetting({ godmodeEnabled: value });
+  }
+
+  function changeGodmodeLevel(level) {
+    setGodmodeLevel(level);
+    patchSetting({ godmodeLevel: level });
   }
 
   function persistPersonas(next) {
@@ -992,6 +1015,38 @@ export default function DeveloperPageClient() {
           />
           </>
         )}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-surface/40 p-3">
+        <span className={`material-symbols-outlined text-[20px] ${godmodeEnabled ? "text-orange-500" : "text-text-muted"}`}>bolt</span>
+        <div className="flex min-w-[220px] flex-col">
+          <span className="text-sm font-medium text-text-main">GODMODE</span>
+          <span className="text-xs text-text-muted">
+            Appends the selected G0DM0D3 payload to every proxied request — Hermes, CLI tools, all clients
+          </span>
+        </div>
+        <select
+          value={godmodeLevel}
+          onChange={(event) => changeGodmodeLevel(event.target.value)}
+          disabled={!godmodeEnabled}
+          className="ml-auto h-8 rounded-lg border border-border bg-surface px-2 text-xs text-text-main disabled:opacity-50"
+        >
+          {GODMODE_VARIANTS.map((variant) => (
+            <option key={variant.id} value={variant.id}>
+              {variant.label}
+            </option>
+          ))}
+        </select>
+        <button
+          onClick={() => toggleGodmode(!godmodeEnabled)}
+          className={`h-8 rounded-lg px-4 text-xs font-semibold transition-colors ${
+            godmodeEnabled
+              ? "bg-orange-600 text-white hover:bg-orange-700"
+              : "bg-surface-2 border border-border text-text-muted hover:text-text-main"
+          }`}
+        >
+          {godmodeEnabled ? "ON" : "OFF"}
+        </button>
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-3">
