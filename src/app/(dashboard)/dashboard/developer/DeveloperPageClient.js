@@ -29,7 +29,38 @@ const STORAGE_KEYS = {
   autotune: "developer.autotune",
   personas: "developer.personas",
   godmodePresets: "developer.godmodePresets",
+  singleOutput: "developer.singleOutput",
+  raceItems: "developer.raceItems",
+  abItems: "developer.abItems",
+  councilRows: "developer.councilRows",
+  councilSynth: "developer.councilSynth",
 };
+
+function saveLarge(key, data) {
+  try {
+    const json = JSON.stringify(data);
+    if (json.length <= 900000) globalThis.localStorage.setItem(key, json);
+  } catch {}
+}
+
+function reviveEntry(entry) {
+  if (!entry || typeof entry !== "object") return null;
+  const status = entry.status === "done" ? "done"
+    : entry.status === "error" ? "error"
+    : (entry.content ? "done" : "error");
+  return {
+    ...entry,
+    status,
+    error: status === "error" && !entry.error ? "Interrupted (page changed)" : entry.error || "",
+  };
+}
+
+function readStoredEntries(key) {
+  const raw = readStoredString(key);
+  if (!raw) return [];
+  const arr = safeParse(raw, []);
+  return Array.isArray(arr) ? arr.map(reviveEntry).filter(Boolean) : [];
+}
 
 const INJECT_LEVELS = [
   { id: "lite", label: "Lite — silent self-check" },
@@ -227,20 +258,28 @@ export default function DeveloperPageClient() {
     return Array.isArray(saved) ? saved.filter((id) => typeof id === "string") : [];
   });
 
-  const [singleOutput, setSingleOutput] = useState("");
+  const [singleOutput, setSingleOutput] = useState(() => readStoredString(STORAGE_KEYS.singleOutput));
   const [singleBusy, setSingleBusy] = useState(false);
   const [singleError, setSingleError] = useState("");
 
-  const [raceItems, setRaceItems] = useState([]);
+  const [raceItems, setRaceItems] = useState(() => readStoredEntries(STORAGE_KEYS.raceItems));
   const [raceBusy, setRaceBusy] = useState(false);
   const [raceNotice, setRaceNotice] = useState("");
 
-  const [abItems, setAbItems] = useState([]);
+  const [abItems, setAbItems] = useState(() => readStoredEntries(STORAGE_KEYS.abItems));
   const [abBusy, setAbBusy] = useState(false);
   const [abNotice, setAbNotice] = useState("");
 
-  const [councilRows, setCouncilRows] = useState([]);
-  const [councilSynth, setCouncilSynth] = useState({ status: "idle", content: "" });
+  const [councilRows, setCouncilRows] = useState(() => readStoredEntries(STORAGE_KEYS.councilRows));
+  const [councilSynth, setCouncilSynth] = useState(() => {
+    try {
+      const raw = safeParse(readStoredString(STORAGE_KEYS.councilSynth), {});
+      if (raw && typeof raw.content === "string") {
+        return { status: raw.status === "running" ? "done" : raw.status || "done", content: raw.content };
+      }
+    } catch {}
+    return { status: "idle", content: "" };
+  });
   const [councilBusy, setCouncilBusy] = useState(false);
   const [councilNotice, setCouncilNotice] = useState("");
   const councilAbortRef = useRef(null);
@@ -542,6 +581,19 @@ export default function DeveloperPageClient() {
   useEffect(() => {
     globalThis.localStorage.setItem(STORAGE_KEYS.autotune, autotuneOn ? "on" : "off");
   }, [autotuneOn]);
+  useEffect(() => {
+    try { globalThis.localStorage.setItem(STORAGE_KEYS.singleOutput, singleOutput); } catch {}
+  }, [singleOutput]);
+  useEffect(() => {
+    if (raceItems.length) saveLarge(STORAGE_KEYS.raceItems, raceItems);
+  }, [raceItems]);
+  useEffect(() => {
+    if (abItems.length) saveLarge(STORAGE_KEYS.abItems, abItems);
+  }, [abItems]);
+  useEffect(() => {
+    if (councilRows.length) saveLarge(STORAGE_KEYS.councilRows, councilRows);
+    if (councilSynth.content) saveLarge(STORAGE_KEYS.councilSynth, councilSynth);
+  }, [councilRows, councilSynth]);
 
   const activePreset = getStylePreset(styleId);
 
