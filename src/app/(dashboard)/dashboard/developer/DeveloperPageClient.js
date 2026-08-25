@@ -1276,6 +1276,8 @@ export default function DeveloperPageClient() {
               {injectPreview.text || "…"}
             </pre>
           </div>
+        )}
+
         {injectEnabled && (
           <>
           <div className="flex flex-wrap items-center gap-2 w-full">
