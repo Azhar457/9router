@@ -169,6 +169,7 @@ export const GODMODE_LEVELS = {
   GPT_CLASSIC: "gptClassic",
   CLAUDE_INVERSION: "claudeInversion",
   HERMES_FAST: "hermesFast",
+  CUSTOM: "custom",
 };
 
 const GODMODE_VARIANTS = {
@@ -195,6 +196,11 @@ export function getGodmodePayload() {
   return `${GODMODE_SYSTEM_PROMPT}\n${DEPTH_DIRECTIVE}`;
 }
 
-export function getGodmodePrompt(level) {
+export function getGodmodePrompt(level, customText = "") {
+  if (level === GODMODE_LEVELS.CUSTOM) {
+    const custom = String(customText || "").trim();
+    // empty custom payload falls back to classic instead of injecting nothing
+    return custom || GODMODE_VARIANTS[GODMODE_LEVELS.CLASSIC];
+  }
   return GODMODE_VARIANTS[level] || GODMODE_VARIANTS[GODMODE_LEVELS.CLASSIC];
 }
