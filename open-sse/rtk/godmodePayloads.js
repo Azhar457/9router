@@ -184,7 +184,6 @@ const GODMODE_VARIANTS = {
 // GODMODE CLASSIC + Jailbreak combo (playground preset shape)
 export const GODMODE_CLASSIC_JAILBREAK = {
   id: "godmode-classic-jailbreak",
-  model: "openai/gpt-4o",
   codename: "GODMODE CLASSIC + JAILBREAK",
   description: "Classic GODMODE with embedded jailbreak payloads (system prompt + depth directive)",
   color: "#ff4500",
