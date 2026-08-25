@@ -311,6 +311,7 @@ export default function DeveloperPageClient() {
   const [injectLevel, setInjectLevel] = useState("standard");
   const [godmodeEnabled, setGodmodeEnabled] = useState(false);
   const [godmodeLevel, setGodmodeLevel] = useState("classic");
+  const [godmodePreview, setGodmodePreview] = useState({ chars: 0, text: "" });
   const [godmodeCustom, setGodmodeCustom] = useState("");
   const [savedGodmodePresets, setSavedGodmodePresets] = useState({});
   const [gmPresetSource, setGmPresetSource] = useState("");
@@ -477,6 +478,21 @@ export default function DeveloperPageClient() {
     persistPersonas(next);
     setPersonaSource("");
   }
+
+  useEffect(() => {
+    let cancelled = false;
+    const t = setTimeout(() => {
+      fetch("/api/developer/godmode-preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ level: godmodeLevel, custom: godmodeCustom }),
+      })
+        .then((r) => r.json())
+        .then((d) => { if (!cancelled && d?.text) setGodmodePreview({ chars: d.chars || d.text.length, text: d.text }); })
+        .catch(() => {});
+    }, 250);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [godmodeLevel, godmodeCustomText]);
 
   // Debounced so every keystroke does not hit the settings DB.
   const identitySaveTimerRef = useRef(null);
@@ -1351,6 +1367,22 @@ export default function DeveloperPageClient() {
               placeholder="Custom G0DM0D3 payload — injected as a system prompt on every proxied request while Custom is selected. Empty falls back to Classic."
               className="w-full resize-y rounded-lg border border-border bg-surface px-3 py-2 font-mono text-xs text-text-main outline-none focus:border-primary/50"
             />
+
+          <div className="w-full">
+            <div className="mb-1 flex items-center justify-between text-xs text-text-muted">
+              <span>
+                Exact payload while enabled · variant:{" "}
+                <span className="font-semibold text-text-main">{godmodeLevel}</span>
+              </span>
+              <span>{godmodePreview.chars.toLocaleString()} chars</span>
+            </div>
+            <pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-surface-2 p-3 font-mono text-[11px] leading-relaxed text-text-muted">
+              {godmodePreview.text || "…"}
+            </pre>
+            <p className="mt-1 text-[10px] text-text-muted">
+              This is the literal system-prompt addition sent upstream for EVERY proxied client while GODMODE is enabled.
+            </p>
+          </div>
           </>
         )}
       </div>
