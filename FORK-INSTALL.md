@@ -50,6 +50,29 @@ npm install -g ./9router-<version>.tgz
   `<install>/app/.plinian-deploy.json`; the hub sidebar also shows the
   Developer item only in this fork.
 
+## Windows notes
+
+Works on Windows 10/11 with Node ≥ 18 — no compiler/build tools needed
+(native SQLite is deliberately NOT bundled; the runtime bootstrap installs
+a pure-JS fallback into `~/.9router/`). Known friction points:
+
+1. **Blocked postinstall** (newer npm): if you see an `install-scripts`
+   warning during install, allow it once:
+   ```powershell
+   npm config set allow-scripts=9router-plinian --location=user
+   npm i -g <tgz-or-url>
+   ```
+   Even if skipped, the CLI self-heals missing runtime deps on first start.
+2. **Firewall prompt**: binding `0.0.0.0` triggers a Windows Firewall dialog.
+   Run local-only to skip it entirely:
+   ```powershell
+   9router-plinian --host 127.0.0.1
+   ```
+3. **Tray**: uses PowerShell NotifyIcon on Windows (no external binaries);
+   Hide-to-Tray writes diagnostics to `%USERPROFILE%\.9router\logs\tray-bg.log`.
+4. **Long paths**: only relevant on old Win10 without long-path support —
+   keep your npm prefix short if installs fail with ENAMETOOLONG.
+
 ## Releasing a new build (maintainer)
 
 ```bash
