@@ -807,7 +807,8 @@ function startServer(updatePromise) {
           let trayLogFd = -1;
           try { trayLogFd = fs.openSync(trayLogPath, "a"); } catch (e) { }
 
-          const bgProcess = spawn(process.execPath, ["--dns-result-order=ipv4first", __filename, "--tray", "--skip-update", "-p", port.toString()], {
+          const bgArgs = ["--dns-result-order=ipv4first", __filename, "--tray", "--skip-update", "-p", port.toString(), "--host", host];
+          const bgProcess = spawn(process.execPath, bgArgs, {
             detached: true,
             stdio: trayLogFd >= 0 ? ["ignore", trayLogFd, trayLogFd] : "ignore",
             windowsHide: true,
