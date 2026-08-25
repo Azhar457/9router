@@ -309,6 +309,7 @@ export default function DeveloperPageClient() {
 
   const [injectEnabled, setInjectEnabled] = useState(false);
   const [injectLevel, setInjectLevel] = useState("standard");
+  const [injectPreview, setInjectPreview] = useState({ chars: 0, text: "" });
   const [godmodeEnabled, setGodmodeEnabled] = useState(false);
   const [godmodeLevel, setGodmodeLevel] = useState("classic");
   const [godmodePreview, setGodmodePreview] = useState({ chars: 0, text: "" });
@@ -384,6 +385,22 @@ export default function DeveloperPageClient() {
     setInjectEnabled(value);
     patchSetting({ plinianEnabled: value });
   }
+
+  useEffect(() => {
+    if (!injectEnabled) return;
+    let cancelled = false;
+    const t = setTimeout(() => {
+      fetch("/api/developer/plinian-preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ level: injectLevel, identity: customPrompt }),
+      })
+        .then((r) => r.json())
+        .then((d) => { if (!cancelled && d?.text) setInjectPreview({ chars: d.chars || d.text.length, text: d.text }); })
+        .catch(() => {});
+    }, 250);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [injectEnabled, injectLevel, injectIdentity]);
 
   function changeInjectLevel(level) {
     setInjectLevel(level);
@@ -1245,6 +1262,20 @@ export default function DeveloperPageClient() {
         >
           {injectEnabled ? "ON" : "OFF"}
         </button>
+
+        {injectEnabled && (
+          <div className="w-full">
+            <div className="mb-1 flex items-center justify-between text-xs text-text-muted">
+              <span>
+                Exact addition while ON · level:{" "}
+                <span className="font-semibold text-text-main">{injectLevel}</span>
+              </span>
+              <span>{injectPreview.chars.toLocaleString()} chars</span>
+            </div>
+            <pre className="max-h-56 overflow-auto whitespace-pre-wrap rounded-lg bg-surface-2 p-3 font-mono text-[11px] leading-relaxed text-text-muted">
+              {injectPreview.text || "…"}
+            </pre>
+          </div>
         {injectEnabled && (
           <>
           <div className="flex flex-wrap items-center gap-2 w-full">
