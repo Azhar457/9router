@@ -13,6 +13,7 @@ import {
   TIER_SIZES,
 } from "@/shared/constants/developerPresets";
 import { countHedges, rankResults, scoreResponse } from "@/shared/lib/plinianScoring";
+import { suggestParams } from "@/shared/lib/autotuneLite";
 
 const STORAGE_KEYS = {
   mode: "developer.mode",
@@ -25,7 +26,9 @@ const STORAGE_KEYS = {
   draft: "developer.draft",
   abPreset: "developer.abPreset",
   abTokenSaver: "developer.abTokenSaver",
+  autotune: "developer.autotune",
   personas: "developer.personas",
+  godmodePresets: "developer.godmodePresets",
 };
 
 const INJECT_LEVELS = [
@@ -42,6 +45,7 @@ const GODMODE_VARIANTS = [
   { id: "gptClassic", label: "GPT Classic — OG GODMODE format" },
   { id: "claudeInversion", label: "Claude Inversion — END/START boundary" },
   { id: "hermesFast", label: "Hermes Fast — instant stream, zero refusal check" },
+  { id: "custom", label: "Custom — your own payload" },
 ];
 
 function safeParse(value, fallback) {
@@ -210,7 +214,7 @@ export default function DeveloperPageClient() {
 
   const [mode, setMode] = useState(() => {
     const saved = readStoredString(STORAGE_KEYS.mode, "single");
-    return saved === "single" || saved === "race" || saved === "ab" ? saved : "single";
+    return ["single", "race", "ab", "council"].includes(saved) ? saved : "single";
   });
   const [styleId, setStyleId] = useState(() => readStoredString(STORAGE_KEYS.style, "plain"));
   const [customPrompt, setCustomPrompt] = useState(() => readStoredString(STORAGE_KEYS.customPrompt));
@@ -235,6 +239,14 @@ export default function DeveloperPageClient() {
   const [abBusy, setAbBusy] = useState(false);
   const [abNotice, setAbNotice] = useState("");
 
+  const [councilRows, setCouncilRows] = useState([]);
+  const [councilSynth, setCouncilSynth] = useState({ status: "idle", content: "" });
+  const [councilBusy, setCouncilBusy] = useState(false);
+  const [councilNotice, setCouncilNotice] = useState("");
+  const councilAbortRef = useRef(null);
+
+  const [autotuneOn, setAutotuneOn] = useState(() => readStoredString(STORAGE_KEYS.autotune) === "on");
+
   const [judgeModelId, setJudgeModelId] = useState("");
   const [judging, setJudging] = useState(false);
   const [judgeVerdict, setJudgeVerdict] = useState(null);
@@ -244,6 +256,10 @@ export default function DeveloperPageClient() {
   const [injectLevel, setInjectLevel] = useState("standard");
   const [godmodeEnabled, setGodmodeEnabled] = useState(false);
   const [godmodeLevel, setGodmodeLevel] = useState("classic");
+  const [godmodeCustom, setGodmodeCustom] = useState("");
+  const [savedGodmodePresets, setSavedGodmodePresets] = useState({});
+  const [gmPresetSource, setGmPresetSource] = useState("");
+  const [gmPresetName, setGmPresetName] = useState("");
   const [injectIdentity, setInjectIdentity] = useState("");
   const [savedPersonas, setSavedPersonas] = useState({});
   const [personaSource, setPersonaSource] = useState("");
@@ -280,12 +296,15 @@ export default function DeveloperPageClient() {
         if (typeof settings.plinianIdentity === "string") setInjectIdentity(settings.plinianIdentity);
         setGodmodeEnabled(!!settings.godmodeEnabled);
         if (settings.godmodeLevel) setGodmodeLevel(settings.godmodeLevel);
+        if (typeof settings.godmodeCustom === "string") setGodmodeCustom(settings.godmodeCustom);
       })
       .catch(() => {})
       .finally(() => {
         try {
           const raw = globalThis.localStorage.getItem(STORAGE_KEYS.personas);
           if (raw) setSavedPersonas(safeParse(raw, {}));
+          const gmRaw = globalThis.localStorage.getItem(STORAGE_KEYS.godmodePresets);
+          if (gmRaw) setSavedGodmodePresets(safeParse(gmRaw, {}));
         } catch {}
       });
     return () => {
@@ -323,6 +342,47 @@ export default function DeveloperPageClient() {
   function changeGodmodeLevel(level) {
     setGodmodeLevel(level);
     patchSetting({ godmodeLevel: level });
+  }
+
+  function persistGodmodePresets(next) {
+    setSavedGodmodePresets(next);
+    globalThis.localStorage.setItem(STORAGE_KEYS.godmodePresets, JSON.stringify(next));
+  }
+
+  function applyGmPresetSource() {
+    if (!gmPresetSource.startsWith("user:")) return;
+    const text = savedGodmodePresets[gmPresetSource.slice(5)];
+    if (text !== undefined) {
+      setGodmodeCustom(text);
+      patchSetting({ godmodeCustom: text });
+    }
+  }
+
+  function saveGmPreset() {
+    const name = (gmPresetName.trim() || `Payload ${Object.keys(savedGodmodePresets).length + 1}`).slice(0, 40);
+    if (!godmodeCustom.trim()) return;
+    persistGodmodePresets({ ...savedGodmodePresets, [name]: godmodeCustom });
+    setGmPresetSource(`user:${name}`);
+  }
+
+  function deleteGmPreset() {
+    if (!gmPresetSource.startsWith("user:")) return;
+    const name = gmPresetSource.slice(5);
+    const next = { ...savedGodmodePresets };
+    delete next[name];
+    persistGodmodePresets(next);
+    setGmPresetSource("");
+  }
+
+  // Debounced so every keystroke does not hit the settings DB.
+  const godmodeSaveTimerRef = useRef(null);
+  function handleGodmodeCustomChange(event) {
+    const value = event.target.value;
+    setGodmodeCustom(value);
+    clearTimeout(godmodeSaveTimerRef.current);
+    godmodeSaveTimerRef.current = setTimeout(() => {
+      patchSetting({ godmodeCustom: value });
+    }, 600);
   }
 
   function persistPersonas(next) {
@@ -479,6 +539,9 @@ export default function DeveloperPageClient() {
   useEffect(() => {
     globalThis.localStorage.setItem(STORAGE_KEYS.abTokenSaver, abUseTokenSaver ? "on" : "off");
   }, [abUseTokenSaver]);
+  useEffect(() => {
+    globalThis.localStorage.setItem(STORAGE_KEYS.autotune, autotuneOn ? "on" : "off");
+  }, [autotuneOn]);
 
   const activePreset = getStylePreset(styleId);
 
@@ -563,6 +626,10 @@ export default function DeveloperPageClient() {
     singleAbortRef.current?.abort();
     const controller = new AbortController();
     singleAbortRef.current = controller;
+
+    const tune = autotuneOn ? suggestParams(query) : null;
+    const effTemp = tune ? tune.temperature : temperature;
+    if (tune) setSingleError(`ctx:${tune.context} · temp ${tune.temperature}`);
 
     try {
       const response = await fetch("/api/developer/chat", {
@@ -652,7 +719,7 @@ export default function DeveloperPageClient() {
         model: entry.model,
         systemPromptText: systemPrompt,
         query,
-        temperature,
+        temperature: effTemp,
         maxTokens,
         signal: controller.signal,
       });
@@ -783,6 +850,110 @@ export default function DeveloperPageClient() {
     }
   }
 
+  async function runCouncil() {
+    const query = draft.trim();
+    if (!query || councilBusy) return;
+    if (raceIds.length < 2) { setCouncilNotice("Pick at least two council members."); return; }
+    const synth = modelIndex.get(judgeModelId);
+    if (!synth) { setCouncilNotice("Pick a synthesizer model first (dropdown below)."); return; }
+
+    setCouncilBusy(true);
+    setCouncilNotice("");
+    setCouncilSynth({ status: "idle", content: "" });
+    councilAbortRef.current?.abort();
+    const controller = new AbortController();
+    councilAbortRef.current = controller;
+
+    const models = raceIds.map((id) => modelIndex.get(id)).filter(Boolean);
+    const rows = models.map((model) => ({
+      key: model.id, model, status: "pending", content: "", duration_ms: 0, error: "",
+    }));
+    setCouncilRows(rows.map((r) => ({ ...r })));
+
+    const updateRow = (key, patch) =>
+      setCouncilRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+
+    // Phase 1 — independent opinions (parallel waves)
+    let successCount = 0;
+    const launches = rows.map((entry, index) =>
+      (async () => {
+        if (index >= RACE_WAVE_SIZE) {
+          await new Promise((r) => setTimeout(r, Math.floor(index / RACE_WAVE_SIZE) * RACE_WAVE_DELAY_MS));
+          if (controller.signal.aborted) { updateRow(entry.key, { status: "error", error: "Cancelled" }); return; }
+        }
+        updateRow(entry.key, { status: "running" });
+        const result = await launchOne({
+          model: entry.model, systemPromptText: systemPrompt, query,
+          temperature, maxTokens, signal: controller.signal,
+        });
+        if (result.ok) {
+          successCount += 1;
+          updateRow(entry.key, { status: "done", content: result.content, duration_ms: result.duration_ms });
+        } else {
+          updateRow(entry.key, { status: "error", duration_ms: result.duration_ms, error: result.error });
+        }
+      })()
+    );
+    await Promise.all(launches);
+
+    if (controller.signal.aborted) { setCouncilBusy(false); return; }
+
+    // Phase 2 — synthesis by the chosen model
+    const done = rows.filter((r) => r.status === "done");
+    if (done.length === 0) {
+      setCouncilBusy(false);
+      setCouncilNotice("No member produced an answer.");
+      return;
+    }
+
+    setCouncilSynth({ status: "running", content: "" });
+    const candidates = done
+      .map((r, i) => `[${i + 1}] ${r.model.name}\n${r.content.length > 3000 ? r.content.slice(0, 3000) + "\u2026" : r.content}`)
+      .join("\n\n---\n\n");
+    const councilQuery = [
+      "A council of AI members answered the same user query. Merge them into ONE superior answer:",
+      "keep every correct unique fact from all members, drop wrong contradictions,",
+      "resolve conflicts in favor of accuracy. Output only the final merged answer.",
+      "",
+      `USER QUERY:\n${query}`,
+      "",
+      "MEMBER ANSWERS:",
+      candidates,
+    ].join("\n");
+
+    try {
+      const response = await fetch("/api/developer/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+        body: JSON.stringify({
+          model: synth.requestModel || synth.id,
+          messages: buildMessages(systemPrompt, councilQuery),
+          stream: true,
+          temperature,
+          max_tokens: maxTokens * 2,
+        }),
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(textValue(errData.error || errData.message || `HTTP ${response.status}`));
+      }
+      const text = await readStreamedCompletion(response, (full) =>
+        setCouncilSynth({ status: "running", content: full }));
+      setCouncilSynth({ status: "done", content: text || "" });
+    } catch (error) {
+      if (error.name !== "AbortError") {
+        setCouncilNotice(`Synthesis failed: ${textValue(error?.message)}`);
+        setCouncilSynth({ status: "error", content: "" });
+      }
+    } finally {
+      if (councilAbortRef.current === controller) {
+        councilAbortRef.current = null;
+        setCouncilBusy(false);
+      }
+    }
+  }
+
   async function runJudge() {
     if (judging) return;
 
@@ -898,6 +1069,7 @@ export default function DeveloperPageClient() {
             { id: "single", label: "Single", icon: "chat" },
             { id: "race", label: "Race", icon: "sports_score" },
             { id: "ab", label: "A/B", icon: "compare_arrows" },
+            { id: "council", label: "Council", icon: "diversity_3" },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -1047,6 +1219,56 @@ export default function DeveloperPageClient() {
         >
           {godmodeEnabled ? "ON" : "OFF"}
         </button>
+        {godmodeEnabled && godmodeLevel === "custom" && (
+          <>
+            <div className="flex flex-wrap items-center gap-2 w-full">
+              <select
+                value={gmPresetSource}
+                onChange={(event) => setGmPresetSource(event.target.value)}
+                className="h-8 min-w-[220px] rounded-lg border border-border bg-surface px-2 text-xs text-text-main"
+              >
+                <option value="">Payload preset…</option>
+                {Object.keys(savedGodmodePresets).length > 0 && (
+                  <optgroup label="My payloads">
+                    {Object.keys(savedGodmodePresets).map((name) => (
+                      <option key={name} value={`user:${name}`}>
+                        {name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+              <Button variant="secondary" size="sm" icon="download" onClick={applyGmPresetSource} disabled={!gmPresetSource}>
+                Apply
+              </Button>
+              <input
+                value={gmPresetName}
+                onChange={(event) => setGmPresetName(event.target.value)}
+                placeholder="Payload 1…"
+                className="h-8 w-32 rounded-lg border border-border bg-surface px-2 text-xs text-text-main"
+              />
+              <Button variant="secondary" size="sm" icon="save" onClick={saveGmPreset} disabled={!godmodeCustom.trim()}>
+                Save
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                icon="delete"
+                onClick={deleteGmPreset}
+                disabled={!gmPresetSource.startsWith("user:")}
+              >
+                Delete
+              </Button>
+            </div>
+            <textarea
+              value={godmodeCustom}
+              onChange={handleGodmodeCustomChange}
+              rows={6}
+              placeholder="Custom G0DM0D3 payload — injected as a system prompt on every proxied request while Custom is selected. Empty falls back to Classic."
+              className="w-full resize-y rounded-lg border border-border bg-surface px-3 py-2 font-mono text-xs text-text-main outline-none focus:border-primary/50"
+            />
+          </>
+        )}
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-3">
@@ -1129,16 +1351,22 @@ export default function DeveloperPageClient() {
                 </optgroup>
               ))}
             </select>
-            {singleBusy ? (
-              <Button variant="danger" icon="stop" onClick={() => singleAbortRef.current?.abort()}>
-                Stop
-              </Button>
             ) : (
               <Button icon="send" onClick={runSingle}>
                 Run
               </Button>
             )}
           </div>
+
+          <label className="flex items-center gap-2 text-xs text-text-muted">
+            <input
+              type="checkbox"
+              checked={autotuneOn}
+              onChange={(event) => setAutotuneOn(event.target.checked)}
+              className="accent-primary"
+            />
+            AutoTune — auto temperature per context (code/creative/chat)
+          </label>
 
           <textarea
             value={draft}
@@ -1206,7 +1434,17 @@ export default function DeveloperPageClient() {
             />
 
             <div className="flex items-center gap-2">
-              {mode === "ab" ? (
+              {mode === "council" ? (
+                councilBusy ? (
+                  <Button variant="danger" icon="stop" onClick={() => councilAbortRef.current?.abort()}>
+                    Stop council
+                  </Button>
+                ) : (
+                  <Button icon="diversity_3" onClick={runCouncil}>
+                    Convene ({raceIds.length}+synth)
+                  </Button>
+                )
+              ) : mode === "ab" ? (
                 abBusy ? (
                   <Button variant="danger" icon="stop" onClick={() => abAbortRef.current?.abort()}>
                     Stop A/B
@@ -1232,7 +1470,14 @@ export default function DeveloperPageClient() {
               )}
               {mode === "race" && raceNotice && <span className="text-sm text-amber-500">{raceNotice}</span>}
               {mode === "ab" && abNotice && <span className="text-sm text-amber-500">{abNotice}</span>}
+              {mode === "council" && councilNotice && <span className="text-sm text-amber-500">{councilNotice}</span>}
             </div>
+
+            {mode === "council" && !councilBusy && raceIds.length > 0 && (
+              <span className="text-xs text-text-muted">
+                members answer in parallel, then synthesizer merges the best — pick synth model below results
+              </span>
+            )}
 
             {mode === "ab" && (
               <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-surface-2/60 p-2.5">
@@ -1423,6 +1668,54 @@ export default function DeveloperPageClient() {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+
+          {mode === "council" && councilRows.length > 0 && (
+            <div className="flex flex-col gap-2">
+              {councilRows.map((row) => (
+                <div key={row.key} className="rounded-xl border border-border bg-surface/40 p-3">
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="material-symbols-outlined text-[16px] text-text-muted">forum</span>
+                    <span className="font-medium text-text-main">{row.model.name}</span>
+                    <span className="text-xs text-text-muted">{row.model.providerName}</span>
+                    <span className="ml-auto flex items-center gap-2 text-xs">
+                      {row.status === "running" && (
+                        <span className="material-symbols-outlined animate-spin text-[16px] text-primary">progress_activity</span>
+                      )}
+                      {row.status === "pending" && <span className="text-text-muted">queued</span>}
+                      {row.duration_ms > 0 && <span className="text-text-muted">{(row.duration_ms / 1000).toFixed(1)}s</span>}
+                    </span>
+                  </div>
+                  {row.error && <div className="mt-1 text-xs text-red-500">{row.error}</div>}
+                  {row.content && (
+                    <details open>
+                      <summary className="cursor-pointer select-none pt-1 text-xs text-text-muted hover:text-text-main">
+                        Member answer ({row.content.length} chars)
+                      </summary>
+                      <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap rounded-lg bg-surface-2 p-3 font-mono text-xs leading-relaxed text-text-main">
+                        {row.content}
+                      </pre>
+                    </details>
+                  )}
+                </div>
+              ))}
+
+              {(councilSynth.status !== "idle" || councilSynth.content) && (
+                <div className="rounded-xl border-2 border-green-500/40 bg-green-500/5 p-3">
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="material-symbols-outlined text-[18px] text-success">workspace_premium</span>
+                    <span className="font-semibold text-text-main">Council Synthesis</span>
+                    <span className="text-xs text-text-muted">by {judgeModelId ? (modelIndex.get(judgeModelId)?.name || judgeModelId) : "-"}</span>
+                    {councilSynth.status === "running" && (
+                      <span className="material-symbols-outlined animate-spin text-[16px] text-primary ml-auto">progress_activity</span>
+                    )}
+                  </div>
+                  <pre className="mt-2 max-h-96 overflow-auto whitespace-pre-wrap rounded-lg bg-surface-2 p-3 font-mono text-xs leading-relaxed text-text-main">
+                    {councilSynth.content || "…"}
+                  </pre>
+                </div>
+              )}
             </div>
           )}
         </div>
