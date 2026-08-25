@@ -6,9 +6,9 @@
 import { injectSystemPrompt } from "./systemInject.js";
 import { getGodmodePrompt } from "./godmodePayloads.js";
 
-export function injectGodmode(body, format, level = "classic") {
+export function injectGodmode(body, format, level = "classic", customText = "") {
   try {
-    injectSystemPrompt(body, format, getGodmodePrompt(level));
+    injectSystemPrompt(body, format, getGodmodePrompt(level, customText));
   } catch (e) {
     // never break a proxied request because of steering
   }
