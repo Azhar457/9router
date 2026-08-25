@@ -71,6 +71,7 @@ async function proxy(request, { params }) {
       body: hasBody ? request.body : undefined,
       duplex: hasBody ? "half" : undefined,
       redirect: "manual",
+      signal: AbortSignal.timeout(8000),
     });
 
     const headers = new Headers(response.headers);
@@ -91,7 +92,14 @@ async function proxy(request, { params }) {
 
     return new NextResponse(response.body, { status: response.status, headers });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const timedOut = error?.name === "TimeoutError" || /timeout|aborted/i.test(String(error?.message));
+    const message = timedOut
+      ? `Headroom service at ${await getTargetBase().then((t) => t.origin).catch(() => "localhost:8787")} did not respond within 8s — is it running?`
+      : error.message;
+    return NextResponse.json(
+      { error: message, hint: "Start/restart the Headroom proxy service, or disable Headroom in Token Saver settings." },
+      { status: 504 }
+    );
   }
 }
 
