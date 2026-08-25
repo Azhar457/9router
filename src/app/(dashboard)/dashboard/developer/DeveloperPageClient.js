@@ -395,9 +395,24 @@ export default function DeveloperPageClient() {
     patchSetting({ godmodeEnabled: value });
   }
 
-  function changeGodmodeLevel(level) {
-    setGodmodeLevel(level);
+  async function changeGodmodeVariant(level) {
+    // Load the canonical payload text into the editor so users see (and can
+    // edit) exactly what will ship. Editing flips the card to Custom.
     patchSetting({ godmodeLevel: level });
+    setGodmodeLevel(level);
+
+    try {
+      const res = await fetch("/api/developer/godmode-preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ level }),
+      });
+      const data = await res.json();
+      if (data?.text) {
+        setGodmodeCustom(data.text);
+        if (level === "custom") patchSetting({ godmodeCustom: data.text || "" });
+      }
+    } catch {}
   }
 
   function persistGodmodePresets(next) {
@@ -1299,7 +1314,7 @@ export default function DeveloperPageClient() {
         </div>
         <select
           value={godmodeLevel}
-          onChange={(event) => changeGodmodeLevel(event.target.value)}
+          onChange={(event) => changeGodmodeVariant(event.target.value)}
           disabled={!godmodeEnabled}
           className="ml-auto h-8 rounded-lg border border-border bg-surface px-2 text-xs text-text-main disabled:opacity-50"
         >
@@ -1319,7 +1334,7 @@ export default function DeveloperPageClient() {
         >
           {godmodeEnabled ? "ON" : "OFF"}
         </button>
-        {godmodeEnabled && godmodeLevel === "custom" && (
+        {godmodeEnabled && (
           <>
             <div className="flex flex-wrap items-center gap-2 w-full">
               <select
@@ -1364,15 +1379,17 @@ export default function DeveloperPageClient() {
               value={godmodeCustom}
               onChange={handleGodmodeCustomChange}
               rows={6}
-              placeholder="Custom G0DM0D3 payload — injected as a system prompt on every proxied request while Custom is selected. Empty falls back to Classic."
+              placeholder="Effective payload — editing switches this card to Custom mode."
               className="w-full resize-y rounded-lg border border-border bg-surface px-3 py-2 font-mono text-xs text-text-main outline-none focus:border-primary/50"
             />
 
           <div className="w-full">
             <div className="mb-1 flex items-center justify-between text-xs text-text-muted">
               <span>
-                Exact payload while enabled · variant:{" "}
-                <span className="font-semibold text-text-main">{godmodeLevel}</span>
+                Effective payload · mode:{" "}
+                <span className="font-semibold text-text-main">{godmodeLevel === "custom" ? "Custom" : GODMODE_VARIANTS.find((v) => v.id === godmodeLevel)?.label || godmodeLevel}</span>
+                {" · "}
+                <span className="text-amber-500">edits auto-switch to Custom</span>
               </span>
               <span>{godmodePreview.chars.toLocaleString()} chars</span>
             </div>
