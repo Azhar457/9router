@@ -1,4 +1,4 @@
-import { getGodmodePrompt } from "../../../../../../open-sse/rtk/godmodePayloads.js";
+import { getGodmodePrompt } from "open-sse/rtk/godmodePayloads.js";
 
 export const dynamic = "force-dynamic";
 
