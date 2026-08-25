@@ -286,6 +286,22 @@ export default function DeveloperPageClient() {
 
   const [autotuneOn, setAutotuneOn] = useState(() => readStoredString(STORAGE_KEYS.autotune) === "on");
 
+  const [hasRestored] = useState(() => {
+    try {
+      const synthRaw = safeParse(readStoredString(STORAGE_KEYS.councilSynth), {});
+      return Boolean(
+        readStoredString(STORAGE_KEYS.singleOutput)
+        || readStoredEntries(STORAGE_KEYS.raceItems).length
+        || readStoredEntries(STORAGE_KEYS.abItems).length
+        || readStoredEntries(STORAGE_KEYS.councilRows).length
+        || synthRaw?.content,
+      );
+    } catch {
+      return false;
+    }
+  });
+  const [restoredDismissed, setRestoredDismissed] = useState(false);
+
   const [judgeModelId, setJudgeModelId] = useState("");
   const [judging, setJudging] = useState(false);
   const [judgeVerdict, setJudgeVerdict] = useState(null);
@@ -1147,8 +1163,24 @@ export default function DeveloperPageClient() {
           </div>
         )}
 
-        <span className="ml-auto text-xs text-text-muted">
-          {allModels.length} models · {providerGroups.length} providers
+        {hasRestored && !restoredDismissed && (
+          <span className="flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs text-primary">
+            <span className="material-symbols-outlined text-[14px]">history</span>
+            restored dari sesi terakhir
+            <button
+              onClick={() => setRestoredDismissed(true)}
+              className="material-symbols-outlined text-[14px] hover:text-text-main"
+              title="dismiss"
+            >
+              close
+            </button>
+          </span>
+        )}
+
+        <span className="ml-auto flex items-center gap-3">
+          <span className="text-xs text-text-muted">
+            {allModels.length} models · {providerGroups.length} providers
+          </span>
         </span>
       </div>
 
@@ -1434,6 +1466,20 @@ export default function DeveloperPageClient() {
 
           {singleError && <div className="text-sm text-red-500">{singleError}</div>}
 
+          {!singleBusy && singleOutput && (
+            <div className="flex justify-end">
+              <button
+                onClick={() => {
+                  setSingleOutput("");
+                  try { globalThis.localStorage.removeItem(STORAGE_KEYS.singleOutput); } catch {}
+                }}
+                className="text-xs text-text-muted hover:text-red-500"
+              >
+                🧹 Clear output
+              </button>
+            </div>
+          )}
+
           {singleOutput && (
             <div className="overflow-x-auto whitespace-pre-wrap rounded-lg bg-surface-2 p-3 font-mono text-xs leading-relaxed text-text-main">
               {singleOutput}
@@ -1577,6 +1623,16 @@ export default function DeveloperPageClient() {
 
           {mode === "race" && raceItems.length > 0 && (
             <div className="flex flex-col gap-2">
+              {!raceBusy && (
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => setRaceItems([])}
+                    className="text-xs text-text-muted hover:text-red-500"
+                  >
+                    🧹 Clear results
+                  </button>
+                </div>
+              )}
               {raceRanked.map((item, index) => (
                 <div
                   key={item.key}
@@ -1655,6 +1711,16 @@ export default function DeveloperPageClient() {
 
           {mode === "ab" && abItems.length > 0 && (
             <div className="flex flex-col gap-2">
+              {!abBusy && abItems.some((i) => i.content || i.error) && (
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => setAbItems([])}
+                    className="text-xs text-text-muted hover:text-red-500"
+                  >
+                    🧹 Clear A/B results
+                  </button>
+                </div>
+              )}
               {abAggregate && !abBusy && (
                 <div className="rounded-xl border border-border bg-surface/40 p-3 text-sm">
                   <span className="font-medium text-text-main">A/B verdict</span>
@@ -1729,6 +1795,23 @@ export default function DeveloperPageClient() {
 
           {mode === "council" && councilRows.length > 0 && (
             <div className="flex flex-col gap-2">
+              {!councilBusy && (
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => {
+                      setCouncilRows([]);
+                      setCouncilSynth({ status: "idle", content: "" });
+                      try {
+                        globalThis.localStorage.removeItem(STORAGE_KEYS.councilRows);
+                        globalThis.localStorage.removeItem(STORAGE_KEYS.councilSynth);
+                      } catch {}
+                    }}
+                    className="text-xs text-text-muted hover:text-red-500"
+                  >
+                    🧹 Clear council
+                  </button>
+                </div>
+              )}
               {councilRows.map((row) => (
                 <div key={row.key} className="rounded-xl border border-border bg-surface/40 p-3">
                   <div className="flex flex-wrap items-center gap-2 text-sm">
