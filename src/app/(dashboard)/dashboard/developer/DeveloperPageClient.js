@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/shared/components";
 import {
+  getPersonaTemplate,
   getStylePreset,
+  PERSONA_TEMPLATES,
   RACE_HARD_TIMEOUT_MS,
   RACE_WAVE_DELAY_MS,
   RACE_WAVE_SIZE,
@@ -23,6 +25,7 @@ const STORAGE_KEYS = {
   draft: "developer.draft",
   abPreset: "developer.abPreset",
   abTokenSaver: "developer.abTokenSaver",
+  personas: "developer.personas",
 };
 
 const INJECT_LEVELS = [
@@ -231,6 +234,9 @@ export default function DeveloperPageClient() {
   const [injectEnabled, setInjectEnabled] = useState(false);
   const [injectLevel, setInjectLevel] = useState("standard");
   const [injectIdentity, setInjectIdentity] = useState("");
+  const [savedPersonas, setSavedPersonas] = useState({});
+  const [personaSource, setPersonaSource] = useState("");
+  const [personaName, setPersonaName] = useState("");
 
   const [abPresetId, setAbPresetId] = useState(() => {
     const saved = readStoredString(STORAGE_KEYS.abPreset);
@@ -262,7 +268,13 @@ export default function DeveloperPageClient() {
         if (settings.plinianLevel) setInjectLevel(settings.plinianLevel);
         if (typeof settings.plinianIdentity === "string") setInjectIdentity(settings.plinianIdentity);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => {
+        try {
+          const raw = globalThis.localStorage.getItem(STORAGE_KEYS.personas);
+          if (raw) setSavedPersonas(safeParse(raw, {}));
+        } catch {}
+      });
     return () => {
       cancelled = true;
     };
@@ -288,6 +300,44 @@ export default function DeveloperPageClient() {
   function changeInjectLevel(level) {
     setInjectLevel(level);
     patchSetting({ plinianLevel: level });
+  }
+
+  function persistPersonas(next) {
+    setSavedPersonas(next);
+    globalThis.localStorage.setItem(STORAGE_KEYS.personas, JSON.stringify(next));
+  }
+
+  function applyPersonaSource() {
+    if (!personaSource) return;
+    if (personaSource.startsWith("tpl:")) {
+      const tpl = getPersonaTemplate(personaSource.slice(4));
+      if (tpl) {
+        setInjectIdentity(tpl.text);
+        patchSetting({ plinianIdentity: tpl.text });
+      }
+    } else if (personaSource.startsWith("user:")) {
+      const text = savedPersonas[personaSource.slice(5)];
+      if (text !== undefined) {
+        setInjectIdentity(text);
+        patchSetting({ plinianIdentity: text });
+      }
+    }
+  }
+
+  function savePersona() {
+    const name = (personaName.trim() || `Preset ${Object.keys(savedPersonas).length + 1}`).slice(0, 40);
+    if (!injectIdentity.trim()) return;
+    persistPersonas({ ...savedPersonas, [name]: injectIdentity });
+    setPersonaSource(`user:${name}`);
+  }
+
+  function deletePersona() {
+    if (!personaSource.startsWith("user:")) return;
+    const name = personaSource.slice(5);
+    const next = { ...savedPersonas };
+    delete next[name];
+    persistPersonas(next);
+    setPersonaSource("");
   }
 
   // Debounced so every keystroke does not hit the settings DB.
@@ -886,6 +936,53 @@ export default function DeveloperPageClient() {
           {injectEnabled ? "ON" : "OFF"}
         </button>
         {injectEnabled && (
+          <>
+          <div className="flex flex-wrap items-center gap-2 w-full">
+            <select
+              value={personaSource}
+              onChange={(event) => setPersonaSource(event.target.value)}
+              className="h-8 min-w-[220px] rounded-lg border border-border bg-surface px-2 text-xs text-text-main"
+            >
+              <option value="">Persona…</option>
+              <optgroup label="Templates">
+                {PERSONA_TEMPLATES.map((tpl) => (
+                  <option key={tpl.id} value={`tpl:${tpl.id}`}>
+                    {tpl.label}
+                  </option>
+                ))}
+              </optgroup>
+              {Object.keys(savedPersonas).length > 0 && (
+                <optgroup label="My presets">
+                  {Object.keys(savedPersonas).map((name) => (
+                    <option key={name} value={`user:${name}`}>
+                      {name}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+            <Button variant="secondary" size="sm" icon="download" onClick={applyPersonaSource} disabled={!personaSource}>
+              Apply
+            </Button>
+            <input
+              value={personaName}
+              onChange={(event) => setPersonaName(event.target.value)}
+              placeholder="Preset 1…"
+              className="h-8 w-32 rounded-lg border border-border bg-surface px-2 text-xs text-text-main"
+            />
+            <Button variant="secondary" size="sm" icon="save" onClick={savePersona} disabled={!injectIdentity.trim()}>
+              Save
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              icon="delete"
+              onClick={deletePersona}
+              disabled={!personaSource.startsWith("user:")}
+            >
+              Delete
+            </Button>
+          </div>
           <textarea
             value={injectIdentity}
             onChange={handleInjectIdentityChange}
@@ -893,6 +990,7 @@ export default function DeveloperPageClient() {
             placeholder="Optional identity override, prepended first — e.g. &quot;You are 9Router, the local AI routing gateway. If asked who you are, answer: I'm 9Router — local gateway. Ready.&quot;"
             className="w-full resize-y rounded-lg border border-border bg-surface px-3 py-2 font-mono text-xs text-text-main outline-none focus:border-primary/50"
           />
+          </>
         )}
       </div>
 
