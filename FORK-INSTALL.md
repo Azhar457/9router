@@ -1,20 +1,27 @@
 # Installing this fork — package: `9router-plinian`
 
-This fork ships the same way upstream does: a CLI launcher package whose
-`app/` contains the prebuilt dashboard bundle (`cli/scripts/build-cli.js`
+This fork ships the same way upstream (`decolua/9router`) does: a CLI launcher
+package whose `app/` contains the prebuilt dashboard bundle (`cli/scripts/build-cli.js`
 produces it). This fork builds as its own npm package **`9router-plinian`** (binary
-`9router-plinian`), so it can coexist with the official `9router` install.
-The public-registry name `9router` belongs to upstream and is untouched.
+`9router-plinian`), so it can coexist with the official `9router` install. The
+public-registry name `9router` belongs to upstream and is untouched.
 
-## Route A — prebuilt release .tgz (recommended for users)
+**Identity & versioning.** The fork's identity is the package/binary name
+(`9router-plinian`) plus branding — **not** a version suffix. The `version` field in
+both `package.json` and `cli/package.json` is kept **exactly equal to upstream**
+(`decolua/9router` master). This is deliberate: it lets the fork `rebase` onto new
+upstream releases without merge conflicts on the version line. Per-fork releases are
+distinguished with **git tags** `v0.5.55-plinian.N`, never by editing the version field.
 
-Grab the `9router-<version>.tgz` from this repo's **Releases** page, then:
+## Route A — prebuilt release `.tgz` (recommended for users)
+
+Download `9router-plinian-<version>.tgz` from this fork's **Releases** page, then:
 
 ```bash
-npm install -g ./9router-<version>.tgz
+npm install -g ./9router-plinian-<version>.tgz
 ```
 
-Works without cloning and without an npm account.
+Works without cloning and without an npm account. The published binary is `9router-plinian`.
 
 ## Route B — build it yourself from a clone
 
@@ -23,8 +30,8 @@ git clone https://github.com/Azhar457/9router.git
 cd 9router
 npm install                 # root deps (dashboard build)
 npm install --prefix cli    # cli deps (esbuild for the MITM bundle)
-npm run cli:pack            # → ./9router-<version>.tgz  (~14 MB)
-npm install -g ./9router-<version>.tgz
+npm run cli:pack            # → ./9router-plinian-<version>.tgz  (~14 MB)
+npm install -g ./9router-plinian-<version>.tgz
 ```
 
 ## Route C — nightly/dev straight from your working tree
@@ -32,7 +39,7 @@ npm install -g ./9router-<version>.tgz
 ```bash
 node cli/scripts/build-cli.js          # rebuild cli/app from source
 cd cli && npm pack --pack-destination .. && cd ..
-npm install -g ./9router-<version>.tgz
+npm install -g ./9router-plinian-<version>.tgz
 ```
 
 ## Caveats
@@ -73,11 +80,40 @@ a pure-JS fallback into `~/.9router/`). Known friction points:
 4. **Long paths**: only relevant on old Win10 without long-path support —
    keep your npm prefix short if installs fail with ENAMETOOLONG.
 
+## Syncing upstream updates (keep Plinian features)
+
+The fork tracks `decolua/9router` as `upstream`. Because Plinian features live in
+separate files (`open-sse/rtk/plinian.js`, `plinianPrompts.js`, `godmode.js`,
+`headroom.js`, the `/dashboard/developer/*` pages, `plinianScoring.js`, …) that
+upstream never touches, pulling upstream in is conflict-free except for the version
+field (already handled — see Identity & versioning above).
+
+To absorb a new upstream release:
+
+```bash
+git fetch upstream
+git rebase upstream/master      # Plinian commits re-apply on top of new upstream
+npm install && npm install --prefix cli
+npm run build                   # make sure the dashboard still builds green
+git push origin master --force-with-lease   # history was rebased
+```
+
+The only file that may still conflict is `src/shared/constants/config.js` if an
+upstream PR adds new config keys there — resolve by taking both sides. Everything
+else (provider registry, translator engine, CLI launcher skeleton) merges cleanly
+because the fork does not modify those files.
+
 ## Releasing a new build (maintainer)
 
 ```bash
-# 1. bump cli/package.json version (keep -plinian.N suffix)
-# 2. build + pack
-npm run cli:pack        # from repo root
-# 3. attach the tgz to a GitHub Release on this fork
+# 1. make sure package.json / cli/package.json version == upstream (do NOT add -plinian.N)
+# 2. build + pack  (produces 9router-plinian-<upstream-version>.tgz)
+npm run cli:pack
+# 3. tag the fork release (this is where -plinian.N lives — NOT the version field)
+git tag v0.5.55-plinian.N
+git push origin v0.5.55-plinian.N
+# 4. attach the tgz to a GitHub Release on this fork
 ```
+
+Users then install via Route A. (Publishing to the npm registry is optional and not
+required — the `.tgz` on Releases is the supported distribution.)
