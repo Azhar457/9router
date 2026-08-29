@@ -17,6 +17,54 @@ const btn = "rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm te
 const btnPrimary = "rounded-lg border border-primary/50 bg-primary/15 px-3 py-1.5 text-sm text-primary transition-colors hover:bg-primary/25";
 const ta = "w-full resize-y rounded-lg border border-border bg-surface-2 p-3 font-mono text-xs text-text-main outline-none";
 
+async function fetchWithTimeout(url, options, ms = 150000) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, { ...options, signal: ctrl.signal });
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+async function readChatResponse(r) {
+  const ct = r.headers.get("content-type") || "";
+  if (ct.includes("text/event-stream")) {
+    const reader = r.body.getReader();
+    const dec = new TextDecoder();
+    let buf = "";
+    let content = "";
+    let reasoning = "";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split("\n");
+      buf = lines.pop() || "";
+      for (const line of lines) {
+        const s = line.trim();
+        if (!s.startsWith("data:")) continue;
+        const data = s.slice(5).trim();
+        if (data === "[DONE]") continue;
+        try {
+          const j = JSON.parse(data);
+          const d = j.choices?.[0]?.delta || {};
+          if (d.content) content += d.content;
+          const r2 = d.reasoning || d.reasoning_content || d.thinking;
+          if (r2) reasoning += r2;
+        } catch {}
+      }
+    }
+    return { content: content || "", reasoning };
+  }
+  const d = await r.json().catch(() => ({}));
+  const msg = d?.choices?.[0]?.message || {};
+  return {
+    content: msg.content || d?.error?.message || JSON.stringify(d).slice(0, 400),
+    reasoning: msg.reasoning || msg.reasoning_content || msg.thinking || "",
+  };
+}
+
 export default function TransparencyClient({
   godmodeEnabled,
   godmodeLevel,
@@ -48,8 +96,12 @@ export default function TransparencyClient({
 
   async function run() {
     setBusy(true);
+    setInj(null);
+    setThinking("");
+    setResponse("");
+    setRespFinding(null);
     try {
-      const res = await fetch("/api/developer/transparency", {
+      const res = await fetchWithTimeout("/api/developer/transparency", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -59,37 +111,48 @@ export default function TransparencyClient({
           tokenSample,
         }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setResponse(`Transparency error: ${data?.error?.message || res.status}`);
+        return;
+      }
       setInj(data);
 
       const model = modelOptions.find((m) => m.id === sendModel);
       if (model) {
-        const r = await fetch("/api/developer/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: model.requestModel || model.id,
-            messages: [
-              ...(systemPrompt ? [{ role: "system", content: systemPrompt }] : []),
-              { role: "user", content: draft || "(kosong)" },
-            ],
-            stream: false,
-            temperature: 0.7,
-            max_tokens: 4096,
-          }),
-        });
-        const d = await r.json();
-        const msg = d?.choices?.[0]?.message || {};
-        setThinking(msg.reasoning || msg.reasoning_content || msg.thinking || "");
-        setResponse(msg.content || d?.error?.message || JSON.stringify(d).slice(0, 400));
-        const rd = await fetch("/api/developer/transparency", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ draft: msg.content || "", godmode: { enabled: false }, plinian: { enabled: false } }),
-        });
-        const rdd = await rd.json();
-        setRespFinding(rdd.requestDetection);
+        try {
+          const r = await fetchWithTimeout("/api/developer/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: model.requestModel || model.id,
+              messages: [
+                ...(systemPrompt ? [{ role: "system", content: systemPrompt }] : []),
+                { role: "user", content: draft || "(kosong)" },
+              ],
+              stream: false,
+              temperature: 0.7,
+              max_tokens: 4096,
+            }),
+          });
+          const { content, reasoning } = await readChatResponse(r);
+          setThinking(reasoning);
+          setResponse(content || "(respons kosong)");
+          try {
+            const rd = await fetchWithTimeout("/api/developer/transparency", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ draft: content || "", godmode: { enabled: false }, plinian: { enabled: false } }),
+            });
+            const rdd = await rd.json().catch(() => ({}));
+            setRespFinding(rdd.requestDetection || []);
+          } catch {}
+        } catch (e) {
+          setResponse(`Chat error: ${e?.name === "AbortError" ? "waktu habis (timeout)" : e?.message || e}`);
+        }
       }
+    } catch (e) {
+      setResponse(`Error: ${e?.name === "AbortError" ? "waktu habis (timeout)" : e?.message || e}`);
     } finally {
       setBusy(false);
     }
@@ -172,6 +235,26 @@ export default function TransparencyClient({
       <div className={card}>
         <div className={stageTitle}>4 · Payload Godmode Inject</div>
         {inj?.godmodeText ? <pre className={pre}>{inj.godmodeText}</pre> : <p className={muted}>tidak aktif</p>}
+      </div>
+
+      <div className={card}>
+        <div className={stageTitle}>Outbound · Request final ke model</div>
+        {inj ? (
+          <>
+            <p className={muted}>System (Godmode + Plinian):</p>
+            <pre className={pre}>{inj.outboundSystem ? inj.outboundSystem : "(kosong — tidak ada injeksi aktif)"}</pre>
+            <p className={muted}>User:</p>
+            <pre className={pre}>{draft.trim() ? draft : "(kosong)"}</pre>
+            {inj.tokenSaver?.compressedSample ? (
+              <>
+                <p className={muted}>tool_result (token saver applied):</p>
+                <pre className={pre}>{inj.tokenSaver.compressedSample}</pre>
+              </>
+            ) : null}
+          </>
+        ) : (
+          <p className={muted}>—</p>
+        )}
       </div>
 
       <div className={card}>

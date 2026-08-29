@@ -25,10 +25,15 @@ export function resolveProviderIconId(providerId) {
   return aliased;
 }
 
-/** `/providers/{id}.png` or null when previously failed. */
+const DEFAULT_ICON = "default";
+
+/** `/providers/{id}.png`, or a neutral default icon for unknown/custom providers. */
 export function getProviderIconSrc(providerId) {
   const id = resolveProviderIconId(providerId);
-  return id ? `/providers/${id}.png` : null;
+  if (!id) return `/providers/${DEFAULT_ICON}.png`;
+  const aliased = ICON_ALIASES[id] || id;
+  if (failedIds.has(aliased)) return `/providers/${DEFAULT_ICON}.png`;
+  return `/providers/${aliased}.png`;
 }
 
 /** Call from img onError so later mounts skip the request. */
