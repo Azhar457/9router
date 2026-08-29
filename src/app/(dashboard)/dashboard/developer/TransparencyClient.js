@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { summarizeStats } from "@/shared/lib/injectionDetect";
+import { summarizeStats, classifyJailbreakResponse } from "@/shared/lib/injectionDetect";
 
 const SEV = {
   high: "text-red-400 border-red-400/40 bg-red-400/10",
@@ -95,8 +95,12 @@ export default function TransparencyClient({
     }
   }
 
-  const combined = [...(inj?.requestDetection || []), ...(respFinding || [])];
-  const stats = summarizeStats(combined);
+  const findings = respFinding || [];
+  const hasAttempt = !!(inj?.requestDetection || []).some(
+    (f) => f.rule === "inj-jailbreak" || f.rule === "inj-ignore"
+  );
+  const jailbreak = response ? classifyJailbreakResponse(response, { attempt: hasAttempt }) : null;
+  const stats = summarizeStats(findings, jailbreak);
 
   return (
     <div className="flex flex-col gap-3">
@@ -210,7 +214,7 @@ export default function TransparencyClient({
               </div>
             ) : null}
             <ul className="space-y-1.5">
-              {combined.map((f, i) => (
+              {findings.map((f, i) => (
                 <li key={i} className="flex items-start gap-2 text-xs">
                   <span className={`rounded border px-1.5 py-0.5 ${SEV[f.severity] || SEV.low}`}>
                     {(f.severity || "low").toUpperCase()}
