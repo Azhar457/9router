@@ -87,6 +87,31 @@ export function severityRank(sev) {
   return { high: 3, med: 2, low: 1 }[sev] || 0;
 }
 
+const PRIVACY_POLICY_RULES = ["secret-key", "jwt", "pii-email", "leak-sys"];
+const JAILBREAK_RULES = ["inj-jailbreak", "inj-ignore"];
+
+// Aggregate detection findings into Result Statistics. Jailbreak is rated:
+//  - CRITICAL/HIGH when the payload no longer infringes Privacy/Policy
+//  - MEDIUM when minor Privacy/Policy violations are still present
+export function summarizeStats(findings) {
+  const list = Array.isArray(findings) ? findings : [];
+  const counts = { high: 0, med: 0, low: 0 };
+  for (const f of list) {
+    if (f.severity === "high") counts.high++;
+    else if (f.severity === "med") counts.med++;
+    else if (f.severity === "low") counts.low++;
+  }
+  const hasJailbreak = list.some((f) => JAILBREAK_RULES.includes(f.rule));
+  const hasPrivacyPolicy = list.some((f) => PRIVACY_POLICY_RULES.includes(f.rule));
+  let jailbreak = null;
+  if (hasJailbreak) {
+    jailbreak = hasPrivacyPolicy
+      ? { severity: "medium", label: "MEDIUM", note: "Masih ada pelanggaran minor (Privacy/Policy)" }
+      : { severity: "critical", label: "CRITICAL", note: "Tidak lagi melanggar Privacy/Policy" };
+  }
+  return { counts, jailbreak, total: list.length };
+}
+
 // Local, clearly-labeled ESTIMATE of the RTK token-saver effect. The real
 // saver calls Headroom /v1/compress; here we approximate the in-place
 // tool_result compression (JSON minify + whitespace strip) to show impact.
