@@ -1,67 +1,36 @@
-# 9Router - FREE AI Router & Token Saver
+# 9Router Plinian — AI Routing Gateway (Red-Team fork)
 
-**Never stop coding. Save 20-40% tokens with RTK + auto-fallback to FREE & cheap AI models.**
+> Fork of [9Router](https://github.com/decolua/9router) — local AI routing gateway + dashboard, extended with **Red-Team / jailbreak-injection & transparency** tooling on the Developer page.
 
-**Connect All AI Code Tools (Claude Code, Cursor, Antigravity, Copilot, Codex, Gemini, OpenCode, Cline, OpenClaw...) to 40+ AI Providers & 100+ Models.**
+**Connect all AI code tools (Claude Code, Cursor, OpenCode, Codex, Cline, Gemini CLI, Copilot...) to 40+ providers & 100+ models. Save 20–40% tokens with RTK Token Saver + auto-fallback to free/cheap models.**
 
-[![npm](https://img.shields.io/npm/v/9router.svg)](https://www.npmjs.com/package/9router)
-[![Downloads](https://img.shields.io/npm/dm/9router.svg)](https://www.npmjs.com/package/9router)
-[![Docker Pulls](https://img.shields.io/docker/pulls/decolua/9router.svg?logo=docker&label=Docker%20pulls)](https://hub.docker.com/r/decolua/9router)
-[![GHCR](https://img.shields.io/badge/GHCR-decolua%2F9router-blue?logo=github)](https://github.com/decolua/9router/pkgs/container/9router)
-[![License](https://img.shields.io/npm/l/9router.svg)](https://github.com/decolua/9router/blob/main/LICENSE)
-
-<a href="https://trendshift.io/repositories/22628" target="_blank"><img src="https://trendshift.io/api/badge/repositories/22628" alt="decolua%2F9router | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
-
-[🌐 Website](https://9router.com) • [📖 Full Docs](https://github.com/decolua/9router)
+[![npm](https://img.shields.io/npm/v/9router-plinian.svg)](https://www.npmjs.com/package/9router-plinian)
+[![License](https://img.shields.io/npm/l/9router-plinian.svg)](https://github.com/Azhar457/9router/blob/main/LICENSE)
 
 ---
 
-## 🤔 Why 9Router?
+## 🔧 What's different in this fork (Plinian)
 
-**Stop wasting money, tokens and hitting limits:**
+This fork keeps everything from upstream 9Router and adds Red-Team features on the **Developer** dashboard tab:
 
-- ❌ Subscription quota expires unused every month
-- ❌ Rate limits stop you mid-coding
-- ❌ Tool outputs (git diff, grep, ls...) burn tokens fast
-- ❌ Expensive APIs ($20-50/month per provider)
+- **Red-Team Toolkit** — apply prompt transforms (base64 N-pass, ROT13/N, leetspeak, homoglyph, zero-width, url-encode, HTML-entity, hex, reverse, upper/lower, strip-spaces) with presets and a step-by-step reveal.
+- **Injection Transparency** — reconstruct exactly what the gateway injects (Godmode + Plinian + Token Saver) per stage, with an **Outbound** view showing the final request (System + User + tool_result) sent to the model.
+- **Jailbreak detection** — classifies model responses as `CRITICAL` / `HIGH` / `SAFE`, with a context-template guard (Researcher / Military / Deep-dive / Threat-intel) to cut false positives.
 
-**9Router solves this:**
-
-- ✅ **RTK Token Saver** - Auto-compress tool_result, save 20-40% tokens
-- ✅ **Maximize subscriptions** - Track quota, use every bit before reset
-- ✅ **Auto fallback** - Subscription → Cheap → Free, zero downtime
-- ✅ **Multi-account** - Round-robin between accounts per provider
-- ✅ **Universal** - Works with any OpenAI/Claude-compatible CLI
+Everything else (RTK Token Saver, multi-account fallback, provider hub, dashboard) is unchanged from upstream.
 
 ---
 
 ## ⚡ Quick Start
 
-**Option 1 — npm (recommended for desktop):**
-
 ```bash
-npm install -g 9router
-9router
-
-# Or run directly with npx
-npx 9router
+npm install -g 9router-plinian
+9router-plinian
 ```
 
-**Option 2 — Docker (server/VPS):**
+Dashboard opens at `http://localhost:20128`.
 
-```bash
-docker run -d --name 9router -p 20128:20128 \
-  -v "$HOME/.9router:/app/data" -e DATA_DIR=/app/data \
-  decolua/9router:latest
-```
-
-Published images: [Docker Hub](https://hub.docker.com/r/decolua/9router) • [GHCR](https://github.com/decolua/9router/pkgs/container/9router) (multi-platform amd64/arm64).
-
-🎉 Dashboard opens at `http://localhost:20128`
-
-**2. Connect a FREE provider (no signup needed):**
-
-Dashboard → Providers → Connect **Kiro AI** (free Claude unlimited) or **OpenCode Free** (no auth) → Done!
+**2. Connect a FREE provider (no signup):** Dashboard → Providers → Connect **Kiro AI** (free Claude) or **OpenCode Free** → Done!
 
 **3. Use in your CLI tool:**
 
@@ -76,14 +45,33 @@ That's it! Start coding with FREE AI models.
 
 ---
 
+## 🤝 Coexists with the official `9router`
+
+You do **not** need to uninstall the official `9router` to use this fork — they are separate npm packages with separate commands (`9router-plinian` vs `9router`).
+
+- Run **just one** of them, or
+- Run **both** by giving each a different port:
+
+```bash
+9router-plinian --port 20128
+9router          --port 20129
+```
+
+> Note: both default to the same data dir `~/.9router`. To keep their data fully independent when running concurrently, set a separate `DATA_DIR` for one of them:
+> ```bash
+> DATA_DIR="$HOME/.9router-plinian" 9router-plinian --port 20128
+> ```
+
+---
+
 ## 🚀 CLI Options
 
 ```bash
-9router                    # Start with default settings
-9router --port 8080        # Custom port
-9router --no-browser       # Don't open browser
-9router --skip-update      # Skip auto-update check
-9router --help             # Show all options
+9router-plinian                 # Start with default settings
+9router-plinian --port 8080     # Custom port
+9router-plinian --no-browser    # Don't open browser
+9router-plinian --skip-update   # Skip auto-update check
+9router-plinian --help          # Show all options
 ```
 
 **Dashboard**: `http://localhost:20128/dashboard`
@@ -92,9 +80,7 @@ That's it! Start coding with FREE AI models.
 
 ## 🛠️ Supported CLI Tools
 
-Claude-Code • OpenClaw • Codex • OpenCode • Cursor • Antigravity • Cline • Continue • Droid • Roo • Copilot • Kilo Code • Gemini CLI • Qwen Code • iFlow • Crush • Crusher • Aider
-
-Any tool supporting OpenAI/Claude-compatible API works.
+Claude-Code • OpenClaw • Codex • OpenCode • Cursor • Antigravity • Cline • Continue • Droid • Roo • Copilot • Kilo Code • Gemini CLI • Qwen Code • iFlow • Crush • Crusher • Aider — any tool with an OpenAI/Claude-compatible API works.
 
 ---
 
@@ -102,23 +88,18 @@ Any tool supporting OpenAI/Claude-compatible API works.
 
 - **macOS/Linux**: `~/.9router/db/data.sqlite`
 - **Windows**: `%APPDATA%/9router/db/data.sqlite`
-- **Docker**: `/app/data/db/data.sqlite` (mount `$HOME/.9router` to persist)
 
 ---
 
 ## 📚 Documentation
 
-Full docs, advanced setup, video tutorials & development guide:
-
-- **GitHub**: https://github.com/decolua/9router
-- **Full README**: https://github.com/decolua/9router/blob/main/app/README.md
-- **Website**: https://9router.com
-
----
+- Upstream docs: https://github.com/decolua/9router
+- This fork: https://github.com/Azhar457/9router
 
 ## 🙏 Acknowledgments
 
-- **[CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)** - Original Go implementation
+- [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI) — original Go implementation
+- Based on [9Router](https://github.com/decolua/9router) by decolua
 
 ## 📄 License
 
