@@ -9,15 +9,15 @@ export const APP_CONFIG = {
 
 // GitHub configuration
 export const GITHUB_CONFIG = {
-  changelogUrl: "https://raw.githubusercontent.com/decolua/9router/refs/heads/master/CHANGELOG.md",
+  changelogUrl: "https://github.com/Azhar457/9router/releases",
   donateUrl: "https://9router.com/api/donate",
 };
 
 // Updater configuration
 export const UPDATER_CONFIG = {
   npmPackageName: "9router-plinian",
-  installCmd: "npm i -g 9router",
-  installCmdLatest: "npm i -g https://github.com/Azhar457/9router/releases/download/v0.5.55-plinian.1/9router-plinian-0.5.55-plinian.1.tgz",
+  installCmd: "npm i -g 9router-plinian",
+  installCmdLatest: "npm i -g 9router-plinian@latest",
   shutdownCountdownSec: 3,
   exitDelayMs: 500,
   statusPort: 20129,
