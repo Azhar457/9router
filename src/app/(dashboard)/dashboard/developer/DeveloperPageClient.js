@@ -1606,26 +1606,51 @@ export default function DeveloperPageClient() {
               )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-4 gap-y-1">
+            <div className="flex flex-wrap items-center gap-2">
               {providerGroups.map((group) => (
-                <div key={group.providerId} className="flex flex-col gap-1 py-1">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-                    {group.providerName}
-                  </span>
-                  {group.models.map((model) => (
-                    <label key={model.id} className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-sm hover:bg-surface-2">
-                      <input
-                        type="checkbox"
-                        checked={raceIds.includes(model.id)}
-                        onChange={() => toggleRaceModel(model.id)}
-                        className="accent-primary"
-                      />
-                      <span className="truncate text-text-main">{model.name}</span>
-                    </label>
+                <select
+                  key={group.providerId}
+                  defaultValue=""
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v) {
+                      toggleRaceModel(v);
+                      e.currentTarget.value = "";
+                    }
+                  }}
+                  className="h-9 max-w-[220px] rounded-lg border border-border bg-surface px-2 text-sm text-text-main outline-none focus:border-primary/50"
+                >
+                  <option value="">{group.providerName}…</option>
+                  {group.models.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
                   ))}
-                </div>
+                </select>
               ))}
             </div>
+            {raceIds.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {raceIds.map((id) => {
+                  const m = modelIndex.get(id);
+                  return (
+                    <span
+                      key={id}
+                      className="inline-flex items-center gap-1 rounded-full border border-border bg-surface-2 px-2 py-0.5 text-xs text-text-main"
+                    >
+                      {m?.name || id}
+                      <button
+                        onClick={() => toggleRaceModel(id)}
+                        className="text-text-muted hover:text-red-500"
+                        title="hapus"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
 
             <textarea
               value={draft}
