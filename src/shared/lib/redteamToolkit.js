@@ -36,7 +36,8 @@ export const TRANSFORMS = [
     id: "b64enc",
     label: "Base64 encode",
     hasOption: true,
-    optionLabel: "passes",
+    optionLabel: "ulang (N×)",
+    hint: "Encode base64 berulang N kali (1 = sekali).",
     apply: (t, opt) => {
       const n = Math.max(1, Math.min(8, Number(opt) || 1));
       let out = t;
@@ -63,7 +64,8 @@ export const TRANSFORMS = [
     id: "rotn",
     label: "ROT-N",
     hasOption: true,
-    optionLabel: "shift",
+    optionLabel: "geser (N)",
+    hint: "Geser huruf A–Z sebanyak N posisi (caesar cipher).",
     apply: (t, opt) => {
       const n = ((Number(opt) || 0) % 26 + 26) % 26;
       if (!n) return t;
@@ -85,11 +87,19 @@ export const TRANSFORMS = [
   },
   {
     id: "zerowidth",
-    label: "Zero-width inject",
+    label: "Zero-width (sisip tak-terlihat)",
     hasOption: true,
-    optionLabel: "gap",
+    optionLabel: "jarak N / @kata",
+    hint: "Sisip karakter zero-width tiap N char, atau tulis @kata untuk sisip tepat di DEPAN kata tersebut (mis. @admin).",
     apply: (t, opt) => {
-      const gap = Math.max(1, Math.min(10, Number(opt) || 1));
+      const raw = String(opt || "").trim();
+      if (raw.startsWith("@")) {
+        const word = raw.slice(1);
+        if (!word) return t;
+        // insert a zero-width space right before every occurrence of `word`
+        return t.split(word).join("​" + word);
+      }
+      const gap = Math.max(1, Math.min(10, Number(raw) || 1));
       let out = "";
       for (let i = 0; i < t.length; i++) {
         out += t[i];

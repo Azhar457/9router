@@ -186,7 +186,7 @@ export default function TransparencyClient({
 
       <div className={card}>
         <div className={stageTitle}>Result Statistics</div>
-        {combined.length === 0 ? (
+        {findings.length === 0 ? (
           <p className={muted}>Tidak ada temuan deteksi.</p>
         ) : (
           <>
