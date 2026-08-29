@@ -170,27 +170,35 @@ export default function ToolkitClient({ setDraft }) {
           </div>
           {steps.map((s, idx) => {
             const def = TRANSFORMS.find((x) => x.id === s.id);
+            const preview = (stepResults[idx]?.after || "").slice(0, 90);
             return (
-              <div key={s.id} className="flex items-center gap-2 text-sm">
-                <span className="w-5 text-center text-text-muted">{idx + 1}</span>
-                <span className="flex-1 text-text-main">{def?.label}</span>
-                {def?.hasOption && (
-                  <input
-                    value={s.opt}
-                    onChange={(e) => setOpt(idx, e.target.value)}
-                    placeholder={def.optionLabel}
-                    className="h-7 w-20 rounded border border-border bg-surface px-1.5 text-xs text-text-main outline-none focus:border-primary/50"
-                  />
+              <div key={s.id} className="flex flex-col gap-1.5 text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 text-center text-text-muted">{idx + 1}</span>
+                  <span className="flex-1 text-text-main">{def?.label}</span>
+                  {def?.hasOption && (
+                    <input
+                      value={s.opt}
+                      onChange={(e) => setOpt(idx, e.target.value)}
+                      placeholder={def.optionLabel}
+                      className="h-7 w-32 rounded border border-border bg-surface px-1.5 text-xs text-text-main outline-none focus:border-primary/50"
+                    />
+                  )}
+                  <button onClick={() => move(idx, -1)} className="text-text-muted hover:text-text-main" title="naik">
+                    ↑
+                  </button>
+                  <button onClick={() => move(idx, 1)} className="text-text-muted hover:text-text-main" title="turun">
+                    ↓
+                  </button>
+                  <button onClick={() => toggle(s.id)} className="text-text-muted hover:text-red-500" title="hapus">
+                    ✕
+                  </button>
+                </div>
+                {def?.hint && <span className="text-[10px] text-text-muted">{def.hint}</span>}
+                {preview && (
+                  <div className="text-[11px] text-text-muted">Preview:</div>
                 )}
-                <button onClick={() => move(idx, -1)} className="text-text-muted hover:text-text-main" title="naik">
-                  ↑
-                </button>
-                <button onClick={() => move(idx, 1)} className="text-text-muted hover:text-text-main" title="turun">
-                  ↓
-                </button>
-                <button onClick={() => toggle(s.id)} className="text-text-muted hover:text-red-500" title="hapus">
-                  ✕
-                </button>
+                {preview && <Reveal text={preview} />}
               </div>
             );
           })}
