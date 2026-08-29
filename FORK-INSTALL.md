@@ -21,11 +21,14 @@ make 9router-plinian     # build + pack + install; then relaunch the tray
 `make` (no args) prints help. Prefer this over the manual steps below.
 
 **Identity & versioning.** The fork's identity is the package/binary name
-(`9router-plinian`) plus branding — **not** a version suffix. The `version` field in
-both `package.json` and `cli/package.json` is kept **exactly equal to upstream**
-(`decolua/9router` master). This is deliberate: it lets the fork `rebase` onto new
-upstream releases without merge conflicts on the version line. Per-fork releases are
-distinguished with **git tags** `v0.5.55-plinian.N`, never by editing the version field.
+(`9router-plinian`) plus branding — **not** a version suffix. While the fork is NOT
+published to npm, the `version` field in both `package.json` and `cli/package.json`
+is kept **exactly equal to upstream** (`decolua/9router` master) so it can `rebase`
+onto new upstream releases without version-line conflicts. **Once the fork IS published
+to npm** (it is — `9router-plinian` is live on the registry), each npm release must
+carry a **unique, incremented version** (0.5.56, 0.5.57, …) because npm forbids
+republishing an existing version. So: bump the version before publishing, and tag the
+release `v<version>` (e.g. `v0.5.56`).
 
 ## Route A — prebuilt release `.tgz` (recommended for users)
 
@@ -133,13 +136,15 @@ because the fork does not modify those files.
 ## Releasing a new build (maintainer)
 
 ```bash
-# 1. make sure package.json / cli/package.json version == upstream (do NOT add -plinian.N)
-# 2. build + pack  (produces 9router-plinian-<upstream-version>.tgz)
+# 1. bump version in package.json AND cli/package.json (npm needs a unique version)
+# 2. build + pack  (produces 9router-plinian-<version>.tgz)
 npm run cli:pack
-# 3. tag the fork release (this is where -plinian.N lives — NOT the version field)
-git tag v0.5.55-plinian.N
-git push origin v0.5.55-plinian.N
+# 3. tag the fork release (matches the bumped version)
+git tag v<version>
+git push origin v<version>
 # 4. attach the tgz to a GitHub Release on this fork
+# 5. publish to npm (requires a token with publish + bypass-2FA)
+npm publish 9router-plinian-<version>.tgz
 ```
 
 Users then install via Route A. (Publishing to the npm registry is optional and not
