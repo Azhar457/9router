@@ -6,6 +6,20 @@ produces it). This fork builds as its own npm package **`9router-plinian`** (bin
 `9router-plinian`), so it can coexist with the official `9router` install. The
 public-registry name `9router` belongs to upstream and is untouched.
 
+## Quick start (recommended for contributors / new users)
+
+This is a **fork/patch of `decolua/9router`** — same upstream code, plus Plinian
+features. To rebuild and ship your changes into the running tray app in **one
+step**, use the Makefile (it handles the build → pack → install, and installs into
+the exact global prefix the tray actually loads from — a plain `npm i -g` can land
+in the wrong prefix and silently not update the tray):
+
+```bash
+make 9router-plinian     # build + pack + install; then relaunch the tray
+```
+
+`make` (no args) prints help. Prefer this over the manual steps below.
+
 **Identity & versioning.** The fork's identity is the package/binary name
 (`9router-plinian`) plus branding — **not** a version suffix. The `version` field in
 both `package.json` and `cli/package.json` is kept **exactly equal to upstream**
@@ -30,9 +44,22 @@ git clone https://github.com/Azhar457/9router.git
 cd 9router
 npm install                 # root deps (dashboard build)
 npm install --prefix cli    # cli deps (esbuild for the MITM bundle)
+make 9router-plinian        # → build + pack + install to the tray's prefix
+```
+
+Manual equivalent (only if you skip the Makefile):
+
+```bash
 npm run cli:pack            # → ./9router-plinian-<version>.tgz  (~14 MB)
 npm install -g ./9router-plinian-<version>.tgz
 ```
+
+> ⚠️ **Prefix gotcha:** the tray launches the package from the nvm-node global
+> prefix (`/home/jars/.nvm/.../lib/node_modules/9router-plinian`), but a plain
+> `npm install -g` may install to `~/.local` instead. If the tray doesn't change
+> after install, install to the tray's prefix explicitly:
+> `npm install -g --prefix "$(readlink -f /home/jars/.local/bin/9router | sed -E 's#/lib/node_modules/9router-plinian(/cli\.js)?##')" ./9router-plinian-<version>.tgz`
+> — or just use `make 9router-plinian`, which does this automatically.
 
 ## Route C — nightly/dev straight from your working tree
 
