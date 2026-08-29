@@ -14,6 +14,7 @@ import {
 } from "@/shared/constants/developerPresets";
 import { countHedges, rankResults, scoreResponse } from "@/shared/lib/plinianScoring";
 import { suggestParams } from "@/shared/lib/autotuneLite";
+import ToolkitClient from "./ToolkitClient";
 
 const STORAGE_KEYS = {
   mode: "developer.mode",
@@ -1186,6 +1187,7 @@ export default function DeveloperPageClient() {
             { id: "race", label: "Race", icon: "sports_score" },
             { id: "ab", label: "A/B", icon: "compare_arrows" },
             { id: "council", label: "Council", icon: "diversity_3" },
+            { id: "toolkit", label: "Toolkit", icon: "build" },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -1498,7 +1500,9 @@ export default function DeveloperPageClient() {
         )}
       </details>
 
-      {mode === "single" ? (
+      {mode === "toolkit" ? (
+        <ToolkitClient setDraft={setDraft} />
+      ) : mode === "single" ? (
         <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface/40 p-4">
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(220px,1fr)_auto] gap-3">
             <select
