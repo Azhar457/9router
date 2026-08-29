@@ -1,5 +1,4 @@
 import { Inter } from "next/font/google";
-import { GoogleAnalytics } from "@next/third-parties/google";
 import "material-symbols/outlined.css";
 import "./globals.css";
 import { ThemeProvider } from "@/shared/components/ThemeProvider";
@@ -52,7 +51,6 @@ export default function RootLayout({ children }) {
             {children}
           </RuntimeI18nProvider>
         </ThemeProvider>
-        <GoogleAnalytics gaId={"G-LC959F603F"} />
       </body>
     </html>
   );
