@@ -15,6 +15,7 @@ import {
 import { countHedges, rankResults, scoreResponse } from "@/shared/lib/plinianScoring";
 import { suggestParams } from "@/shared/lib/autotuneLite";
 import ToolkitClient from "./ToolkitClient";
+import TransparencyClient from "./TransparencyClient";
 
 const STORAGE_KEYS = {
   mode: "developer.mode",
@@ -1188,6 +1189,7 @@ export default function DeveloperPageClient() {
             { id: "ab", label: "A/B", icon: "compare_arrows" },
             { id: "council", label: "Council", icon: "diversity_3" },
             { id: "toolkit", label: "Toolkit", icon: "build" },
+            { id: "transparency", label: "Transparency", icon: "visibility" },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -1502,6 +1504,18 @@ export default function DeveloperPageClient() {
 
       {mode === "toolkit" ? (
         <ToolkitClient setDraft={setDraft} />
+      ) : mode === "transparency" ? (
+        <TransparencyClient
+          godmodeEnabled={godmodeEnabled}
+          godmodeLevel={godmodeLevel}
+          godmodeCustom={godmodeCustom}
+          plinianEnabled={injectEnabled}
+          plinianLevel={injectLevel}
+          plinianIdentity={injectIdentity}
+          providerGroups={providerGroups}
+          systemPrompt={systemPrompt}
+          setDraft={setDraft}
+        />
       ) : mode === "single" ? (
         <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface/40 p-4">
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(220px,1fr)_auto] gap-3">
