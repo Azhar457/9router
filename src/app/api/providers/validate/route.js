@@ -38,7 +38,7 @@ async function probeWebProvider(provider, apiKey) {
     body = JSON.stringify({ query: "ping", q: "ping", url: "https://example.com" });
   }
 
-  const res = await fetch(url, { method: cfg.method, headers, body, signal: AbortSignal.timeout(8000) });
+  const res = await fetch(url, { method: cfg.method, headers, body, signal: AbortSignal.timeout(30000) });
   return res.status !== 401 && res.status !== 403;
 }
 
@@ -76,7 +76,7 @@ async function probeMediaProvider(provider, apiKey) {
     method,
     headers,
     body: method === "GET" ? undefined : JSON.stringify({ input: "ping", text: "ping", prompt: "ping", model: getDefaultModel(provider) || "test" }),
-    signal: AbortSignal.timeout(8000),
+    signal: AbortSignal.timeout(30000),
   });
   return res.status !== 401 && res.status !== 403;
 }
@@ -382,7 +382,7 @@ export async function POST(request) {
           };
           const headers = {};
           if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
-          const res = await fetch(endpoints[provider], { headers, signal: AbortSignal.timeout(8000) });
+          const res = await fetch(endpoints[provider], { headers, signal: AbortSignal.timeout(30000) });
           // xai returns 400 for bad key, 403 for valid-but-no-credit. Other providers use 401.
           if (provider === "xai") {
             isValid = res.status === 200 || res.status === 403;
@@ -614,7 +614,7 @@ export async function POST(request) {
           const modelsUrl = cfg.baseUrl.replace(/\/chat\/completions$/, "/models").replace(/\/chatbot$/, "/models");
           let probeOk = null;
           try {
-            const probeRes = await fetch(modelsUrl, { headers, signal: AbortSignal.timeout(8000) });
+            const probeRes = await fetch(modelsUrl, { headers, signal: AbortSignal.timeout(30000) });
             if (probeRes.status === 401 || probeRes.status === 403) probeOk = false;
             else if (probeRes.ok) probeOk = true;
           } catch { /* fallback to chat */ }
@@ -628,7 +628,7 @@ export async function POST(request) {
             method: "POST",
             headers,
             body: JSON.stringify({ model: defaultModel, messages: [{ role: "user", content: "ping" }], max_tokens: 1 }),
-            signal: AbortSignal.timeout(10000),
+            signal: AbortSignal.timeout(30000),
           });
           isValid = chatRes.status !== 401 && chatRes.status !== 403;
           break;

@@ -10,11 +10,14 @@
 #   make                 # show help
 #   make 9router-plinian # build + pack + install, then relaunch the tray
 
-# Where the tray actually loads 9router-plinian from. Resolved from the tray
-# symlink so the install always lands in the right global prefix. Falls back to
-# the running node's global prefix if the symlink is missing.
+# Where the tray actually loads 9router-plinian from.
+# 1. Follow TRAY_BIN symlink (the original mechanism).
+# 2. If TRAY_BIN is not a symlink to the package cli.js (e.g. an npm shim from a
+#    plain `npm i -g` overwrote it), fall back to searching nvm for the installed
+#    package so `make` always installs to the right global prefix.
+# 3. Final fallback: the running node's prefix (best-effort).
 TRAY_BIN ?= /home/jars/.local/bin/9router
-INSTALL_PREFIX := $(shell p=$$(readlink -f $(TRAY_BIN) 2>/dev/null | sed -E 's#/lib/node_modules/9router-plinian(/cli\.js)?##'); if [ -n "$$p" ]; then echo "$$p"; else node -p "require('path').dirname(require('path').dirname(process.execPath))"; fi)
+INSTALL_PREFIX := $(shell p=$$(readlink -f $(TRAY_BIN) 2>/dev/null); case "$$p" in */lib/node_modules/9router-plinian/cli.js) echo "$$p" | sed -E 's#/lib/node_modules/9router-plinian/cli\.js$$##';; *) found=$$(find $(HOME)/.nvm/versions/node -maxdepth 5 -path '*/node_modules/9router-plinian/package.json' -print -quit 2>/dev/null); if [ -n "$$found" ]; then dirname $$(dirname "$$found"); else node -p "require('path').dirname(require('path').dirname(process.execPath))"; fi;; esac)
 
 VERSION := $(shell node -p "require('./package.json').version")
 TGZ := ../9router-plinian-$(VERSION).tgz
