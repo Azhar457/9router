@@ -50,14 +50,21 @@ const COOLDOWN = {
 /**
  * Unified error classification rules.
  * Checked top-to-bottom: text rules first (by order), then status rules.
- * Each rule: { text?, status?, cooldownMs?, backoff? }
+ * Each rule: { text?, status?, cooldownMs?, backoff?, noFallback? }
  *   - text: substring match (case-insensitive) on error message
  *   - status: HTTP status code match
  *   - cooldownMs: fixed cooldown duration
  *   - backoff: true = use exponential backoff (rate limit)
+ *   - noFallback: true = do NOT switch accounts and do NOT lock; propagate
+ *                  the error to the client immediately (used for upstream
+ *                  model-degraded errors that affect every account equally,
+ *                  e.g. NVIDIA "DEGRADED function cannot be invoked").
  */
 export const ERROR_RULES = [
   // --- Text-based rules (checked first, order = priority) ---
+  // Upstream model degraded / unavailable — not account-scoped, don't lock.
+  { text: "function cannot be invoked", noFallback: true },
+  { text: "degraded",                   noFallback: true },
   { text: "no credentials",           cooldownMs: COOLDOWN.long },
   { text: "request not allowed",      cooldownMs: COOLDOWN.short },
   { text: "improperly formed request", cooldownMs: COOLDOWN.long },
