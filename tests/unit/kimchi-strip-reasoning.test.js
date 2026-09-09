@@ -15,7 +15,9 @@
  * re-trigger upstream complaints about missing reasoning on the next
  * turn.
  */
-import { describe, it } from "node:test";
+// Converted from node:test to vitest so the suite runs under the same runner
+// as the rest of tests/ (raw `node --test` cannot resolve the open-sse alias).
+import { describe, it } from "vitest";
 import assert from "node:assert/strict";
 
 import KimchiExecutor, { stripReasoningContent } from "../../open-sse/executors/kimchi.js";

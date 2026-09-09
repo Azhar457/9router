@@ -247,7 +247,7 @@ describe("handleChatCore Headroom diagnostics", () => {
 
     expect(log.warn).toHaveBeenCalledWith(
       "HEADROOM",
-      expect.stringContaining("reported token delta, but outbound JSON shrank <5%; provider may bill near-original payload")
+      expect.stringContaining("reported savings but shrink <5% (rolled back)")
     );
   });
 

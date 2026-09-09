@@ -54,6 +54,13 @@ export function filterToOpenAIFormat(body, opts = {}) {
         filteredContent.push({ type: OPENAI_BLOCK.TEXT, text: "" });
       }
       
+      // Text-only arrays collapse to a plain string (standard OpenAI shape).
+      // With preserveCacheControl (alicode/DashScope #2069) blocks must stay
+      // intact so the per-block cache_control markers survive.
+      if (!keepCache && filteredContent.every(b => b.type === OPENAI_BLOCK.TEXT)) {
+        return { ...msg, content: filteredContent.map(b => b.text).join("\n") };
+      }
+      
       return { ...msg, content: filteredContent };
     }
     

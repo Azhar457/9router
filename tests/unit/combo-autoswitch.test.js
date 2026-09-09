@@ -35,11 +35,13 @@ describe("detectRequiredCapabilities", () => {
     expect(r.has("vision")).toBe(true);
   });
 
-  it("web_search tool -> search", () => {
+  it("web_search tool does not map to search (detection disabled upstream)", () => {
+    // Upstream disabled search auto-switching until the feature is wired;
+    // detectRequiredCapabilities must not claim "search" from tools.
     const r = detectRequiredCapabilities({ messages: [{ role: "user", content: "q" }], tools: [
       { type: "web_search" },
     ] });
-    expect(r.has("search")).toBe(true);
+    expect(r.has("search")).toBe(false);
   });
 
   it("responses input_image -> vision", () => {
@@ -68,7 +70,8 @@ describe("reorderByCapabilities", () => {
   it("keeps order when no model matches", () => {
     const models = ["deepseek/deepseek-chat", "deepseek/deepseek-reasoner"];
     const out = reorderByCapabilities(models, new Set(["vision"]));
-    expect(out).toBe(models);
+    // Same order and content (implementation returns a new array, never mutates).
+    expect(out).toStrictEqual(models);
   });
 
   it("single model -> unchanged", () => {

@@ -87,21 +87,12 @@ graphify-out/*
 .PR/
 .next-analyze/*
 
-# Kiro local workspace state
-.kiro/
-9router-*
-
-# Local sensitive / temp files
-.engine-token.txt
-.tmp-prov.json
-.tmp-providers.json
-.oauth-session.json
-.dev-server.log
-.dev-server-err.log
-.start-dev.ps1
-start-dev-silent.cjs
-debug.log
-
 # fork build artifacts
 *.tgz
 cli/app/
+
+# Kiro local workspace state
+.kiro/
+
+# Machine-generated vitest JSON report (npm run test:ci) — rebuilt every run.
+tests/__baseline__/current.json

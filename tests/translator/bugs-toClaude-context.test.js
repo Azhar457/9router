@@ -17,7 +17,11 @@ describe("OpenAI → Claude context mapping", () => {
     expect(JSON.stringify(out.system), "Claude Code prompt injected").not.toContain("Claude Code");
   });
 
-  it("assistant reasoning_content becomes a thinking block", () => {
+  it("assistant reasoning_content is dropped, not replayed as a thinking block", () => {
+    // Anthropic rejects thinking blocks whose signature it cannot verify (400),
+    // so replaying OpenAI-style reasoning_content as a thinking block would break
+    // every follow-up turn. The translator therefore drops it and keeps only the
+    // assistant's visible text.
     const out = T({
       messages: [
         { role: "user", content: "q" },
@@ -25,12 +29,10 @@ describe("OpenAI → Claude context mapping", () => {
         { role: "user", content: "next" },
       ],
     });
-    expect(JSON.stringify(out), "reasoning_content lost").toContain("my hidden reasoning");
+    expect(JSON.stringify(out), "reasoning_content leaked").not.toContain("my hidden reasoning");
     const assistant = out.messages.find((m) => m.role === "assistant");
-    expect(assistant.content[0]).toEqual(expect.objectContaining({
-      type: "thinking",
-      thinking: "my hidden reasoning",
-    }));
+    expect(assistant.content[0]).toEqual(expect.objectContaining({ type: "text" }));
+    expect(assistant.content.some((b) => b.type === "thinking")).toBe(false);
   });
 
   // openai-to-claude.js:298 — tool_choice "none" mapped to {type:"auto"} (loses "do not call" intent)

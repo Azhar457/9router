@@ -29,8 +29,21 @@ describe("OpenAI → Kiro", () => {
     expect(out.additionalModelRequestFields).toEqual({
       reasoning: { effort },
     });
-    expect(out.systemPrompt || "").not.toContain("<thinking_mode>");
-    expect(out.systemPrompt || "").not.toContain("<max_thinking_length>");
+    // systemPrompt top-level was removed upstream (1fc2a81d) — thinking tags
+    // live in the session-start user turn, so nothing may carry them.
+    expect(out.systemPrompt).toBeUndefined();
+    expect(
+      [
+        ...(out.conversationState?.history || []),
+        out.conversationState?.currentMessage,
+      ].map((m) => m?.userInputMessage?.content || "").join("\n")
+    ).not.toContain("<thinking_mode>");
+    expect(
+      [
+        ...(out.conversationState?.history || []),
+        out.conversationState?.currentMessage,
+      ].map((m) => m?.userInputMessage?.content || "").join("\n")
+    ).not.toContain("<max_thinking_length>");
   });
 
   // openai-to-kiro.js — safeJSONParse guards bad tool-call JSON (fixed in PR #1582)

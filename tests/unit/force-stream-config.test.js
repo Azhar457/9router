@@ -71,6 +71,8 @@ vi.mock("../../open-sse/rtk/index.js", () => ({
 vi.mock("../../open-sse/rtk/headroom.js", () => ({
   compressWithHeadroom: vi.fn(async () => null),
   formatHeadroomLog: vi.fn(() => ""),
+  // Fork adds a size-diagnostics log line next to formatHeadroomLog.
+  formatHeadroomSizeLog: vi.fn(() => ""),
 }));
 
 vi.mock("../../open-sse/providers/capabilities.js", () => ({

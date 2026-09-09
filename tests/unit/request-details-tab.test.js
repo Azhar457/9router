@@ -7,6 +7,12 @@ import path from "node:path";
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 
 const originalDataDir = process.env.DATA_DIR;
+// A local .env with ENABLE_REQUEST_LOGS=false silently disables the whole
+// observability pipeline (env var outranks settings in getObservabilityConfig),
+// which would starve every test here of persisted rows. Force it on for this
+// file, whatever the developer's local .env says.
+const originalEnableRequestLogs = process.env.ENABLE_REQUEST_LOGS;
+process.env.ENABLE_REQUEST_LOGS = "true";
 let tempDir;
 let db;
 let adapter;
@@ -22,7 +28,7 @@ beforeAll(async () => {
   vi.resetModules();
   db = await import("@/lib/db/index.js");
   await db.initDb();
-  await db.updateSettings({ enableObservability2: true, observabilityBatchSize: 1 });
+  await db.updateSettings({ enableObservability: true, observabilityBatchSize: 1 });
 
   const { getAdapter } = await import("@/lib/db/driver.js");
   adapter = await getAdapter();
@@ -32,6 +38,8 @@ afterAll(() => {
   if (tempDir) fs.rmSync(tempDir, { recursive: true, force: true });
   if (originalDataDir === undefined) delete process.env.DATA_DIR;
   else process.env.DATA_DIR = originalDataDir;
+  if (originalEnableRequestLogs === undefined) delete process.env.ENABLE_REQUEST_LOGS;
+  else process.env.ENABLE_REQUEST_LOGS = originalEnableRequestLogs;
 });
 
 describe("request details — tab crash-risk cases", () => {

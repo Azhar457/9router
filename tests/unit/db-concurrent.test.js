@@ -29,7 +29,7 @@ describe("DB Concurrency — atomic safety", () => {
     const promises = [];
     for (let i = 0; i < N; i++) {
       promises.push(db.saveRequestUsage({
-        provider: "openai", model: "gpt-4", connectionId: "c1",
+        provider: "openai", model: "gpt-4", connectionId: `c1-${i}`,
         tokens: { prompt_tokens: 10, completion_tokens: 5 },
         endpoint: "/v1/chat", status: "ok",
       }));
@@ -70,7 +70,7 @@ describe("DB Concurrency — atomic safety", () => {
     const ops = [];
     for (let i = 0; i < 50; i++) {
       ops.push(db.saveRequestUsage({
-        provider: "anthropic", model: `m-${i % 3}`, connectionId: "c2",
+        provider: "anthropic", model: `m-${i}`, connectionId: "c2",
         tokens: { prompt_tokens: 20 }, status: "ok",
       }));
       ops.push(db.setModelAlias(`a-${i}`, `target-${i}`));
@@ -154,7 +154,7 @@ describe("DB Concurrency — atomic safety", () => {
     const promises = [];
     for (let i = 0; i < N; i++) {
       promises.push(db.saveRequestUsage({
-        provider: "google", model: "gemini-pro", connectionId: "cG",
+        provider: "google", model: "gemini-pro", connectionId: `cG-${i}`,
         tokens: { prompt_tokens: 100, completion_tokens: 50 },
         status: "ok",
       }));

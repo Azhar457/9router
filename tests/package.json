@@ -6,9 +6,12 @@
   "description": "Unit tests for 9router embeddings endpoint",
   "scripts": {
     "test": "vitest run --reporter=verbose",
-    "test:watch": "vitest --reporter=verbose"
+    "test:watch": "vitest --reporter=verbose",
+    "test:ci": "vitest run --reporter=json --outputFile=__baseline__/current.json && node __baseline__/verify-no-regression.mjs __baseline__/current.json",
+    "test:node": "node --test 'unit/**/*.test.cjs'"
   },
   "devDependencies": {
+    "lowdb": "^7.0.1",
     "vitest": "^4.0.0"
   },
   "engines": {

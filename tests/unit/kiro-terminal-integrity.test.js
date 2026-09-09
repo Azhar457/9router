@@ -705,9 +705,11 @@ describe("Kiro terminal integrity recovery", () => {
   });
 
   it("surfaces retry HTTP failures as SSE after heartbeat commits headers", async () => {
+    // BaseExecutor walks every fallback endpoint (kiro.dev → codewhisperer → q)
+    // on 401, so the mock must answer the 401 for all subsequent attempts.
     fetchMock
       .mockResolvedValueOnce(response([]))
-      .mockResolvedValueOnce(new Response("unauthorized", {
+      .mockImplementation(async () => new Response("unauthorized", {
         status: 401,
         statusText: "Unauthorized"
       }));
@@ -721,9 +723,10 @@ describe("Kiro terminal integrity recovery", () => {
   });
 
   it("bounds the retry HTTP error body", async () => {
+    // Same fallback-endpoint walk: every retry attempt must see the oversized body.
     fetchMock
       .mockResolvedValueOnce(response([]))
-      .mockResolvedValueOnce(new Response(`error-start-${"x".repeat(10_000)}-error-tail`, {
+      .mockImplementation(async () => new Response(`error-start-${"x".repeat(10_000)}-error-tail`, {
         status: 401,
         statusText: "Unauthorized"
       }));
