@@ -1,3 +1,23 @@
+# 9router-plinian v0.5.60 (2026-09-09)
+
+Fork release — syncs `decolua/9router` upstream through **v0.5.69** (91 upstream commits), keeping all Plinian features.
+
+## Upstream highlights absorbed
+- **Codex**: GPT 6.0 Astra (`gpt-6-astra`) with vision/thinking/search; GPT-5.6 Sol, Terra, Luna image aliases
+- **Claude**: Claude Fable 5.1 (adaptive thinking), fingerprint bump to 2.1.258, adaptive auto effort normalization, `[1m]` context-marker stripping
+- **Antigravity**: quota-aware routing with reset-aware fallback, Gemini 3.8 Flash, anti-abuse rate-limit protection during multi-account refresh
+- **Quota/Usage**: Claude Fable + OpenCode Go quota trackers, Grok 5.3-Codex-Spark windows, Groq rate-limit headers, Zed plan quota
+- **Security**: SSRF guard hardening (IPv6 encodings, DNS wildcard check, redirect handling), cowork MCP probe guard
+- **Search**: Antigravity, Ollama, zai and Xquik search providers; zai-search folded into the glm provider
+- **Models**: background capability refresh from models.dev, refreshed tokenrouter/CodeBuddy-CN/Qoder catalogs, GLM-5.3-Flash, DeepSeek V4 Vision, Grok 4.5/4.6
+- **Streams/Usage**: preserved nested `cached_tokens`, CREDIT_LIMIT & multi-interval GLM quotas, Ollama trailing NDJSON line, Responses terminal-event usage recording
+- **i18n**: complete Indonesian translation (1391 keys), pt-BR expansion
+
+## Fork-specific
+- **Repo hygiene**: removed 2,871 shell-expansion files (`echo  | sed -E ...`) accidentally committed in `5208a3e1`. Never shipped in any npm package — `cli/package.json` `files` whitelist excludes them; `npm install -g 9router-plinian` users were never affected.
+- **Headroom**: combined upstream's configurable-request-timeout normalization (`normalizeTimeout`) with the fork's phantom-savings rollback guard; default timeout stays 10s.
+- Previous fork fixes remain: NVIDIA 30s validation timeouts, no account lockout on upstream model-degraded errors, updater now tracks `9router-plinian`.
+
 # v0.5.69 (2026-09-05)
 
 ## Features
