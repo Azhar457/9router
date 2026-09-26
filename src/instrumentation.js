@@ -10,5 +10,11 @@ export async function register() {
 
     const { startModelCatalogSync } = await import("@/lib/modelCatalog/sync.js");
     startModelCatalogSync();
+
+    const { startOmniRouteSync } = await import("@/lib/modelCatalog/omniSync.js");
+    startOmniRouteSync();
+
+    const { startProviderFreeModelSync } = await import("@/lib/modelCatalog/providerSync.js");
+    startProviderFreeModelSync();
   }
 }

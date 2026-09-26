@@ -85,7 +85,7 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
       const res = await fetch("/api/models/test", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: `${providerStorageAlias}/${modelId}` }),
+        body: JSON.stringify({ model: `${providerDisplayAlias}/${modelId}` }),
       });
       const data = await res.json();
       setModelTestResults((prev) => ({ ...prev, [modelId]: data.ok ? "ok" : "error" }));

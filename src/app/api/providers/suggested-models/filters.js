@@ -9,11 +9,10 @@ export const FILTERS = {
     models
       .filter(
         (m) =>
-          m.pricing?.prompt === "0" &&
-          m.pricing?.completion === "0" &&
-          m.context_length >= 200000
+          (m.pricing?.prompt === "0" && m.pricing?.completion === "0" && m.context_length >= 200000) ||
+          (typeof m.id === "string" && m.id.endsWith(":free"))
       )
-      .map((m) => ({ id: m.id, name: m.name, contextLength: m.context_length }))
+      .map((m) => ({ id: m.id, name: m.name, contextLength: m.context_length, isFree: true }))
       .sort((a, b) => b.contextLength - a.contextLength),
 
   "opencode-free": (models) =>
@@ -39,4 +38,10 @@ export const FILTERS = {
       .filter((m) => (m.tier === "free" || m.id?.endsWith(":free")) && m.supports_chat === true && (!m.media_type || m.media_type === "chat" || m.media_type === "text"))
       .map((m) => ({ id: m.id, name: m.name || m.id, contextLength: m.context_length }))
       .sort((a, b) => String(a.id).localeCompare(String(b.id))),
+  // Raw pass-through: return every entry the endpoint lists, unfiltered.
+  // Used by "Import from /models" with a custom URL (e.g. a gateway's /v1/models).
+  "any": (models) =>
+    (Array.isArray(models) ? models : [])
+      .filter((m) => m?.id || m?.name)
+      .map((m) => ({ id: m.id || m.name, name: m.name || m.id, contextLength: m.context_length || m.contextLength })),
 };

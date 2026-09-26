@@ -11,6 +11,7 @@ function sanitizeCaps(caps) {
   for (const key of Object.keys(CAPACITY_META)) {
     if (typeof caps[key] === "boolean") clean[key] = caps[key];
   }
+  if (typeof caps.isFree === "boolean") clean.isFree = caps.isFree;
   return Object.keys(clean).length ? clean : null;
 }
 

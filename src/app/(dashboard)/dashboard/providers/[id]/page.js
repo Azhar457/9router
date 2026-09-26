@@ -85,6 +85,12 @@ export default function ProviderDetailPage() {
   const stopOneByOneRef = useRef(false);
   const [importingQoderModels, setImportingQoderModels] = useState(false);
   const [importingClineModels, setImportingClineModels] = useState(false);
+  const [importingModels, setImportingModels] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [customModelsUrl, setCustomModelsUrl] = useState("");
+  const [importPreview, setImportPreview] = useState(null);
+  const [importFreeOnly, setImportFreeOnly] = useState(false);
+  const [modelSort, setModelSort] = useState("free");
   const { copied, copy } = useCopyToClipboard();
 
   const AG_RISK_STORAGE_KEY = "ag_risk_confirmed";
@@ -150,6 +156,7 @@ export default function ProviderDetailPage() {
         type: providerNode.type,
       }
     : (OAUTH_PROVIDERS[providerId] || APIKEY_PROVIDERS[providerId] || FREE_PROVIDERS[providerId] || FREE_TIER_PROVIDERS[providerId] || WEB_COOKIE_PROVIDERS[providerId]);
+  const modelsFetcher = providerInfo?.modelsFetcher;
   const authModes = providerInfo?.authModes || [];
   const isOAuth = !!OAUTH_PROVIDERS[providerId] || !!FREE_PROVIDERS[providerId] || authModes.includes("oauth");
   const supportsApiKeyAuth = !!APIKEY_PROVIDERS[providerId] || authModes.includes("apikey");
@@ -515,7 +522,7 @@ export default function ProviderDetailPage() {
 
   // Fetch suggested models from provider's public API (if configured)
   useEffect(() => {
-    const fetcher = (OAUTH_PROVIDERS[providerId] || APIKEY_PROVIDERS[providerId] || FREE_PROVIDERS[providerId] || FREE_TIER_PROVIDERS[providerId])?.modelsFetcher;
+    const fetcher = modelsFetcher;
     if (!fetcher) return;
     fetchSuggestedModels(fetcher).then(setSuggestedModels);
   }, [providerId]);
@@ -687,6 +694,163 @@ export default function ProviderDetailPage() {
       setImportingClineModels(false);
     }
   };
+  // Generic "Get Models": fetch suggested catalog (modelsFetcher) and import
+  // every model not yet present. Replaces the qoder/cline-specific handlers
+  // when the provider advertises a modelsFetcher.
+  const importModelsFromFetcher = async () => {
+    if (importingModels) return;
+    const fetcher = modelsFetcher;
+    if (!fetcher) return;
+    setImportingModels(true);
+    try {
+      const suggested = await fetchSuggestedModels(fetcher);
+      if (!suggested.length) {
+        alert(translate("No models returned"));
+        return;
+      }
+      const existingIds = new Set([
+        ...customModels.filter((entry) => entry.providerAlias === providerStorageAlias).map((entry) => entry.id),
+        ...models.map((m) => m.id),
+      ]);
+      let importedCount = 0;
+      for (const m of suggested) {
+        const modelId = m.id || m.name;
+        if (!modelId || existingIds.has(modelId)) continue;
+        await handleAddCustomModel(modelId, "llm", providerStorageAlias, { isFree: m.isFree !== false });
+        importedCount += 1;
+      }
+      if (importedCount === 0) {
+        alert(translate("All models already exist, no new models added"));
+      } else {
+        alert(translate("Successfully added") + ` ${importedCount} ` + translate("models"));
+      }
+    } catch (error) {
+      console.log("Error importing fetcher models:", error);
+      alert(translate("Error fetching models") + ": " + error.message);
+    } finally {
+      setImportingModels(false);
+    }
+  };
+
+  // "Import from /models": pull the provider's live /models endpoint via the
+  // per-provider API route (handles OpenAI-compatible /models, Anthropic-compatible
+  // /models, and OAuth/custom resolvers). Import models not yet present locally.
+  // For openai-compatible: GET {baseUrl}/models with Bearer.
+  // For anthropic-compatible: GET {baseUrl}/models with x-api-key (gateway must expose it).
+  const importFromModelsEndpoint = async (customUrl = null) => {
+    if (importingModels) return;
+    setImportingModels(true);
+    try {
+      let fetched;
+      if (customUrl && customUrl.trim()) {
+        const res = await fetch(
+          `/api/providers/suggested-models?url=${encodeURIComponent(customUrl.trim())}&type=any`,
+          { cache: "no-store" }
+        );
+        const data = await res.json();
+        fetched = Array.isArray(data.data) ? data.data : [];
+      } else {
+        const activeConnection = connections.find((conn) => conn.isActive !== false);
+        if (!activeConnection) {
+          alert(translate("Please add an active connection first"));
+          return;
+        }
+        const res = await fetch(`/api/providers/${activeConnection.id}/models`, { cache: "no-store" });
+        const data = await res.json();
+        if (!res.ok) {
+          alert((data.error || translate("Failed to fetch models")) + (data.status ? ` (HTTP ${data.status})` : ""));
+          return;
+        }
+        fetched = data.models || [];
+      }
+      if (!fetched.length) {
+        alert(translate("No models returned from /models"));
+        return;
+      }
+      // Dedup against already-known models; tag free for preview + import.
+      const existingIds = new Set([
+        ...customModels.filter((entry) => entry.providerAlias === providerStorageAlias).map((entry) => entry.id),
+        ...models.map((m) => m.id),
+      ]);
+      const newModels = fetched
+        .map((model) => {
+          const modelId = model.id || model.name;
+          if (!modelId || existingIds.has(modelId)) return null;
+          const isFree = String(modelId).endsWith(":free") || model.isFree === true;
+          return { id: modelId, kind: model.kind || model.type || "llm", isFree };
+        })
+        .filter(Boolean);
+      if (!newModels.length) {
+        alert(translate("All models already exist, no new models added"));
+        return;
+      }
+      setImportPreview({ total: newModels.length, freeCount: newModels.filter((m) => m.isFree).length, models: newModels });
+    } catch (error) {
+      console.log("Error fetching /models:", error);
+      alert(translate("Error fetching models") + ": " + error.message);
+    } finally {
+      setImportingModels(false);
+    }
+  };
+
+  // Confirm import from preview modal — apply free-only filter if set.
+  const confirmImportFromPreview = async () => {
+    if (!importPreview || importingModels) return;
+    const toImport = importFreeOnly ? importPreview.models.filter((m) => m.isFree) : importPreview.models;
+    if (!toImport.length) {
+      alert("No free models to import with current filter");
+      setImportPreview(null);
+      return;
+    }
+    setImportingModels(true);
+    setImportPreview(null);
+    try {
+      let importedCount = 0;
+      for (const model of toImport) {
+        await handleAddCustomModel(model.id, model.kind, providerStorageAlias, { isFree: model.isFree });
+        importedCount += 1;
+      }
+      alert(translate("Successfully added") + ` ${importedCount} ` + translate("models"));
+      const freeImported = toImport.filter((m) => m.isFree);
+      if (freeImported.length && connections.some((c) => c.isActive !== false)) {
+        const doCheck = window.confirm(
+          `${freeImported.length} free model(s) imported. Check availability with current account now?`
+        );
+        if (doCheck) checkModelsWithAccount(freeImported);
+      }
+    } catch (error) {
+      alert(translate("Error importing models") + ": " + error.message);
+    } finally {
+      setImportingModels(false);
+    }
+  };
+
+  // Ping free models via internal /api/models/test with current credentials.
+  const checkModelsWithAccount = async (freeModels) => {
+    setImportingModels(true);
+    const results = [];
+    for (const model of freeModels) {
+      try {
+        const res = await fetch("/api/models/test", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ model: `${providerDisplayAlias}/${model.id}`, kind: model.kind || "llm" }),
+        });
+        const data = await res.json();
+        results.push({ id: model.id, ok: !!data.ok, error: data.error || null });
+      } catch {
+        results.push({ id: model.id, ok: false, error: "network error" });
+      }
+    }
+    setImportingModels(false);
+    const okCount = results.filter((r) => r.ok).length;
+    const failLines = results.filter((r) => !r.ok).slice(0, 20).map((r) => `  x ${r.id} - ${r.error || "error"}`).join("\n");
+    alert(
+      `Account check complete: ${okCount}/${results.length} free models available.\n` +
+      (failLines ? `Unreachable:\n${failLines}` : "All free models reachable.")
+    );
+  };
+
 
   const handleRunOneByOneTest = async () => {
     if (oneByOneRunning || connections.length === 0) return;
@@ -1134,7 +1298,7 @@ export default function ProviderDetailPage() {
       const res = await fetch("/api/models/test", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: `${providerStorageAlias}/${modelId}` }),
+        body: JSON.stringify({ model: `${providerDisplayAlias}/${modelId}` }),
       });
       const data = await res.json();
       setModelTestResults((prev) => ({ ...prev, [modelId]: data.ok ? "ok" : "error" }));
@@ -1174,13 +1338,25 @@ export default function ProviderDetailPage() {
     ].filter((m) => { const k = getModelKind(m); return !k || k === "llm"; });
     const disabledSet = new Set(disabledModelIds);
     const displayModels = allModels.filter((m) => !disabledSet.has(m.id));
-    const disabledDisplayModels = allModels.filter((m) => disabledSet.has(m.id));
+    // Free/paid sort: free models first (default), paid last, ties alphabetical
+    const sortedModels = [...displayModels].sort((a, b) => {
+      const af = modelSort === "free" ? (a.isFree ? 0 : 1) : 0;
+      const bf = modelSort === "free" ? (b.isFree ? 0 : 1) : 0;
+      if (af !== bf) return af - bf;
+      return String(a.id || a.name).localeCompare(String(b.id || b.name));
+    });
+    const builtInIdSet = new Set(allModels.map((m) => m.id));
+    const disabledBuiltInModels = allModels.filter((m) => disabledSet.has(m.id));
+    const disabledCustomModels = disabledModelIds
+      .filter((id) => !builtInIdSet.has(id))
+      .map((id) => ({ id, isCustom: true }));
     const customModelRows = getProviderCustomModelRows({
       customModels,
       modelAliases,
       providerAlias: providerStorageAlias,
       builtInModels: models,
       type: "llm",
+      disabledModelIds,
     });
 
     return (
@@ -1205,14 +1381,13 @@ export default function ProviderDetailPage() {
             testStatus={modelTestResults[model.id]}
             onTest={connections.length > 0 || isFreeNoAuth ? () => handleTestModel(model.id) : undefined}
             isTesting={testingModelIds.has(model.id)}
-            isCustom
-            isFree={false}
+            isFree={model.isFree}
             caps={getCaps(`${providerId}/${model.id}`)}
             thinkingSuffix={resolveThinkingSuffix(model.id)}
           />
         ))}
 
-        {displayModels.map((model) => {
+        {sortedModels.map((model) => {
           const fullModel = `${providerStorageAlias}/${model.id}`;
           const oldFormatModel = `${providerId}/${model.id}`;
           const existingAlias = Object.entries(modelAliases).find(
@@ -1248,8 +1423,36 @@ export default function ProviderDetailPage() {
           Add Model
         </button>
 
-        {/* Import Qoder models button — only show for qoder/qoder-cn provider */}
-        {(providerId === "qoder" || providerId === "qoder-cn") && connections.some((conn) => conn.isActive !== false) && (
+        {/* Generic "Get Models" — fetch live catalog via modelsFetcher, import all */}
+        {modelsFetcher && (
+          <button
+            onClick={importModelsFromFetcher}
+            disabled={importingModels}
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-emerald-500/40 px-3 py-2 text-xs text-emerald-600 dark:text-emerald-400 transition-colors hover:border-emerald-500 hover:bg-emerald-500/5 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Fetch live model catalog and import all models"
+          >
+            <span
+              className="material-symbols-outlined text-sm"
+              style={importingModels ? { animation: "spin 1s linear infinite" } : undefined}
+            >
+              {importingModels ? "progress_activity" : "download"}
+            </span>
+            {importingModels ? translate("Fetching...") : translate("Get Models")}
+          </button>
+        )}
+
+        {/* Free / paid sort toggle */}
+        <button
+          onClick={() => setModelSort(modelSort === "free" ? "all" : "free")}
+          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-black/10 bg-black/[0.02] px-3 py-2 text-xs text-text-muted transition-colors hover:bg-black/5 dark:border-white/10 dark:bg-white/[0.03] dark:hover:bg-white/10 sm:w-auto"
+          title={modelSort === "free" ? "Free models first" : "All models, alphabetical"}
+        >
+          <span className="material-symbols-outlined text-sm">sort</span>
+          {modelSort === "free" ? "Free first" : "All models"}
+        </button>
+
+        {/* Import Qoder models button — only show for qoder provider */}
+        {providerId === "qoder" && connections.some((conn) => conn.isActive !== false) && (
           <button
             onClick={handleImportQoderModels}
             disabled={importingQoderModels}
@@ -1274,6 +1477,104 @@ export default function ProviderDetailPage() {
             </span>
             {importingClineModels ? translate("Fetching...") : translate("Import from /models")}
           </button>
+        )}
+
+        {/* Import from /models — all providers with an active connection.
+            Opens a modal: optional custom URL, then a preview with count + free-only filter. */}
+        {connections.some((conn) => conn.isActive !== false) && (
+          <button
+            onClick={() => { setCustomModelsUrl(""); setShowImportModal(true); }}
+            disabled={importingModels}
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-blue-500/40 px-3 py-2 text-xs text-blue-600 dark:text-blue-400 transition-colors hover:border-blue-500 hover:bg-blue-500/5 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Import models from /models — optionally enter a custom URL"
+          >
+            <span
+              className="material-symbols-outlined text-sm"
+              style={importingModels ? { animation: "spin 1s linear infinite" } : undefined}
+            >
+              {importingModels ? "progress_activity" : "download"}
+            </span>
+            {importingModels ? translate("Fetching...") : translate("Import from /models")}
+          </button>
+        )}
+
+        {/* Custom /models URL modal */}
+        <Modal
+          isOpen={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          title="Import from /models"
+        >
+          <div className="flex flex-col gap-3">
+            <p className="text-xs text-text-muted">
+              Leave blank to use this provider&apos;s default /models endpoint.
+              Or enter a full URL to fetch from a specific gateway (e.g.{" "}
+              <code className="text-[11px]">https://api.example.com/v1/models</code>).
+            </p>
+            <Input
+              placeholder="https://api.example.com/v1/models"
+              value={customModelsUrl}
+              onChange={(e) => setCustomModelsUrl(e.target.value)}
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setShowImportModal(false)} disabled={importingModels}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => { setShowImportModal(false); importFromModelsEndpoint(customModelsUrl || null); }}
+                disabled={importingModels}
+              >
+                {importingModels ? "Importing..." : "Import"}
+              </Button>
+            </div>
+          </div>
+        </Modal>
+
+        {/* Import preview: count + free-only toggle + confirm */}
+        {importPreview && (
+          <Modal
+            isOpen={!!importPreview}
+            onClose={() => setImportPreview(null)}
+            title="Import Preview"
+          >
+            <div className="flex flex-col gap-3">
+              <p className="text-sm">
+                <b>{importPreview.total}</b> new model(s) will be imported.
+                <br />
+                <span className="text-xs text-text-muted">
+                  {importPreview.freeCount} free / {importPreview.total - importPreview.freeCount} paid-or-unknown
+                </span>
+              </p>
+              <label className="flex items-center gap-2 text-xs">
+                <input
+                  type="checkbox"
+                  checked={importFreeOnly}
+                  onChange={(e) => setImportFreeOnly(e.target.checked)}
+                  className="accent-blue-500"
+                />
+                Import free models only
+              </label>
+              {importPreview.total > 50 && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  Large import — {importFreeOnly ? "free-only" : "all"} selected.
+                </p>
+              )}
+              <div className="flex justify-end gap-2">
+                <Button variant="ghost" onClick={() => setImportPreview(null)} disabled={importingModels}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={confirmImportFromPreview}
+                  disabled={importingModels}
+                >
+                  {importingModels
+                    ? "Importing..."
+                    : importFreeOnly
+                      ? `Import ${importPreview.freeCount} free models`
+                      : `Import ${importPreview.total} models`}
+                </Button>
+              </div>
+            </div>
+          </Modal>
         )}
 
         {/* Suggested models from provider API — show only models not yet added */}
@@ -1309,14 +1610,16 @@ export default function ProviderDetailPage() {
           );
         })()}
 
-        {/* Disabled models — restorable */}
-        {disabledDisplayModels.length > 0 && (
+        {/* Disabled models — restorable, custom ones deletable */}
+        {(disabledBuiltInModels.length > 0 || disabledCustomModels.length > 0) && (
           <div className="w-full mt-2">
-            <p className="text-xs text-text-muted mb-2">Disabled models ({disabledDisplayModels.length}):</p>
+            <p className="text-xs text-text-muted mb-2">
+              Disabled models ({disabledBuiltInModels.length + disabledCustomModels.length}):
+            </p>
             <div className="flex flex-wrap gap-2">
-              {disabledDisplayModels.map((m) => (
+              {disabledBuiltInModels.map((m) => (
                 <button
-                  key={m.id}
+                  key={`bi-${m.id}`}
                   onClick={() => handleEnableModel(m.id)}
                   className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-dashed border-black/10 dark:border-white/10 text-xs text-text-muted hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors"
                   title="Restore model"
@@ -1324,6 +1627,30 @@ export default function ProviderDetailPage() {
                   <span className="material-symbols-outlined text-[13px]">add</span>
                   {m.id}
                 </button>
+              ))}
+              {disabledCustomModels.map((m) => (
+                <span key={`custom-${m.id}`} className="flex items-center gap-1">
+                  <button
+                    onClick={() => handleEnableModel(m.id)}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-dashed border-black/10 dark:border-white/10 text-xs text-text-muted hover:text-primary hover:border-primary/40 hover:bg-primary/5 transition-colors"
+                    title="Restore model"
+                  >
+                    <span className="material-symbols-outlined text-[13px]">add</span>
+                    {m.id}
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (window.confirm(`Delete disabled custom model "${m.id}"? This cannot be undone.`)) {
+                        handleDeleteCustomModel(m.id, "llm", providerStorageAlias);
+                        handleEnableModel(m.id);
+                      }
+                    }}
+                    className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-dashed border-red-500/30 text-xs text-red-500 hover:border-red-500 hover:bg-red-500/5 transition-colors"
+                    title="Delete this model (deprecated/duplicate)"
+                  >
+                    <span className="material-symbols-outlined text-[13px]">delete</span>
+                  </button>
+                </span>
               ))}
             </div>
           </div>

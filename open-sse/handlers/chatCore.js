@@ -134,7 +134,17 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
 
   const clientRequestedStreaming = body.stream === true || sourceFormat === FORMATS.ANTIGRAVITY || sourceFormat === FORMATS.GEMINI || sourceFormat === FORMATS.GEMINI_CLI;
   const providerRequiresStreaming = PROVIDERS[provider]?.forceStream === true;
-  let stream = providerRequiresStreaming ? true : (body.stream !== false);
+
+  // OpenAI semantics: omitting `stream` means NON-streaming. Default-streaming
+  // anything without `stream:false` breaks non-streaming clients that send
+  // `Accept: */*` instead of `application/json` (e.g. LiteLLM): they get an SSE
+  // body ending in `data: [DONE]` and fail JSON parsing with "Extra data".
+  // Streaming clients always signal via `Accept: text/event-stream` or explicit
+  // `stream: true`, so treat those as the only default-streaming triggers.
+  const acceptHeaderEarly = clientRawRequest?.headers?.accept || "";
+  let stream = providerRequiresStreaming
+    ? true
+    : (body.stream === true || (body.stream !== false && acceptHeaderEarly.includes("text/event-stream")));
 
   // Image generation models require non-streaming (Google v1internal:generateContent)
   const modelType = getModelType(alias, model);

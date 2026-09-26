@@ -60,6 +60,46 @@ export async function getModelInfo(modelStr) {
         return { provider: matchedEmbedding.id, model: parsed.model };
       }
     }
+    // Fallback: OpenRouter-flavored ids typed without the double
+    // `openrouter/openrouter/` prefix. Clients that strip one prefix (LiteLLM
+    // inside Strix) send bare vendor ids like `poolside/laguna-xs-2.1:free`.
+    //  1. Unknown first segment → the whole string is the OpenRouter id.
+    //  2. Known (non-openrouter) provider, but the id ends with `:free` —
+    //     OpenRouter's free-tier marker that direct providers don't register —
+    //     and it's not in that provider's static model list → route via
+    //     OpenRouter instead of failing with "No active credentials".
+    if (
+      !RESERVED_PROVIDER_PREFIXES.has(parsed.providerAlias) &&
+      !RESERVED_PROVIDER_PREFIXES.has(parsed.provider) &&
+      typeof parsed.model === "string" &&
+      parsed.model.length > 0
+    ) {
+      return { provider: "openrouter", model: modelStr };
+    }
+    // Providers with `passthroughModels: true` (kilocode, opencode, venice, zed,
+    // vercel-ai-gateway, ...) serve their own dynamic catalog — `:free` ids are
+    // valid for them directly, so never redirect them to openrouter.
+    if (
+      typeof modelStr === "string" &&
+      /:free$/.test(modelStr) &&
+      parsed.providerAlias !== "openrouter" &&
+      typeof parsed.model === "string" &&
+      parsed.model.length > 0
+    ) {
+      const registryEntry = REGISTRY.find(
+        (entry) =>
+          entry.id === parsed.providerAlias ||
+          entry.alias === parsed.providerAlias ||
+          (entry.aliases || []).includes(parsed.providerAlias)
+      );
+      if (!registryEntry?.passthroughModels) {
+        const registeredIds = new Set((registryEntry?.models || []).map((m) => m.id));
+        // Compare the bare model (no provider prefix) against the provider's static list
+        if (!registeredIds.has(parsed.model)) {
+          return { provider: "openrouter", model: modelStr };
+        }
+      }
+    }
     return {
       provider: parsed.provider,
       model: parsed.model
