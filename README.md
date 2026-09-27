@@ -544,7 +544,9 @@ a third party under a provider named "Self-hosted".
 | 🔄 **Format Translation**                                                         | OpenAI ↔ Claude ↔ Gemini ↔ Cursor ↔ Kiro ↔ Vertex                                        | Works with any CLI tool                           |
 | 👥 **Multi-Account Support**                                                      | Multiple accounts per provider                                                           | Load balancing + redundancy                       |
 | 🔄 **Auto Token Refresh**                                                         | OAuth tokens refresh automatically                                                       | No manual re-login needed                         |
-| 🎨 **Custom Combos**                                                              | Create unlimited model combinations                                                      | Tailor fallback to your needs                     |
+| 🆓 **Free-Tier Auto Combo**                                                  | Detects free models from all providers, picks the best per capability family, upserts a "FreeTier" combo | Zero-cost fallback tier, no manual combo config |
+| 🔗 **Import from /models**                                                   | Bulk-imports any gateway's /models catalog into a provider, with alias and disable support | Connect 400+ models without manual entry |
+| 🧹 **Test All / Disable All Failed**                                         | Parallel-pings every active model, one-click disables (or deletes) the broken ones | Keeps /models imports clean without 400 model-by-model testing |
 | 📝 **Request Logging**                                                            | Debug mode with full request/response logs                                               | Troubleshoot issues easily                        |
 | 💾 **Cloud Sync**                                                                 | Sync config across devices                                                               | Same setup everywhere                             |
 | 📊 **Usage Analytics**                                                            | Track tokens, cost, trends over time                                                     | Optimize spending                                 |
@@ -613,6 +615,24 @@ With Ponytail:    shortest working diff, no unrequested abstractions, fewer toke
 ```
 
 Never trades away: input validation, error handling that prevents data loss, security, accessibility, or anything explicitly requested. Enable in Dashboard → Endpoint → Ponytail. Stacks with Caveman (output terseness) and RTK (input compression).
+
+### 🆓 Free-Tier Auto Combo (Plinian fork)
+
+`POST /api/combos/free-tier` builds a zero-cost fallback combo automatically:
+
+- **Detect** — collects free models from every provider: custom registry caps, static `:free` rows, and live `/models` catalogs of free-tier gateways (same FILTERS pipeline as the suggested-models panel).
+- **Verify** — capped-parallel pings (pool of 8) drop providers whose free models are dead or rate-limited, so the combo only contains working models.
+- **Benchmark (optional)** — races a short prompt across survivors; each capability family (vision / reasoning / coding / long-context / general) keeps its fastest answerer.
+- **Upsert** — winners land in a named combo (default `FreeTier`), restorable/rebuildable on demand.
+
+### 🔗 Import from /models + Test All / Disable All Failed (Plinian fork)
+
+Dashboard → Provider → **Import from /models** pulls an entire gateway catalog (e.g. 400+ models from a Kilo-style endpoint) into the provider as custom models. Cleanup without touching your real subscription models:
+
+1. **Test All** — parallel pings every active model (pool of 6), rows turn green/red live
+2. **Disable All Failed (N)** — one click disables only the broken ones (restore any time)
+3. **Delete All Disabled (N)** — bulk-deletes the disabled imported models for good
+4. **Free first** sort toggle now orders imported models too — free models surface on top
 
 ### 🎯 Smart 3-Tier Fallback
 
