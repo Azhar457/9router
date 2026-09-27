@@ -1,3 +1,10 @@
+# v0.5.92 (2026-09-27)
+
+## Features (Plinian fork)
+- **Combos**: FreeTier auto-combo — `POST /api/combos/free-tier` collects free models across providers, verifies with capped-parallel pings, optionally benchmark-races a prompt, and upserts the per-family winners into a named combo
+- **Providers**: bulk import of any gateway's `/models` catalog; one-click "Disable All" now includes imported custom models; "Test All" parallel pings + "Disable All Failed (N)" + "Delete All Disabled (N)" bulk cleanup; "Free first" sort now orders imported models too
+- **Releases**: `jsconfig` TS 7.0 compatibility; model import guardrails; routing fixes since v0.5.59
+
 # v0.5.91 (2026-09-26)
 
 ## Features
