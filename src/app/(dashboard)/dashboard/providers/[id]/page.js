@@ -1384,9 +1384,8 @@ export default function ProviderDetailPage() {
     });
   };
 
-  const handleDeleteAllDisabledCustom = () => {
-    const ids = disabledCustomModels.map((m) => m.id);
-    if (ids.length === 0) return;
+  const handleDeleteAllDisabledCustom = (ids) => {
+    if (!ids || ids.length === 0) return;
     setConfirmState({
       title: "Delete Disabled Custom Models",
       message: `Delete ${ids.length} disabled custom model(s) imported via /models? This cannot be undone.`,
@@ -1725,7 +1724,7 @@ export default function ProviderDetailPage() {
                 Disabled models ({disabledBuiltInModels.length + disabledCustomModels.length}):
               </p>
               {disabledCustomModels.length > 1 && (
-                <Button size="sm" variant="ghost" icon="delete_sweep" onClick={handleDeleteAllDisabledCustom}>
+                <Button size="sm" variant="ghost" icon="delete_sweep" onClick={() => handleDeleteAllDisabledCustom(disabledCustomModels.map((m) => m.id))}>
                   Delete All Disabled ({disabledCustomModels.length})
                 </Button>
               )}
