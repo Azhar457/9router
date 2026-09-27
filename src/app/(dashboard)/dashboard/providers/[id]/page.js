@@ -1310,6 +1310,104 @@ export default function ProviderDetailPage() {
       setTestingModelIds((prev) => { const n = new Set(prev); n.delete(modelId); return n; });
     }
   };
+  const [testingAll, setTestingAll] = useState(false);
+
+  const handleTestAll = async (ids) => {
+    if (testingAll || !ids.length) return;
+    setTestingAll(true);
+    setModelTestResults({});
+    setModelsTestError("");
+    const CONCURRENCY = 6;
+    let cursor = 0;
+    const workers = Array.from({ length: Math.min(CONCURRENCY, ids.length) }, async () => {
+      while (true) {
+        const i = cursor++;
+        if (i >= ids.length) return;
+        const modelId = ids[i];
+        setTestingModelIds((prev) => new Set(prev).add(modelId));
+        try {
+          const res = await fetch("/api/models/test", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ model: `${providerDisplayAlias}/${modelId}` }),
+          });
+          const data = await res.json();
+          setModelTestResults((prev) => ({ ...prev, [modelId]: data.ok ? "ok" : "error" }));
+        } catch {
+          setModelTestResults((prev) => ({ ...prev, [modelId]: "error" }));
+        } finally {
+          setTestingModelIds((prev) => { const n = new Set(prev); n.delete(modelId); return n; });
+        }
+      }
+    });
+    await Promise.all(workers);
+    setTestingAll(false);
+    // Settle: if every result is an error and there is at least one, surface a summary error line.
+    setModelTestResults((current) => {
+      const values = Object.values(current);
+      if (values.length > 0 && values.every((v) => v === "error")) {
+        setModelsTestError(`${values.length} of ${values.length} model(s) failed — check connection/credentials or region.`);
+      }
+      return current;
+    });
+  };
+
+  const handleDisableAllFailed = async () => {
+    const failedIds = Object.entries(modelTestResults)
+      .filter(([, s]) => s === "error")
+      .map(([id]) => id);
+    if (failedIds.length === 0) return;
+    setConfirmState({
+      title: "Disable Failed Models",
+      message: `Disable ${failedIds.length} model(s) that failed the test?`,
+      onConfirm: async () => {
+        setConfirmState(null);
+        try {
+          const res = await fetch("/api/models/disabled", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ providerAlias: providerStorageAlias, ids: failedIds }),
+          });
+          if (res.ok) {
+            await fetchDisabledModels();
+            // Clear test results for the now-disabled models.
+            setModelTestResults((prev) => {
+              const n = { ...prev };
+              failedIds.forEach((id) => delete n[id]);
+              return n;
+            });
+          }
+        } catch (error) {
+          console.log("Error disabling failed models:", error);
+        }
+      }
+    });
+  };
+
+  const handleDeleteAllDisabledCustom = () => {
+    const ids = disabledCustomModels.map((m) => m.id);
+    if (ids.length === 0) return;
+    setConfirmState({
+      title: "Delete Disabled Custom Models",
+      message: `Delete ${ids.length} disabled custom model(s) imported via /models? This cannot be undone.`,
+      onConfirm: async () => {
+        setConfirmState(null);
+        setImportingModels(true);
+        try {
+          for (const id of ids) {
+            await handleDeleteCustomModel(id, "llm", providerStorageAlias);
+            await handleEnableModel(id);
+          }
+          await fetchCustomModels();
+          await fetchDisabledModels();
+        } catch (error) {
+          console.log("Error deleting disabled custom models:", error);
+        } finally {
+          setImportingModels(false);
+        }
+      }
+    });
+  };
 
   const renderModelsSection = () => {
     if (isCompatible) {
@@ -1358,11 +1456,19 @@ export default function ProviderDetailPage() {
       type: "llm",
       disabledModelIds,
     });
+    const sortedCustomRows = modelSort === "free"
+      ? [...customModelRows].sort((a, b) => {
+          const af = a.isFree ? 0 : 1;
+          const bf = b.isFree ? 0 : 1;
+          if (af !== bf) return af - bf;
+          return String(a.id || a.name).localeCompare(String(b.id || b.name));
+        })
+      : customModelRows;
 
     return (
       <div className="flex flex-wrap gap-3">
         {/* Custom models first */}
-        {customModelRows.map((model) => (
+        {sortedCustomRows.map((model) => (
           <ModelRow
             key={`${model.source}-${model.fullModel}`}
             model={{ id: model.id, name: model.name }}
@@ -1382,6 +1488,7 @@ export default function ProviderDetailPage() {
             onTest={connections.length > 0 || isFreeNoAuth ? () => handleTestModel(model.id) : undefined}
             isTesting={testingModelIds.has(model.id)}
             isFree={model.isFree}
+            isCustom={model.source === "custom"}
             caps={getCaps(`${providerId}/${model.id}`)}
             thinkingSuffix={resolveThinkingSuffix(model.id)}
           />
@@ -1613,9 +1720,16 @@ export default function ProviderDetailPage() {
         {/* Disabled models — restorable, custom ones deletable */}
         {(disabledBuiltInModels.length > 0 || disabledCustomModels.length > 0) && (
           <div className="w-full mt-2">
-            <p className="text-xs text-text-muted mb-2">
-              Disabled models ({disabledBuiltInModels.length + disabledCustomModels.length}):
-            </p>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="text-xs text-text-muted">
+                Disabled models ({disabledBuiltInModels.length + disabledCustomModels.length}):
+              </p>
+              {disabledCustomModels.length > 1 && (
+                <Button size="sm" variant="ghost" icon="delete_sweep" onClick={handleDeleteAllDisabledCustom}>
+                  Delete All Disabled ({disabledCustomModels.length})
+                </Button>
+              )}
+            </div>
             <div className="flex flex-wrap gap-2">
               {disabledBuiltInModels.map((m) => (
                 <button
@@ -2091,10 +2205,19 @@ export default function ProviderDetailPage() {
             )}
           </div>
           {!isCompatible && (() => {
+            const customLlmIds = getProviderCustomModelRows({
+              customModels,
+              modelAliases,
+              providerAlias: providerStorageAlias,
+              builtInModels: models,
+              type: "llm",
+              disabledModelIds,
+            }).map((r) => r.id);
             const allIds = [
               ...models,
               ...kiloFreeModels.filter((fm) => !models.some((m) => m.id === fm.id)),
-            ].filter((m) => { const k = getModelKind(m); return !k || k === "llm"; }).map((m) => m.id);
+            ].filter((m) => { const k = getModelKind(m); return !k || k === "llm"; }).map((m) => m.id)
+              .concat(customLlmIds);
             const activeIds = allIds.filter((id) => !disabledModelIds.includes(id));
             return (
               <div className="flex gap-2">
@@ -2106,6 +2229,16 @@ export default function ProviderDetailPage() {
                 {activeIds.length > 0 && (
                   <Button size="sm" variant="secondary" icon="block" onClick={() => handleDisableAll(activeIds)}>
                     Disable All
+                  </Button>
+                )}
+                {(connections.length > 0 || isFreeNoAuth) && activeIds.length > 0 && (
+                  <Button size="sm" variant="secondary" icon="science" onClick={() => handleTestAll(activeIds)}>
+                    {testingAll ? "Testing…" : "Test All"}
+                  </Button>
+                )}
+                {Object.values(modelTestResults).some((s) => s === "error") && (
+                  <Button size="sm" variant="secondary" icon="filter_off" onClick={handleDisableAllFailed}>
+                    Disable All Failed ({Object.values(modelTestResults).filter((s) => s === "error").length})
                   </Button>
                 )}
               </div>
