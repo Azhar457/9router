@@ -2,6 +2,7 @@
  * Strip built-in/duplicate tools when equivalent MCP tools are present.
  * Goal: reduce tool definitions token bloat for Claude clients.
  */
+import { isDeepSeekModel } from "../providers/models/helpers.js";
 
 const DEDUP_RULES = [
   {
@@ -30,7 +31,14 @@ function matches(name, pattern) {
   return pattern instanceof RegExp ? pattern.test(name) : false;
 }
 
-function dedupeTools(tools) {
+/**
+ * @param {Array} tools - translated tools array
+ * @param {Object} [opts]
+ * @param {string|null} [opts.clientTool] - detected client ("claude" | "codex" | ...)
+ * @param {string|null} [opts.model] - model id, may carry a (level) thinking suffix
+ * @returns {{ tools: Array, stripped: Array<string> }}
+ */
+function dedupeTools(tools, opts = {}) {
   if (!Array.isArray(tools) || tools.length === 0) return { tools, stripped: [] };
   const names = tools.map(getToolName);
   const toStrip = new Set();
