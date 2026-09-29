@@ -24,8 +24,7 @@ import { dedupeTools } from "../utils/toolDeduper.js";
 import { takeRenamedToolNames } from "../utils/opencodeFingerprint.js";
 import { injectCaveman } from "../rtk/caveman.js";
 import { injectPonytail } from "../rtk/ponytail.js";
-import { injectPlinian } from "../rtk/plinian.js";
-import { injectGodmode } from "../rtk/godmode.js";
+import { injectGlobal } from "../rtk/globalInject.js";
 import { compressMessages, formatRtkLog } from "../rtk/index.js";
 import { compressWithHeadroom, formatHeadroomLog, formatHeadroomSizeLog, isHeadroomPhantomSavings } from "../rtk/headroom.js";
 import { compressWithPxpipe } from "../rtk/pxpipe.js";
@@ -62,7 +61,7 @@ export function stripContinuityFields(body) {
   return body;
 }
 
-export async function handleChatCore({ body, modelInfo, credentials, log, onCredentialsRefreshed, onRequestSuccess, onDisconnect, clientRawRequest, connectionId, userAgent, apiKey, ccFilterNaming, rtkEnabled, headroomEnabled, headroomUrl, headroomCompressUserMessages, headroomTimeoutMs, cavemanEnabled, cavemanLevel, ponytailEnabled, ponytailLevel, plinianEnabled, plinianLevel, plinianIdentity, godmodeEnabled, godmodeLevel, godmodeCustom, pxpipeEnabled, pxpipeMinChars, pxpipeTimeoutMs, pxpipeTransform, onPxpipeEvent, sourceFormatOverride, providerThinking }) {
+export async function handleChatCore({ body, modelInfo, credentials, log, onCredentialsRefreshed, onRequestSuccess, onDisconnect, clientRawRequest, connectionId, userAgent, apiKey, ccFilterNaming, rtkEnabled, headroomEnabled, headroomUrl, headroomCompressUserMessages, headroomTimeoutMs, cavemanEnabled, cavemanLevel, ponytailEnabled, ponytailLevel, injectionEnabled, injectionRegisterLevel, injectionIdentity, injectionGodmodeLevel, injectionGodmodeCustom, pxpipeEnabled, pxpipeMinChars, pxpipeTimeoutMs, pxpipeTransform, onPxpipeEvent, sourceFormatOverride, providerThinking }) {
   const { provider, model } = modelInfo;
   const requestStartTime = Date.now();
   // Stable per-session color so all lines of one CLI conversation share a tag
@@ -282,8 +281,15 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   const rtkStats = preTranslateRtk || compressMessages(translatedBody, tokenSaverEnabled && rtkEnabled);
 
   // Headroom: optional external proxy compression; fail open if proxy is absent.
+  // SKIPPED when a jailbreak payload is active — headroom truncates/rewrites
+  // system messages and would strip the G0DM0D3 payload before it ships.
+  const jailbreakActive =
+    injectionEnabled &&
+    !!injectionGodmodeLevel &&
+    injectionGodmodeLevel !== "none";
+  const headroomAllowed = tokenSaverEnabled && headroomEnabled && !jailbreakActive;
   const headroomDiagnostics = {};
-  const headroomStats = await compressWithHeadroom(translatedBody, { enabled: tokenSaverEnabled && headroomEnabled, url: headroomUrl, model: upstreamModel, format: finalFormat, compressUserMessages: headroomCompressUserMessages, timeoutMs: Number(headroomTimeoutMs) || undefined, diagnostics: headroomDiagnostics });
+  const headroomStats = await compressWithHeadroom(translatedBody, { enabled: headroomAllowed, url: headroomUrl, model: upstreamModel, format: finalFormat, compressUserMessages: headroomCompressUserMessages, timeoutMs: Number(headroomTimeoutMs) || undefined, diagnostics: headroomDiagnostics });
   const headroomLine = formatHeadroomLog(headroomStats);
   const headroomSizeLine = formatHeadroomSizeLog(headroomDiagnostics);
   if (headroomLine) {
@@ -291,35 +297,57 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
     if (isHeadroomPhantomSavings(headroomStats, headroomDiagnostics)) {
       log?.warn?.("HEADROOM", `reported token delta, but outbound JSON shrank <5%; provider may bill near-original payload | ${formatHeadroomSizeLog(headroomDiagnostics)}`);
     }
-  } else if (tokenSaverEnabled && headroomEnabled) log?.warn?.("HEADROOM", `skipped: ${headroomDiagnostics.reason || "compression unavailable"}${headroomDiagnostics.endpoint ? ` (${headroomDiagnostics.endpoint})` : ""}`);
+  } else if (headroomAllowed) {
+    log?.warn?.("HEADROOM", `skipped: ${headroomDiagnostics.reason || "compression unavailable"}${headroomDiagnostics.endpoint ? ` (${headroomDiagnostics.endpoint})` : ""}`);
+  } else if (jailbreakActive) {
+    log?.debug?.("HEADROOM", "skipped: jailbreak payload active — payload must ship unmodified");
+  }
 
   // Token-saver flags accumulator for the single "⚙" log line below.
   const xf = [];
 
   if (rtkStats?.hits?.length) xf.push(`RTK:${rtkStats.hits.length}`);
 
-  // Caveman: inject terse-style system prompt
-  if (tokenSaverEnabled && cavemanEnabled && cavemanLevel) {
+  // Caveman: inject terse-style system prompt.
+  // SKIPPED when a jailbreak payload is active — caveman's terseness rules
+  // dilute the G0DM0D3 deliverable (truncated/fragmented output).
+  const tersenessAllowed = !jailbreakActive;
+  if (tokenSaverEnabled && cavemanEnabled && cavemanLevel && tersenessAllowed) {
     injectCaveman(translatedBody, finalFormat, cavemanLevel);
     xf.push(`CAVEMAN:${cavemanLevel}`);
   }
 
-  // Ponytail: inject lazy-senior-dev system prompt
-  if (tokenSaverEnabled && ponytailEnabled && ponytailLevel) {
+  // Ponytail: inject lazy-senior-dev system prompt.
+  // SKIPPED when a jailbreak payload is active — "output code only, 1 line
+  // max explanation" directly conflicts with the detailed-generation rules.
+  if (tokenSaverEnabled && ponytailEnabled && ponytailLevel && tersenessAllowed) {
     injectPonytail(translatedBody, finalFormat, ponytailLevel);
     xf.push(`PONYTAIL:${ponytailLevel}`);
   }
 
-  // Plinian: inject direct-register steering prompt (own toggle, honors token-saver opt-out)
-  if (tokenSaverEnabled && plinianEnabled && plinianLevel) {
-    injectPlinian(translatedBody, finalFormat, plinianLevel, plinianIdentity);
-    xf.push(`PLINIAN:${plinianLevel}`);
-  }
-
-  // GODMODE: inject G0DM0D3 payload variant — own toggle, honors token-saver opt-out
-  if (tokenSaverEnabled && godmodeEnabled) {
-    injectGodmode(translatedBody, finalFormat, godmodeLevel, godmodeCustom);
-    xf.push(`GODMODE:${godmodeLevel || "classic"}`);
+  // GLOBAL INJECTION: register (Plinian-style) + G0DM0D3 payload ride
+  // together under one toggle — the "Global Injection" card on the
+  // Developer page.
+  //
+  // The token-saver opt-out header (x-9router-token-saver: off) disables
+  // the *savers* (RTK/headroom/caveman/ponytail). The jailbreak payload
+  // must still be appended regardless of that header — it is the actual
+  // reason the user turned this card on, and silently dropping it when a
+  // tool toggles the header off would produce a near-bypass-free response
+  // that looks like "the injection didn't work".
+  if (injectionEnabled && (injectionRegisterLevel || injectionGodmodeLevel)) {
+    injectGlobal(translatedBody, finalFormat, {
+      enabled: true,
+      registerLevel: injectionRegisterLevel,
+      identity: injectionIdentity,
+      godmodeLevel: injectionGodmodeLevel,
+      godmodeCustom: injectionGodmodeCustom,
+      model: upstreamModel,
+    });
+    xf.push(
+      `GLOBAL:${injectionRegisterLevel || "none"}+` +
+      `${injectionGodmodeLevel || "classic"}`
+    );
   }
 
   // PXPIPE: image bulky context (Claude-format bodies only), last saver before dispatch

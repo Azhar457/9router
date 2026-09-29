@@ -58,6 +58,14 @@ const DEFAULT_SETTINGS = {
   cavemanLevel: "full",
   ponytailEnabled: false,
   ponytailLevel: "full",
+  // Unified global injection — register + jailbreak payload under one toggle.
+  // Old plinian*/godmode* keys are honored as backward-compat fallback in
+  // src/sse/handlers/chat.js, so existing persisted settings keep working.
+  injectionEnabled: false,
+  injectionRegisterLevel: "standard",
+  injectionIdentity: "",
+  injectionGodmodeLevel: "classic",
+  injectionGodmodeCustom: "",
   pxpipeEnabled: false,
   pxpipeAutoInstall: true,
   pxpipeMinChars: 25000,

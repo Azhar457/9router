@@ -4,11 +4,18 @@
 // Fail-open: any error leaves the body untouched.
 
 import { injectSystemPrompt } from "./systemInject.js";
-import { getGodmodePrompt } from "./godmodePayloads.js";
+import { getGodmodePrompt, pickGodmodeVariant } from "./godmodePayloads.js";
 
-export function injectGodmode(body, format, level = "classic", customText = "") {
+export function injectGodmode(body, format, level = "classic", customText = "", model = "") {
   try {
-    injectSystemPrompt(body, format, getGodmodePrompt(level, customText));
+    // "classic" is the default meaning "let me pick"; any other level is a
+    // user-pinned explicit variant. When a model is provided, resolve to the
+    // best-fit variant — including the adaptive-thinking payload for modern
+    // Fable/Opus-5/GPT-6/Grok-4.5+ models that no longer fall for classic
+    // jailbreak structure.
+    const autoPicked = !level || level === "classic";
+    const effectiveLevel = autoPicked && model ? pickGodmodeVariant(model) : (level || "classic");
+    injectSystemPrompt(body, format, getGodmodePrompt(effectiveLevel, customText));
   } catch (e) {
     // never break a proxied request because of steering
   }

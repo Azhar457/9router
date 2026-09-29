@@ -286,12 +286,26 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       cavemanLevel: chatSettings.cavemanLevel || "full",
       ponytailEnabled: !!chatSettings.ponytailEnabled,
       ponytailLevel: chatSettings.ponytailLevel || "full",
-      plinianEnabled: !!chatSettings.plinianEnabled,
-      plinianLevel: chatSettings.plinianLevel || "standard",
-      plinianIdentity: chatSettings.plinianIdentity || "",
-      godmodeEnabled: !!chatSettings.godmodeEnabled,
-      godmodeLevel: chatSettings.godmodeLevel || "classic",
-      godmodeCustom: typeof chatSettings.godmodeCustom === "string" ? chatSettings.godmodeCustom : "",
+      // Unified global injection: one master toggle drives both the
+      // register prompt (Plinian-style) and the G0DM0D3 payload.
+      // Backward-compat: if the new key is unset but the old
+      // plinian*/godmode* keys are present, inherit their values so
+      // existing persisted settings still work.
+      injectionEnabled: chatSettings.injectionEnabled !== undefined
+        ? !!chatSettings.injectionEnabled
+        : (!!chatSettings.plinianEnabled || !!chatSettings.godmodeEnabled),
+      injectionRegisterLevel: chatSettings.injectionRegisterLevel
+        || chatSettings.plinianLevel
+        || "standard",
+      injectionIdentity: typeof chatSettings.injectionIdentity === "string"
+        ? chatSettings.injectionIdentity
+        : (chatSettings.plinianIdentity || ""),
+      injectionGodmodeLevel: chatSettings.injectionGodmodeLevel
+        || chatSettings.godmodeLevel
+        || "classic",
+      injectionGodmodeCustom: typeof chatSettings.injectionGodmodeCustom === "string"
+        ? chatSettings.injectionGodmodeCustom
+        : (typeof chatSettings.godmodeCustom === "string" ? chatSettings.godmodeCustom : ""),
       pxpipeEnabled: !!chatSettings.pxpipeEnabled,
       pxpipeMinChars: chatSettings.pxpipeMinChars,
       pxpipeTimeoutMs: chatSettings.pxpipeTimeoutMs,

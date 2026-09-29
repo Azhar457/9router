@@ -7,7 +7,8 @@ import os from "os";
 import crypto from "crypto";
 import { DEFAULT_PLUGINS, LOCAL_STDIO_PLUGINS, buildManagedMcpServers } from "@/shared/constants/coworkPlugins";
 import { UPDATER_CONFIG } from "@/shared/constants/config";
-import { getConsistentMachineId } from "@/shared/utils/machineId";
+import { assertPublicUrl } from "@/shared/utils/ssrfGuard.js";
+import { isLocalRequest } from "@/dashboardGuard";
 
 const APP_PORT = UPDATER_CONFIG.appPort;
 const CLI_TOKEN_HEADER = "x-9r-cli-token";
@@ -178,12 +179,18 @@ const buildLocalBridgeEntries = (localPluginNames) => {
   return out;
 };
 
-// Build entries for user-defined custom MCP plugins (URL or stdio command).
-const buildCustomEntries = (customPlugins) => {
+// Build entries for user-defined custom MCP plugins (URL-only; no stdio command).
+// Remote callers must pass the SSRF guard so they can't point the server at
+// internal/metadata addresses; local host keeps self-hosted MCP servers.
+const buildCustomEntries = (customPlugins, request) => {
   if (!Array.isArray(customPlugins)) return [];
+  const isLocal = request ? isLocalRequest(request) : true;
   const out = [];
   for (const p of customPlugins) {
     if (!p?.name || !p?.url) continue;
+    if (!isLocal) {
+      try { assertPublicUrl(p.url); } catch { continue; }
+    }
     out.push({ name: p.name, url: p.url, transport: p.transport || "sse", custom: true });
   }
   return out;
@@ -327,7 +334,7 @@ export async function POST(request) {
     const customPluginsArray = (Array.isArray(customPlugins) ? customPlugins : []).filter((p) => p?.url);
 
     const bridgeEntries = await injectAuthHeaders(buildLocalBridgeEntries(localPluginNames));
-    const customEntries = await injectAuthHeaders(buildCustomEntries(customPluginsArray));
+    const customEntries = await injectAuthHeaders(buildCustomEntries(customPluginsArray, request));
     const managedMcpServers = [...buildManagedMcpServers(pluginsArray), ...bridgeEntries, ...customEntries];
 
     const bootstrapped = await bootstrapDeploymentMode();

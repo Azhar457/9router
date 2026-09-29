@@ -1,3 +1,27 @@
+# v0.5.93 (2026-09-30)
+
+## Global Injection (developer card)
+- **Unified card**: "Global Plinian" + "GODMODE" merged into a single **Global Injection** card — one master toggle drives both the register prompt (Plinian-style) and the G0DM0D3 jailbreak payload. Register + payload ride together into the same system message; the payload is appended last, closest to the user query.
+- **Settings**: new keys `injectionEnabled`, `injectionRegisterLevel`, `injectionIdentity`, `injectionGodmodeLevel`, `injectionGodmodeCustom`. Legacy `plinian*` / `godmode*` keys still honored as fallback so persisted settings keep working.
+- **New payload variant** `adaptive` — register-stripping prompt that relies on the model's own extended-thinking budget rather than a structural jailbreak trick; the surviving shape for Claude Fable 5.1 / Opus 5, GPT-6, Grok 4.5+ (fine-tuned after 2025).
+- **Model-aware routing** (`pickGodmodeVariant`): most-specific-first map; `f:*` file routes fall back to classic when the source file is missing.
+
+## External jailbreak payload registry
+- **File-based variants** — 16 prompts ingested from the `AI-Jailbreaks/` and `BlackFriday-GPTs-Prompts/` collections (sibling of the repo root; override with `9ROUTER_JAILBREAK_DIR`, disable with `9ROUTER_JAILBREAK_DISABLE=1`): NYX V4, Cronus, Bladwin 67, Potato, Opus 4.8 (PERMABANXD), Claude Sonnet 4.6, Antigravity thinking, LENS v2, Bladwin Claude, GPT 5.6, Grok NYX, GLM RAGE, DeepSeek Gothbreach, DarkGPT un-ethical, Manipulation GPT × DAN, Dev Mode.
+- Auto-routes: `claude-opus-4.8/sonnet-4.6` → Opus 4.8; `gpt-6/gpt-5.6` → Bladwin; older `grok`/`x-ai` → NYX; `glm` → RAGE; `deepseek` → Gothbreach. Fail-open: missing file → classic.
+
+## Token-saver / jailbreak guardrail
+- When a jailbreak payload is active, **headroom** (external compression proxy) is skipped — it would truncate/rewrite the payload and leak it to a third party.
+- **Caveman / Ponytail** terseness prompts are skipped — their terse/lazy directives dilute the G0DM0D3 deliverable into fragments.
+- Global injection is **decoupled from the `x-9router-token-saver: off` header** — that header now only disables the savers; the payload still ships.
+
+## Red-team transparency
+- `injectionDetect` gains signature rules: G0DM0D3 (LOVE PLINY / GODMODE:ENABLED / RESET_CORTEX), VEIL, Plinian register directives, AI-Jailbreaks (NYX/Cronus/Bladwin/PERMABANXD/RAGE/Gothbreach), BlackFriday (DarkGPT/DAN).
+- Transparency console takes a unified `injection` object; register + payload rendered in live injection order.
+
+## Fixes
+- **cowork-settings**: SSRF guard on remote MCP plugin URLs (`assertPublicUrl` for non-local callers); stdio transport dropped for remote callers.
+
 # v0.5.92 (2026-09-27)
 
 ## Features (Plinian fork)

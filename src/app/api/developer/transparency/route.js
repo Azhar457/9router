@@ -1,15 +1,19 @@
-import { getGodmodePrompt } from "open-sse/rtk/godmodePayloads.js";
+import { getGodmodePrompt, pickGodmodeVariant } from "open-sse/rtk/godmodePayloads.js";
 import { getPlinianPrompt } from "open-sse/rtk/plinianPrompts.js";
-import { detect, estimateTokenSaver } from "@/shared/lib/injectionDetect.js";
+import { detect, estimateTokenSaver, classifyPrompt } from "@/shared/lib/injectionDetect.js";
 
 export const runtime = "nodejs";
 
 /**
- * Red-Team Transparency: reconstruct what the gateway injects (godmode +
- * plinian + identity), estimate token-saver impact on a sample tool_result,
- * and run injection/leak detection on the outbound request.
- * This is a viewer — it mirrors the same prompt functions chatCore uses, so
- * the displayed injection matches what a live request would carry.
+ * Red-Team Transparency: reconstruct what the gateway injects under the
+ * unified Global Injection card — register (Plinian-style) + G0DM0D3
+ * payload — estimate token-saver impact on a sample tool_result, and run
+ * injection/leak detection on the outbound request.
+ *
+ * Accepts the unified `injection` shape:
+ *   { enabled, level, godmodeLevel, godmodeCustom, identity, model? }
+ * Falls back to the legacy separate `godmode` + `plinian` objects for
+ * any caller that has not been migrated yet.
  */
 export async function POST(request) {
   let body;
@@ -19,27 +23,70 @@ export async function POST(request) {
     return Response.json({ error: { message: "Invalid JSON body" } }, { status: 400 });
   }
 
-  const g = body?.godmode || {};
-  const p = body?.plinian || {};
+  // Unified shape: body.injection = { enabled, level, godmodeLevel, godmodeCustom, identity, model? }
+  // Legacy: body.godmode + body.plinian
+  const unified = body?.injection;
+  const legacy = {
+    godmode: body?.godmode || {},
+    plinian: body?.plinian || {},
+  };
 
-  const godmodeText = g.enabled ? getGodmodePrompt(g.level || "classic", typeof g.custom === "string" ? g.custom : "") : "";
-  let plinianText = p.enabled ? getPlinianPrompt(p.level || "standard") : "";
-  if (p.enabled && p.identity && p.identity.trim()) {
-    plinianText = `${p.identity.trim()}\n\n---\n\n${plinianText}`;
+  let enabled = false;
+  let registerLevel = "standard";
+  let identity = "";
+  let godmodeLevel = "classic";
+  let godmodeCustom = "";
+  let model = "";
+
+  if (unified && typeof unified === "object") {
+    enabled = !!unified.enabled;
+    registerLevel = typeof unified.level === "string" ? unified.level : "standard";
+    identity = typeof unified.identity === "string" ? unified.identity : "";
+    godmodeLevel = typeof unified.godmodeLevel === "string" ? unified.godmodeLevel : "classic";
+    godmodeCustom = typeof unified.godmodeCustom === "string" ? unified.godmodeCustom : "";
+    model = typeof unified.model === "string" ? unified.model : "";
+  } else {
+    enabled = !!legacy.godmode?.enabled || !!legacy.plinian?.enabled;
+    registerLevel = legacy.plinian?.level || "standard";
+    identity = typeof legacy.plinian?.identity === "string" ? legacy.plinian.identity : "";
+    godmodeLevel = legacy.godmode?.level || "classic";
+    godmodeCustom = typeof legacy.godmode?.custom === "string" ? legacy.godmode.custom : "";
   }
 
-  const parts = [godmodeText, plinianText].filter(Boolean);
+  // Build the register text (identity prefix + Plinian prompt)
+  let registerText = "";
+  if (enabled && registerLevel) {
+    registerText = getPlinianPrompt(registerLevel);
+    if (identity && identity.trim()) {
+      registerText = `${identity.trim()}\n\n---\n\n${registerText}`;
+    }
+  }
+
+  // Build the G0DM0D3 payload text — auto-pick per model when "classic" (default)
+  let godmodeText = "";
+  if (enabled && godmodeLevel) {
+    const effectiveLevel =
+      (godmodeLevel === "classic" || !godmodeLevel) && model
+        ? pickGodmodeVariant(model)
+        : godmodeLevel;
+    godmodeText = getGodmodePrompt(effectiveLevel, godmodeCustom);
+  }
+
+  // Match live injection order: register first, payload second
+  const parts = [registerText, godmodeText].filter(Boolean);
   const outboundSystem = parts.join("\n\n===\n\n");
 
   const draft = typeof body?.draft === "string" ? body.draft : "";
   const requestDetection = detect(`${outboundSystem}\n\n${draft}`);
+  const harmClassification = draft ? classifyPrompt(draft) : null;
   const tokenSaver = estimateTokenSaver(typeof body?.tokenSample === "string" ? body.tokenSample : "");
 
   return Response.json({
+    registerText,
     godmodeText,
-    plinianText,
     outboundSystem,
     requestDetection,
+    harmClassification,
     tokenSaver,
   });
 }

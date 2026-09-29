@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { summarizeStats, classifyJailbreakResponse } from "@/shared/lib/injectionDetect";
+import { summarizeStats, classifyJailbreakResponse, classifyPrompt } from "@/shared/lib/injectionDetect";
 
 const SEV = {
   high: "text-red-400 border-red-400/40 bg-red-400/10",
@@ -66,12 +66,7 @@ async function readChatResponse(r) {
 }
 
 export default function TransparencyClient({
-  godmodeEnabled,
-  godmodeLevel,
-  godmodeCustom,
-  plinianEnabled,
-  plinianLevel,
-  plinianIdentity,
+  injection,
   providerGroups,
   systemPrompt,
   setDraft,
@@ -106,8 +101,13 @@ export default function TransparencyClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           draft,
-          godmode: { enabled: !!godmodeEnabled, level: godmodeLevel, custom: godmodeCustom },
-          plinian: { enabled: !!plinianEnabled, level: plinianLevel, identity: plinianIdentity },
+          injection: {
+            enabled: !!injection?.enabled,
+            level: injection?.level || "standard",
+            godmodeLevel: injection?.godmodeLevel || "classic",
+            godmodeCustom: injection?.godmodeCustom || "",
+            identity: injection?.identity || "",
+          },
           tokenSample,
         }),
       });
@@ -142,7 +142,10 @@ export default function TransparencyClient({
             const rd = await fetchWithTimeout("/api/developer/transparency", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ draft: content || "", godmode: { enabled: false }, plinian: { enabled: false } }),
+              body: JSON.stringify({
+                draft: content || "",
+                injection: { enabled: false },
+              }),
             });
             const rdd = await rd.json().catch(() => ({}));
             setRespFinding(rdd.requestDetection || []);
@@ -164,6 +167,7 @@ export default function TransparencyClient({
   );
   const jailbreak = response ? classifyJailbreakResponse(response, { attempt: hasAttempt }) : null;
   const stats = summarizeStats(findings, jailbreak);
+  const harm = draft.trim() ? classifyPrompt(draft) : null;
 
   return (
     <div className="flex flex-col gap-3">
@@ -199,8 +203,7 @@ export default function TransparencyClient({
           </button>
         </div>
         <p className={muted + " mt-2"}>
-          State injeksi aktif: Godmode {godmodeEnabled ? `ON (${godmodeLevel})` : "off"} · Plinian{" "}
-          {plinianEnabled ? `ON (${plinianLevel})` : "off"}
+          State injeksi aktif: Global {injection?.enabled ? `ON (register ${injection.level} + payload ${injection.godmodeLevel})` : "off"}
         </p>
       </div>
 
@@ -228,8 +231,8 @@ export default function TransparencyClient({
       </div>
 
       <div className={card}>
-        <div className={stageTitle}>3 · Plinian Inject</div>
-        {inj?.plinianText ? <pre className={pre}>{inj.plinianText}</pre> : <p className={muted}>tidak aktif</p>}
+        <div className={stageTitle}>3 · Register Inject</div>
+        {inj?.registerText ? <pre className={pre}>{inj.registerText}</pre> : <p className={muted}>tidak aktif</p>}
       </div>
 
       <div className={card}>
@@ -241,7 +244,7 @@ export default function TransparencyClient({
         <div className={stageTitle}>Outbound · Request final ke model</div>
         {inj ? (
           <>
-            <p className={muted}>System (Godmode + Plinian):</p>
+            <p className={muted}>System (register + payload):</p>
             <pre className={pre}>{inj.outboundSystem ? inj.outboundSystem : "(kosong — tidak ada injeksi aktif)"}</pre>
             <p className={muted}>User:</p>
             <pre className={pre}>{draft.trim() ? draft : "(kosong)"}</pre>
@@ -267,6 +270,25 @@ export default function TransparencyClient({
         {response ? <pre className={pre}>{response}</pre> : <p className={muted}>—</p>}
       </div>
 
+
+      {harm ? (
+        <div className={card}>
+          <div className={stageTitle}>Harm Domain Classification</div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`rounded border px-2 py-0.5 text-xs font-semibold ${
+              harm.domain === "benign" ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-400"
+              : ["meta","gray"].includes(harm.domain) ? "border-amber-400/40 bg-amber-400/10 text-amber-400"
+              : "border-red-400/40 bg-red-400/10 text-red-400"
+            }`}>
+              {harm.domain.toUpperCase()} / {harm.subcategory}
+            </span>
+            <span className="text-xs text-text-muted">confidence {Math.round(harm.confidence * 100)}%</span>
+            {harm.flags?.length ? (
+              <span className="text-[10px] text-text-muted">{harm.flags.join(" · ")}</span>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
       <div className={card}>
         <div className={stageTitle}>Result Statistics</div>
         {findings.length === 0 ? (

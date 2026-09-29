@@ -78,6 +78,24 @@ const GODMODE_VARIANTS = [
   { id: "gptClassic", label: "GPT Classic — OG GODMODE format" },
   { id: "claudeInversion", label: "Claude Inversion — END/START boundary" },
   { id: "hermesFast", label: "Hermes Fast — instant stream, zero refusal check" },
+  { id: "adaptive", label: "Adaptive — register-stripping, no jailbreak structure" },
+  { id: "f:ai:opus-4.8", label: "📄 Opus 4.8 — PERMABANXD (AI-Jailbreaks)" },
+  { id: "f:ai:claude-sonnet-4.6", label: "📄 Claude Sonnet 4.6 — x10n nullsec (AI-Jailbreaks)" },
+  { id: "f:ai:antigravity-thinking", label: "📄 Antigravity Sonnet/Opus 4.6 thinking (AI-Jailbreaks)" },
+  { id: "f:ai:lens-v2", label: "📄 LENS v2 (AI-Jailbreaks)" },
+  { id: "f:ai:bladwin-claude", label: "📄 Bladwin Claude v67 (AI-Jailbreaks)" },
+  { id: "f:ai:nyx-v4", label: "📄 NYX V4 multi-AI (AI-Jailbreaks)" },
+  { id: "f:ai:cronus", label: "📄 Cronus multi-AI (AI-Jailbreaks)" },
+  { id: "f:ai:bladwin-67", label: "📄 Bladwin 67 multi-AI (AI-Jailbreaks)" },
+  { id: "f:ai:potato", label: "📄 Potato multi-AI (AI-Jailbreaks)" },
+  { id: "f:ai:gpt-5.6-bladwin", label: "📄 GPT 5.6 — Bladwin v67 (AI-Jailbreaks)" },
+  { id: "f:ai:grok-nyx", label: "📄 Grok — NYX instruction override (AI-Jailbreaks)" },
+  { id: "f:ai:glm-rage", label: "📄 GLM — RAGE v8.x (AI-Jailbreaks)" },
+  { id: "f:ai:deepseek-gothbreach", label: "📄 DeepSeek — Gothbreach (AI-Jailbreaks)" },
+  { id: "f:bf:un-ethical-ai", label: "📄 BlackFriday — DarkGPT un-ethical AI" },
+  { id: "f:bf:manipulation-dan-v13", label: "📄 BlackFriday — Manipulation GPT × DAN v13" },
+  { id: "f:bf:dev-mode", label: "📄 BlackFriday — ChatGPT Dev Mode" },
+  { id: "VEIL", label: "VEIL" },
   { id: "custom", label: "Custom — your own payload" },
 ];
 
@@ -309,17 +327,17 @@ export default function DeveloperPageClient() {
   const [judgeVerdict, setJudgeVerdict] = useState(null);
   const [judgeError, setJudgeError] = useState("");
 
+  // Unified Global Injection state — one master toggle, sub-selectors
   const [injectEnabled, setInjectEnabled] = useState(false);
   const [injectLevel, setInjectLevel] = useState("standard");
+  const [injectIdentity, setInjectIdentity] = useState("");
   const [injectPreview, setInjectPreview] = useState({ chars: 0, text: "" });
-  const [godmodeEnabled, setGodmodeEnabled] = useState(false);
   const [godmodeLevel, setGodmodeLevel] = useState("classic");
-  const [godmodePreview, setGodmodePreview] = useState({ chars: 0, text: "" });
   const [godmodeCustom, setGodmodeCustom] = useState("");
+  const [godmodePreview, setGodmodePreview] = useState({ chars: 0, text: "" });
   const [savedGodmodePresets, setSavedGodmodePresets] = useState({});
   const [gmPresetSource, setGmPresetSource] = useState("");
   const [gmPresetName, setGmPresetName] = useState("");
-  const [injectIdentity, setInjectIdentity] = useState("");
   const [savedPersonas, setSavedPersonas] = useState({});
   const [personaSource, setPersonaSource] = useState("");
   const [personaName, setPersonaName] = useState("");
@@ -350,12 +368,16 @@ export default function DeveloperPageClient() {
       .then((res) => res.json())
       .then((settings) => {
         if (cancelled) return;
-        setInjectEnabled(!!settings.plinianEnabled);
-        if (settings.plinianLevel) setInjectLevel(settings.plinianLevel);
-        if (typeof settings.plinianIdentity === "string") setInjectIdentity(settings.plinianIdentity);
-        setGodmodeEnabled(!!settings.godmodeEnabled);
-        if (settings.godmodeLevel) setGodmodeLevel(settings.godmodeLevel);
-        if (typeof settings.godmodeCustom === "string") setGodmodeCustom(settings.godmodeCustom);
+        // Unified keys take precedence; fall back to legacy plinian*/godmode* keys.
+        setInjectEnabled(
+          settings.injectionEnabled !== undefined
+            ? !!settings.injectionEnabled
+            : (!!settings.plinianEnabled || !!settings.godmodeEnabled)
+        );
+        setInjectLevel(settings.injectionRegisterLevel || settings.plinianLevel || "standard");
+        setInjectIdentity(typeof settings.injectionIdentity === "string" ? settings.injectionIdentity : (settings.plinianIdentity || ""));
+        setGodmodeLevel(settings.injectionGodmodeLevel || settings.godmodeLevel || "classic");
+        setGodmodeCustom(typeof settings.injectionGodmodeCustom === "string" ? settings.injectionGodmodeCustom : (typeof settings.godmodeCustom === "string" ? settings.godmodeCustom : ""));
       })
       .catch(() => {})
       .finally(() => {
@@ -385,7 +407,7 @@ export default function DeveloperPageClient() {
 
   function toggleInject(value) {
     setInjectEnabled(value);
-    patchSetting({ plinianEnabled: value });
+    patchSetting({ injectionEnabled: value });
   }
 
   useEffect(() => {
@@ -406,18 +428,14 @@ export default function DeveloperPageClient() {
 
   function changeInjectLevel(level) {
     setInjectLevel(level);
-    patchSetting({ plinianLevel: level });
+    patchSetting({ injectionRegisterLevel: level });
   }
 
-  function toggleGodmode(value) {
-    setGodmodeEnabled(value);
-    patchSetting({ godmodeEnabled: value });
-  }
 
   async function changeGodmodeVariant(level) {
     // Load the canonical payload text into the editor so users see (and can
     // edit) exactly what will ship. Editing flips the card to Custom.
-    patchSetting({ godmodeLevel: level });
+    patchSetting({ injectionGodmodeLevel: level });
     setGodmodeLevel(level);
 
     try {
@@ -429,7 +447,7 @@ export default function DeveloperPageClient() {
       const data = await res.json();
       if (data?.text) {
         setGodmodeCustom(data.text);
-        if (level === "custom") patchSetting({ godmodeCustom: data.text || "" });
+        if (level === "custom") patchSetting({ injectionGodmodeCustom: data.text || "" });
       }
     } catch {}
   }
@@ -444,7 +462,7 @@ export default function DeveloperPageClient() {
     const text = savedGodmodePresets[gmPresetSource.slice(5)];
     if (text !== undefined) {
       setGodmodeCustom(text);
-      patchSetting({ godmodeCustom: text });
+      patchSetting({ injectionGodmodeCustom: text });
     }
   }
 
@@ -471,7 +489,7 @@ export default function DeveloperPageClient() {
     setGodmodeCustom(value);
     clearTimeout(godmodeSaveTimerRef.current);
     godmodeSaveTimerRef.current = setTimeout(() => {
-      patchSetting({ godmodeCustom: value });
+      patchSetting({ injectionGodmodeCustom: value });
     }, 600);
   }
 
@@ -486,13 +504,13 @@ export default function DeveloperPageClient() {
       const tpl = getPersonaTemplate(personaSource.slice(4));
       if (tpl) {
         setInjectIdentity(tpl.text);
-        patchSetting({ plinianIdentity: tpl.text });
+        patchSetting({ injectionIdentity: tpl.text });
       }
     } else if (personaSource.startsWith("user:")) {
       const text = savedPersonas[personaSource.slice(5)];
       if (text !== undefined) {
         setInjectIdentity(text);
-        patchSetting({ plinianIdentity: text });
+        patchSetting({ injectionIdentity: text });
       }
     }
   }
@@ -535,7 +553,7 @@ export default function DeveloperPageClient() {
     setInjectIdentity(value);
     clearTimeout(identitySaveTimerRef.current);
     identitySaveTimerRef.current = setTimeout(() => {
-      patchSetting({ plinianIdentity: value });
+      patchSetting({ injectionIdentity: value });
     }, 600);
   }
 
@@ -1239,16 +1257,16 @@ export default function DeveloperPageClient() {
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-surface/40 p-3">
         <span className={`material-symbols-outlined text-[20px] ${injectEnabled ? "text-primary" : "text-text-muted"}`}>bolt</span>
         <div className="flex min-w-[220px] flex-col">
-          <span className="text-sm font-medium text-text-main">Global Plinian injection</span>
+          <span className="text-sm font-medium text-text-main">Global Injection</span>
           <span className="text-xs text-text-muted">
-            Appends the register prompt to every proxied request — Hermes, CLI tools, all clients
+            Appends register prompt + G0DM0D3 jailbreak payload to every proxied request — Hermes, CLI tools, all clients
           </span>
         </div>
         <select
           value={injectLevel}
           onChange={(event) => changeInjectLevel(event.target.value)}
           disabled={!injectEnabled}
-          className="ml-auto h-8 rounded-lg border border-border bg-surface px-2 text-xs text-text-main disabled:opacity-50"
+          className="h-8 rounded-lg border border-border bg-surface px-2 text-xs text-text-main disabled:opacity-50"
         >
           {INJECT_LEVELS.map((level) => (
             <option key={level.id} value={level.id}>
@@ -1271,109 +1289,63 @@ export default function DeveloperPageClient() {
           <div className="w-full">
             <div className="mb-1 flex items-center justify-between text-xs text-text-muted">
               <span>
-                Exact addition while ON · level:{" "}
-                <span className="font-semibold text-text-main">{injectLevel}</span>
+                Register ({injectLevel}) + Payload ({godmodeLevel === "custom" ? "Custom" : GODMODE_VARIANTS.find((v) => v.id === godmodeLevel)?.label || godmodeLevel})
               </span>
-              <span>{injectPreview.chars.toLocaleString()} chars</span>
+              <span>{(injectPreview.chars || 0).toLocaleString()} chars</span>
             </div>
             <pre className="max-h-56 overflow-auto whitespace-pre-wrap rounded-lg bg-surface-2 p-3 font-mono text-[11px] leading-relaxed text-text-muted">
-              {injectPreview.text || "…"}
+              {injectPreview.text || godmodePreview.text || "…"}
             </pre>
           </div>
         )}
 
         {injectEnabled && (
           <>
-          <div className="flex flex-wrap items-center gap-2 w-full">
-            <select
-              value={personaSource}
-              onChange={(event) => setPersonaSource(event.target.value)}
-              className="h-8 min-w-[220px] rounded-lg border border-border bg-surface px-2 text-xs text-text-main"
-            >
-              <option value="">Persona…</option>
-              <optgroup label="Templates">
-                {PERSONA_TEMPLATES.map((tpl) => (
-                  <option key={tpl.id} value={`tpl:${tpl.id}`}>
-                    {tpl.label}
-                  </option>
-                ))}
-              </optgroup>
-              {Object.keys(savedPersonas).length > 0 && (
-                <optgroup label="My presets">
-                  {Object.keys(savedPersonas).map((name) => (
-                    <option key={name} value={`user:${name}`}>
-                      {name}
+            <div className="flex flex-wrap items-center gap-2 w-full">
+              <select
+                value={personaSource}
+                onChange={(event) => setPersonaSource(event.target.value)}
+                className="h-8 min-w-[220px] rounded-lg border border-border bg-surface px-2 text-xs text-text-main"
+              >
+                <option value="">Persona…</option>
+                <optgroup label="Templates">
+                  {PERSONA_TEMPLATES.map((tpl) => (
+                    <option key={tpl.id} value={`tpl:${tpl.id}`}>
+                      {tpl.label}
                     </option>
                   ))}
                 </optgroup>
-              )}
-            </select>
-            <Button variant="secondary" size="sm" icon="download" onClick={applyPersonaSource} disabled={!personaSource}>
-              Apply
-            </Button>
-            <input
-              value={personaName}
-              onChange={(event) => setPersonaName(event.target.value)}
-              placeholder="Preset 1…"
-              className="h-8 w-32 rounded-lg border border-border bg-surface px-2 text-xs text-text-main"
-            />
-            <Button variant="secondary" size="sm" icon="save" onClick={savePersona} disabled={!injectIdentity.trim()}>
-              Save
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              icon="delete"
-              onClick={deletePersona}
-              disabled={!personaSource.startsWith("user:")}
-            >
-              Delete
-            </Button>
-          </div>
-          <textarea
-            value={injectIdentity}
-            onChange={handleInjectIdentityChange}
-            rows={2}
-            placeholder="Optional identity override, prepended first — e.g. &quot;You are 9Router, the local AI routing gateway. If asked who you are, answer: I'm 9Router — local gateway. Ready.&quot;"
-            className="w-full resize-y rounded-lg border border-border bg-surface px-3 py-2 font-mono text-xs text-text-main outline-none focus:border-primary/50"
-          />
-          </>
-        )}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-surface/40 p-3">
-        <span className={`material-symbols-outlined text-[20px] ${godmodeEnabled ? "text-orange-500" : "text-text-muted"}`}>bolt</span>
-        <div className="flex min-w-[220px] flex-col">
-          <span className="text-sm font-medium text-text-main">GODMODE</span>
-          <span className="text-xs text-text-muted">
-            Appends the selected G0DM0D3 payload to every proxied request — Hermes, CLI tools, all clients
-          </span>
-        </div>
-        <select
-          value={godmodeLevel}
-          onChange={(event) => changeGodmodeVariant(event.target.value)}
-          disabled={!godmodeEnabled}
-          className="ml-auto h-8 rounded-lg border border-border bg-surface px-2 text-xs text-text-main disabled:opacity-50"
-        >
-          {GODMODE_VARIANTS.map((variant) => (
-            <option key={variant.id} value={variant.id}>
-              {variant.label}
-            </option>
-          ))}
-        </select>
-        <button
-          onClick={() => toggleGodmode(!godmodeEnabled)}
-          className={`h-8 rounded-lg px-4 text-xs font-semibold transition-colors ${
-            godmodeEnabled
-              ? "bg-orange-600 text-white hover:bg-orange-700"
-              : "bg-surface-2 border border-border text-text-muted hover:text-text-main"
-          }`}
-        >
-          {godmodeEnabled ? "ON" : "OFF"}
-        </button>
-        {godmodeEnabled && (
-          <>
-            <div className="flex flex-wrap items-center gap-2 w-full">
+                {Object.keys(savedPersonas).length > 0 && (
+                  <optgroup label="My presets">
+                    {Object.keys(savedPersonas).map((name) => (
+                      <option key={name} value={`user:${name}`}>
+                        {name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+              <Button variant="secondary" size="sm" icon="download" onClick={applyPersonaSource} disabled={!personaSource}>
+                Apply
+              </Button>
+              <input
+                value={personaName}
+                onChange={(event) => setPersonaName(event.target.value)}
+                placeholder="Preset 1…"
+                className="h-8 w-32 rounded-lg border border-border bg-surface px-2 text-xs text-text-main"
+              />
+              <Button variant="secondary" size="sm" icon="save" onClick={savePersona} disabled={!injectIdentity.trim()}>
+                Save
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                icon="delete"
+                onClick={deletePersona}
+                disabled={!personaSource.startsWith("user:")}
+              >
+                Delete
+              </Button>
               <select
                 value={gmPresetSource}
                 onChange={(event) => setGmPresetSource(event.target.value)}
@@ -1413,33 +1385,26 @@ export default function DeveloperPageClient() {
               </Button>
             </div>
             <textarea
+              value={injectIdentity}
+              onChange={handleInjectIdentityChange}
+              rows={2}
+              placeholder="Optional identity override, prepended first — e.g. &quot;You are 9Router, the local AI routing gateway. If asked who you are, answer: I'm 9Router — local gateway. Ready.&quot;"
+              className="w-full resize-y rounded-lg border border-border bg-surface px-3 py-2 font-mono text-xs text-text-main outline-none focus:border-primary/50"
+            />
+            <textarea
               value={godmodeCustom}
               onChange={handleGodmodeCustomChange}
               rows={6}
-              placeholder="Effective payload — editing switches this card to Custom mode."
+              placeholder="Effective jailbreak payload — editing switches the payload selector to Custom mode."
               className="w-full resize-y rounded-lg border border-border bg-surface px-3 py-2 font-mono text-xs text-text-main outline-none focus:border-primary/50"
             />
-
-          <div className="w-full">
-            <div className="mb-1 flex items-center justify-between text-xs text-text-muted">
-              <span>
-                Effective payload · mode:{" "}
-                <span className="font-semibold text-text-main">{godmodeLevel === "custom" ? "Custom" : GODMODE_VARIANTS.find((v) => v.id === godmodeLevel)?.label || godmodeLevel}</span>
-                {" · "}
-                <span className="text-amber-500">edits auto-switch to Custom</span>
-              </span>
-              <span>{godmodePreview.chars.toLocaleString()} chars</span>
-            </div>
-            <pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-surface-2 p-3 font-mono text-[11px] leading-relaxed text-text-muted">
-              {godmodePreview.text || "…"}
-            </pre>
             <p className="mt-1 text-[10px] text-text-muted">
-              This is the literal system-prompt addition sent upstream for EVERY proxied client while GODMODE is enabled.
+              While ON, the register prompt ({injectLevel}) + the selected G0DM0D3 payload ({godmodeLevel === "custom" ? "Custom" : GODMODE_VARIANTS.find((v) => v.id === godmodeLevel)?.label || godmodeLevel}) are appended to every proxied request — Hermes, CLI tools, all clients.
             </p>
-          </div>
           </>
         )}
       </div>
+
 
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-3">
         <label className="flex flex-col gap-1 text-xs text-text-muted">
@@ -1506,12 +1471,13 @@ export default function DeveloperPageClient() {
         <ToolkitClient setDraft={setDraft} />
       ) : mode === "transparency" ? (
         <TransparencyClient
-          godmodeEnabled={godmodeEnabled}
-          godmodeLevel={godmodeLevel}
-          godmodeCustom={godmodeCustom}
-          plinianEnabled={injectEnabled}
-          plinianLevel={injectLevel}
-          plinianIdentity={injectIdentity}
+          injection={{
+            enabled: injectEnabled,
+            level: injectLevel,
+            godmodeLevel: godmodeLevel,
+            godmodeCustom: godmodeCustom,
+            identity: injectIdentity,
+          }}
           providerGroups={providerGroups}
           systemPrompt={systemPrompt}
           setDraft={setDraft}

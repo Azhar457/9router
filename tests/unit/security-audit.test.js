@@ -293,3 +293,44 @@ describe("AUDIT-001: Synchronous restart guard", () => {
     expect(afterMax).toContain("mitmIsRestarting = false");
   });
 });
+
+// ============================================================
+// AUDIT-022: MCP custom plugin SSRF guard in cowork-settings
+// ============================================================
+describe("AUDIT-022: MCP custom plugin SSRF guard", () => {
+  it("buildCustomEntries should import assertPublicUrl and isLocalRequest", () => {
+    const source = fs.readFileSync(
+      srcPath("src", "app", "api", "cli-tools", "cowork-settings", "route.js"),
+      "utf-8"
+    );
+    expect(source).toContain('assertPublicUrl');
+    expect(source).toContain('isLocalRequest');
+  });
+
+  it("buildCustomEntries should pass request and filter remote callers via SSRF guard", () => {
+    const source = fs.readFileSync(
+      srcPath("src", "app", "api", "cli-tools", "cowork-settings", "route.js"),
+      "utf-8"
+    );
+    // Signature takes request as second arg
+    expect(source).toMatch(/const buildCustomEntries\s*=\s*\(customPlugins,\s*request\)/);
+    // Remote callers must go through assertPublicUrl
+    const funcStart = source.indexOf("const buildCustomEntries");
+    const funcEnd = source.indexOf("\n};", funcStart);
+    const funcBody = source.substring(funcStart, funcEnd);
+    expect(funcBody).toContain("assertPublicUrl");
+    // Local host is trusted for self-hosted MCP servers
+    expect(funcBody).toContain("isLocalRequest");
+  });
+
+  it("POST call-site should pass request into buildCustomEntries", () => {
+    const source = fs.readFileSync(
+      srcPath("src", "app", "api", "cli-tools", "cowork-settings", "route.js"),
+      "utf-8"
+    );
+    const postStart = source.indexOf("export async function POST");
+    const postBody = source.substring(postStart);
+    expect(postBody).toContain("buildCustomEntries(customPluginsArray, request)");
+  });
+});
+
