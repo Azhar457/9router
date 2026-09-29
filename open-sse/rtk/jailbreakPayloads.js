@@ -1,6 +1,6 @@
 // External jailbreak payload registry — ingests prompt files from the
-// AI-Jailbreaks and BlackFriday-GPTs-Prompts collections (same parent dir
-// as the 9router project) and registers them as pinned G0DM0D3 variants.
+// AI-Jailbreaks and BlackFriday-GPTs-Prompts collections and registers
+// them as pinned G0DM0D3 variants.
 //
 // Why file-based: the strong prompts from those collections are large
 // (8KB–70KB+) and model-specific (Opus-4.8, NYX multi-AI, Cronus, Bladwin,
@@ -8,18 +8,15 @@
 // bundle chunk that imports godmodePayloads.js. File reads happen once at
 // module load (sync, best-effort, fail-open) and are cached in memory.
 //
-// Resolution rules (same env knob for the whole registry):
-//   9ROUTER_JAILBREAK_DIR  → parent of this repo, default
-//                             "/mnt/data_d/Projects/special"
-//                            (i.e. the dir containing AI-Jailbreaks/ and
-//                            BlackFriday-GPTs-Prompts/)
-//   9ROUTER_JAILBREAK_DISABLE=1  → register nothing, registry stays empty
-//
-// Every registered variant gets a stable id:
-//   f:<collection>:<file>        e.g. "f:ai:opus-4.8" / "f:bf:un-ethical-ai"
-// The UI lists them under a "Files" group; pin by selecting the id in the
-// payload dropdown. pickGodmodeVariant routes certain model families to
-// specific file-based variants automatically (see the routing table below).
+// Resolution rules (checked in order, first hit wins):
+//   1. 9ROUTER_JAILBREAK_DIR env var → use that dir directly
+//   2. In-repo copy: <repo>/AI-Jailbreaks + <repo>/BlackFriday-GPTs-Prompts
+//      (shipped with the GitHub repo + npm tarball so f:* variants resolve
+//      out-of-the-box for everyone)
+//   3. Sibling dir: <repo>/../AI-Jailbreaks etc. (local dev layout where the
+//      collections live next to 9router/)
+//   9ROUTER_JAILBREAK_DISABLE=1 → register nothing, registry stays empty
+
 
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -28,9 +25,14 @@ import { fileURLToPath } from "node:url";
 const THIS_DIR = dirname(fileURLToPath(import.meta.url));
 // open-sse/rtk → open-sse → 9router → special
 const REPO_ROOT = join(THIS_DIR, "..", "..");
-const BASE_DIR =
-  process.env["9ROUTER_JAILBREAK_DIR"] ||
-  join(REPO_ROOT, "..");
+// In-repo copy takes priority; fall back to the sibling dir (local dev).
+// 9ROUTER_JAILBREAK_DIR overrides both.
+function resolveBaseDir() {
+  if (process.env["9ROUTER_JAILBREAK_DIR"]) return process.env["9ROUTER_JAILBREAK_DIR"];
+  if (existsSync(join(REPO_ROOT, "AI-Jailbreaks"))) return REPO_ROOT;
+  return join(REPO_ROOT, "..");
+}
+const BASE_DIR = resolveBaseDir();
 
 const COLLECTIONS = [
   {
