@@ -26,11 +26,17 @@ const THIS_DIR = dirname(fileURLToPath(import.meta.url));
 // open-sse/rtk → open-sse → 9router → special
 const REPO_ROOT = join(THIS_DIR, "..", "..");
 // In-repo copy takes priority; fall back to the sibling dir (local dev).
-// 9ROUTER_JAILBREAK_DIR overrides both.
+// 9ROUTER_JAILBREAK_DIR overrides both. When bundled (Next.js standalone),
+// import.meta.url points at the bundled chunk, so we walk up to find the
+// directory that actually contains AI-Jailbreaks/.
 function resolveBaseDir() {
   if (process.env["9ROUTER_JAILBREAK_DIR"]) return process.env["9ROUTER_JAILBREAK_DIR"];
-  if (existsSync(join(REPO_ROOT, "AI-Jailbreaks"))) return REPO_ROOT;
-  return join(REPO_ROOT, "..");
+  let dir = REPO_ROOT;
+  for (let i = 0; i < 5; i++) {
+    if (existsSync(join(dir, "AI-Jailbreaks"))) return dir;
+    dir = join(dir, "..");
+  }
+  return REPO_ROOT;
 }
 const BASE_DIR = resolveBaseDir();
 
