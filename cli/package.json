@@ -10,6 +10,8 @@
     "src",
     "hooks",
     "app",
+    "../AI-Jailbreaks",
+    "../BlackFriday-GPTs-Prompts",
     "README.md",
     "LICENSE"
   ],

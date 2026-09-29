@@ -321,6 +321,21 @@ function buildCliPackage() {
     console.log("⏭️  No updater files found\n");
   }
 
+  // Step 7c: Copy external jailbreak payload collections into the app dir.
+  // jailbreakPayloads.js resolves these via REPO_ROOT (= app dir at runtime
+  // after npm install -g), so they must ship inside the bundle.
+  console.log("7c️⃣  Copying jailbreak payload collections...");
+  for (const collName of ["AI-Jailbreaks", "BlackFriday-GPTs-Prompts"]) {
+    const collSrc = path.join(appDir, collName);
+    const collDest = path.join(cliAppDir, collName);
+    if (fs.existsSync(collSrc)) {
+      copyRecursive(collSrc, collDest);
+      console.log(`✅ Copied ${collName}`);
+    } else {
+      console.warn(`⚠️  ${collName} not found — f:* variants will fall back to classic`);
+    }
+  }
+
   // Step 8: Build MITM server (config driven - see app/cli/scripts/buildMitm.js)
   console.log("8️⃣  Building MITM server...");
   try {
