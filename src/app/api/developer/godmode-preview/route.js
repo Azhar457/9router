@@ -1,4 +1,5 @@
 import { getGodmodePrompt, pickGodmodeVariant } from "open-sse/rtk/godmodePayloads.js";
+import { estimateTokens, formatTok } from "open-sse/rtk/tokenEstimate.js";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +38,8 @@ export async function POST(request) {
     level: effectiveLevel,
     autoPicked: rawLevel === "classic" && !!model && effectiveLevel !== "classic",
     chars: text.length,
+    estTokens: estimateTokens(text),
+    estLabel: `≈${formatTok(estimateTokens(text))} tok`,
     text,
   });
 }

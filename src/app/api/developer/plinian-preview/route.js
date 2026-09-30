@@ -1,4 +1,5 @@
 import { getPlinianPrompt } from "open-sse/rtk/plinianPrompts.js";
+import { estimateTokens, formatTok } from "open-sse/rtk/tokenEstimate.js";
 
 export const dynamic = "force-dynamic";
 
@@ -24,5 +25,6 @@ export async function POST(request) {
    const base = preset ? getPlinianPrompt(level) : (registerCustom || getPlinianPrompt(level));
   const text = identity ? `${identity}\n\n${base}` : base;
 
+  return Response.json({ level, chars: text.length, estTokens: estimateTokens(text), estLabel: `≈${formatTok(estimateTokens(text))} tok`, text });
   return Response.json({ level, chars: text.length, text });
 }

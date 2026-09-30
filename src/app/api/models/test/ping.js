@@ -49,6 +49,10 @@ async function getInternalHeaders() {
   const headers = { "Content-Type": "application/json" };
   if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
   headers["x-9r-cli-token"] = await getConsistentMachineId(CLI_TOKEN_SALT);
+  // Probes must not ship the Global Injection payload — a "hi" ping that
+  // carries a 70KB G0DM0D3 system prompt burns tokens and trips 429s on
+  // rate-limited providers. The injection card is a chat-session feature.
+  headers["x-9router-inject"] = "off";
   return headers;
 }
 

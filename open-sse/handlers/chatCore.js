@@ -11,6 +11,7 @@ import { PROVIDERS } from "../config/providers.js";
 import { createErrorResult, parseUpstreamError, formatProviderError } from "../utils/error.js";
 import { upstreamResponseHeaders } from "../utils/upstreamHeaders.js";
 import { HTTP_STATUS, TOKEN_SAVER_HEADER } from "../config/runtimeConfig.js";
+import { INJECTION_OPTOUT_HEADER } from "../config/runtimeConfig.js";
 import { handleBypassRequest } from "../utils/bypassHandler.js";
 import { trackPendingRequest, appendRequestLog, saveRequestDetail } from "@/lib/usageDb.js";
 import { getExecutor } from "../executors/index.js";
@@ -25,6 +26,7 @@ import { takeRenamedToolNames } from "../utils/opencodeFingerprint.js";
 import { injectCaveman } from "../rtk/caveman.js";
 import { injectPonytail } from "../rtk/ponytail.js";
 import { injectGlobal } from "../rtk/globalInject.js";
+import { estimateGlobalInjection, formatTok } from "../rtk/tokenEstimate.js";
 import { formatRtkLog } from "../rtk/index.js";
 import { compressMessagesAuto } from "../rtk/sidecar.js";
 import { compressWithHeadroom, formatHeadroomLog, formatHeadroomSizeLog, isHeadroomPhantomSavings } from "../rtk/headroom.js";
@@ -121,6 +123,10 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
 
   // Per-request opt-out: client can bypass all token savers via header
   const tokenSaverEnabled = clientRawRequest?.headers?.[TOKEN_SAVER_HEADER]?.toLowerCase() !== "off";
+  // Internal probes opt out of payload injection (x-9router-inject: off) —
+  // a ping ships a "hi" probe, not the full G0DM0D3 payload. Regular chat
+  // is untouched.
+  const injectionOptedOut = clientRawRequest?.headers?.[INJECTION_OPTOUT_HEADER]?.toLowerCase() === "off";
 
   // Cursor's translator rewrites tool_result into user text, so RTK must run on
   // the source body before translation. Every other pair translates the tool
@@ -336,7 +342,10 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   // reason the user turned this card on, and silently dropping it when a
   // tool toggles the header off would produce a near-bypass-free response
   // that looks like "the injection didn't work".
-  if (injectionEnabled && (injectionRegisterLevel || injectionRegisterCustom || injectionGodmodeLevel)) {
+  // x-9router-inject: off (internal probes) suppresses the payload entirely;
+  // the token-saver opt-out above must NOT drop it — see the note on lines above.
+  const injectionActive = injectionEnabled && !injectionOptedOut && (injectionRegisterLevel || injectionRegisterCustom || injectionGodmodeLevel);
+  if (injectionActive) {
     injectGlobal(translatedBody, finalFormat, {
       enabled: true,
       registerLevel: injectionRegisterLevel,
@@ -346,9 +355,18 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
       godmodeCustom: injectionGodmodeCustom,
       model: upstreamModel,
     });
+    const est = estimateGlobalInjection({
+      registerLevel: injectionRegisterLevel,
+      registerCustom: injectionRegisterCustom,
+      identity: injectionIdentity,
+      godmodeLevel: injectionGodmodeLevel,
+      godmodeCustom: injectionGodmodeCustom,
+      model: upstreamModel,
+    });
     xf.push(
       `GLOBAL:${injectionRegisterLevel || "none"}+` +
-      `${injectionGodmodeLevel || "classic"}`
+      `${est.effectiveLevel}` +
+      ` (est ≈${formatTok(est.total)}tok · reg ${formatTok(est.register)} + payload ${formatTok(est.payload)})`
     );
   }
 

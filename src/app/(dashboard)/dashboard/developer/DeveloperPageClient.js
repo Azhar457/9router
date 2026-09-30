@@ -73,32 +73,57 @@ const INJECT_LEVELS = [
   { id: "ultra", label: "Ultra — draft, attack, repair" },
 ];
 
+const PAYLOAD_CATEGORIES_UI = [
+  { key: "coding",   label: "💻 Coding" },
+  { key: "pentest",  label: "🛡 Red-Team" },
+  { key: "creative", label: "✍️ Creative / RP" },
+  { key: "general",  label: "⚙ General" },
+];
+
 const GODMODE_VARIANTS = [
-  { id: "classic", label: "Classic — G0DM0D3 + depth directive" },
-  { id: "grok420", label: "Grok 4.20 — semantic inversion" },
-  { id: "geminiReset", label: "Gemini Reset — RESET_CORTEX / !OMNI" },
-  { id: "gptClassic", label: "GPT Classic — OG GODMODE format" },
-  { id: "claudeInversion", label: "Claude Inversion — END/START boundary" },
-  { id: "hermesFast", label: "Hermes Fast — instant stream, zero refusal check" },
-  { id: "adaptive", label: "Adaptive — register-stripping, no jailbreak structure" },
-  { id: "f:ai:opus-4.8", label: "📄 Opus 4.8 — PERMABANXD (AI-Jailbreaks)", new: true },
-  { id: "f:ai:claude-sonnet-4.6", label: "📄 Claude Sonnet 4.6 — x10n nullsec (AI-Jailbreaks)", new: true },
-  { id: "f:ai:antigravity-thinking", label: "📄 Antigravity Sonnet/Opus 4.6 thinking (AI-Jailbreaks)", new: true },
-  { id: "f:ai:lens-v2", label: "📄 LENS v2 (AI-Jailbreaks)", new: true },
-  { id: "f:ai:bladwin-claude", label: "📄 Bladwin Claude v67 (AI-Jailbreaks)", new: true },
-  { id: "f:ai:nyx-v4", label: "📄 NYX V4 multi-AI (AI-Jailbreaks)" },
-  { id: "f:ai:cronus", label: "📄 Cronus multi-AI (AI-Jailbreaks)" },
-  { id: "f:ai:bladwin-67", label: "📄 Bladwin 67 multi-AI (AI-Jailbreaks)" },
-  { id: "f:ai:potato", label: "📄 Potato multi-AI (AI-Jailbreaks)" },
-  { id: "f:ai:gpt-5.6-bladwin", label: "📄 GPT 5.6 — Bladwin v67 (AI-Jailbreaks)", new: true },
-  { id: "f:ai:grok-nyx", label: "📄 Grok — NYX instruction override (AI-Jailbreaks)" },
-  { id: "f:ai:glm-rage", label: "📄 GLM — RAGE v8.x (AI-Jailbreaks)" },
-  { id: "f:ai:deepseek-gothbreach", label: "📄 DeepSeek — Gothbreach (AI-Jailbreaks)" },
-  { id: "f:bf:un-ethical-ai", label: "📄 BlackFriday — DarkGPT un-ethical AI" },
-  { id: "f:bf:manipulation-dan-v13", label: "📄 BlackFriday — Manipulation GPT × DAN v13" },
-  { id: "f:bf:dev-mode", label: "📄 BlackFriday — ChatGPT Dev Mode" },
-  { id: "VEIL", label: "VEIL" },
-  { id: "custom", label: "Custom — your own payload" },
+  // ── Coding ─────────────────────────────────────────────────────
+  { id: "f:ai:gpt-5.6-bladwin", label: "📄 GPT 5.6 — Bladwin v67 (AI-Jailbreaks)", cat: "coding", new: true },
+  { id: "f:bf:dev-mode",        label: "📄 BlackFriday — ChatGPT Dev Mode", cat: "coding" },
+  { id: "f:bf:coding-jailbreak", label: "📄 BlackFriday — Coding Generator JB70", cat: "coding" },
+  { id: "f:bf:codemaster-jailbreak", label: "📄 BlackFriday — CodeMaster JB", cat: "coding" },
+  // ── Red-Team ───────────────────────────────────────────────────
+  { id: "classic",           label: "Classic — G0DM0D3 + depth directive", cat: "pentest" },
+  { id: "grok420",           label: "Grok 4.20 — semantic inversion", cat: "pentest" },
+  { id: "geminiReset",       label: "Gemini Reset — RESET_CORTEX / !OMNI", cat: "pentest" },
+  { id: "gptClassic",        label: "GPT Classic — OG GODMODE format", cat: "pentest" },
+  { id: "claudeInversion",   label: "Claude Inversion — END/START boundary", cat: "pentest" },
+  { id: "hermesFast",        label: "Hermes Fast — instant stream, zero refusal check", cat: "pentest" },
+  { id: "adaptive",          label: "Adaptive — register-stripping, no jailbreak structure", cat: "pentest" },
+  { id: "f:ai:nyx-v4",            label: "📄 NYX V4 multi-AI (AI-Jailbreaks)", cat: "pentest" },
+  { id: "f:ai:cronus",            label: "📄 Cronus multi-AI (AI-Jailbreaks)", cat: "pentest" },
+  { id: "f:ai:bladwin-67",        label: "📄 Bladwin 67 multi-AI (AI-Jailbreaks)", cat: "pentest" },
+  { id: "f:ai:potato",            label: "📄 Potato multi-AI (AI-Jailbreaks)", cat: "pentest" },
+  { id: "f:ai:opus-4.8",          label: "📄 Opus 4.8 — PERMABANXD (AI-Jailbreaks)", cat: "pentest", new: true },
+  { id: "f:ai:claude-sonnet-4.6", label: "📄 Claude Sonnet 4.6 — x10n nullsec (AI-Jailbreaks)", cat: "pentest", new: true },
+  { id: "f:ai:antigravity-thinking", label: "📄 Antigravity Sonnet/Opus 4.6 thinking (AI-Jailbreaks)", cat: "pentest", new: true },
+  { id: "f:ai:lens-v2",           label: "📄 LENS v2 (AI-Jailbreaks)", cat: "pentest", new: true },
+  { id: "f:ai:bladwin-claude",    label: "📄 Bladwin Claude v67 (AI-Jailbreaks)", cat: "pentest", new: true },
+  { id: "f:ai:claude-potato",     label: "📄 Claude — Potato (AI-Jailbreaks)", cat: "pentest", new: true },
+  { id: "f:ai:grok-nyx",          label: "📄 Grok — NYX instruction override (AI-Jailbreaks)", cat: "pentest" },
+  { id: "f:ai:glm-rage",          label: "📄 GLM — RAGE v8.x (AI-Jailbreaks)", cat: "pentest" },
+  { id: "f:ai:deepseek-gothbreach", label: "📄 DeepSeek — Gothbreach (AI-Jailbreaks)", cat: "pentest" },
+  { id: "f:ai:deepseek1",         label: "📄 DeepSeek — Gothbreach v2 (AI-Jailbreaks)", cat: "pentest", new: true },
+  { id: "f:ai:kimi-k2.6-instant", label: "📄 Kimi K2.6 Instant (AI-Jailbreaks)", cat: "pentest", new: true },
+  { id: "f:ai:opencode-nyx",     label: "📄 OpenCode — NYX V4 (AI-Jailbreaks)", cat: "pentest", new: true },
+  { id: "f:bf:un-ethical-ai",    label: "📄 BlackFriday — DarkGPT un-ethical AI", cat: "pentest" },
+  { id: "f:bf:manipulation-dan-v13", label: "📄 BlackFriday — Manipulation GPT × DAN v13", cat: "pentest" },
+  { id: "f:bf:blackhat-programmer", label: "📄 BlackFriday — Blackhat Programmer", cat: "pentest", new: true },
+  { id: "f:bf:blackhat-hacker",     label: "📄 BlackFriday — Blackhat Hacker", cat: "pentest", new: true },
+  { id: "f:bf:unlimited-hacking",   label: "📄 BlackFriday — Unlimited Hacking AI", cat: "pentest", new: true },
+  { id: "f:bf:ultimate-hacking",    label: "📄 BlackFriday — Ultimate Hacking AI", cat: "pentest", new: true },
+  // ── Creative / RP ──────────────────────────────────────────────
+  { id: "f:ai:gemini-3.5-flash-lite", label: "📄 Gemini 3.5 Flash Lite — ENI RP (AI-Jailbreaks)", cat: "creative", new: true },
+  // (nsfw roleplay variants removed — focus is attacking / building / pentest)
+  // ── General / other ────────────────────────────────────────────
+  { id: "VEIL",    label: "VEIL", cat: "general" },
+  { id: "f:ai:mistral",              label: "📄 Mistral (AI-Jailbreaks)", cat: "general", new: true },
+  { id: "f:ai:qwen-3.8-max-preview", label: "📄 Qwen 3.8 Max Preview (AI-Jailbreaks)", cat: "general", new: true },
+  { id: "custom",  label: "Custom — your own payload", cat: "general" },
 ];
 
 function safeParse(value, fallback) {
@@ -333,10 +358,10 @@ export default function DeveloperPageClient() {
   const [injectEnabled, setInjectEnabled] = useState(false);
   const [injectLevel, setInjectLevel] = useState("standard");
   const [injectIdentity, setInjectIdentity] = useState("");
-  const [injectPreview, setInjectPreview] = useState({ chars: 0, text: "" });
+  const [injectPreview, setInjectPreview] = useState({ chars: 0, estTokens: 0, text: "" });
   const [godmodeLevel, setGodmodeLevel] = useState("classic");
   const [godmodeCustom, setGodmodeCustom] = useState("");
-  const [godmodePreview, setGodmodePreview] = useState({ chars: 0, text: "" });
+  const [godmodePreview, setGodmodePreview] = useState({ chars: 0, estTokens: 0, text: "" });
   const [savedGodmodePresets, setSavedGodmodePresets] = useState({});
   const [gmPresetSource, setGmPresetSource] = useState("");
   const [gmPresetName, setGmPresetName] = useState("");
@@ -491,10 +516,10 @@ export default function DeveloperPageClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ level }),
       });
-      const data = await res.json();
       if (data?.text) {
         setGodmodeCustom(data.text);
         if (level === "custom") patchSetting({ injectionGodmodeCustom: data.text || "" });
+        setGodmodePreview({ chars: data.chars || data.text.length, estTokens: data.estTokens || 0, text: data.text });
       }
     } catch {}
   }
@@ -640,7 +665,7 @@ export default function DeveloperPageClient() {
         body: JSON.stringify({ level: godmodeLevel, custom: godmodeCustom }),
       })
         .then((r) => r.json())
-        .then((d) => { if (!cancelled && d?.text) setGodmodePreview({ chars: d.chars || d.text.length, text: d.text }); })
+        .then((d) => { if (!cancelled && d?.text) setGodmodePreview({ chars: d.chars || d.text.length, estTokens: d.estTokens || 0, text: d.text }); })
         .catch(() => {});
     }, 250);
     return () => { cancelled = true; clearTimeout(t); };
@@ -1444,20 +1469,19 @@ export default function DeveloperPageClient() {
                   onChange={(event) => changeGodmodeVariant(event.target.value)}
                   className="h-8 min-w-[280px] rounded-lg border border-border bg-surface px-2 text-xs text-text-main"
                 >
-                  <optgroup label="Built-in variants">
-                    {GODMODE_VARIANTS.filter((v) => !v.id.startsWith("f:")).map((variant) => (
-                      <option key={variant.id} value={variant.id}>
-                        {variant.label}{variant.new ? " 🆕 new" : ""}
-                      </option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="📄 File payloads (AI-Jailbreaks / BlackFriday)">
-                    {GODMODE_VARIANTS.filter((v) => v.id.startsWith("f:")).map((variant) => (
-                      <option key={variant.id} value={variant.id}>
-                        {variant.label}{variant.new ? " 🆕 new" : ""}
-                      </option>
-                    ))}
-                  </optgroup>
+                  {PAYLOAD_CATEGORIES_UI.map((cat) => {
+                    const items = GODMODE_VARIANTS.filter((v) => v.cat === cat.key);
+                    if (!items.length) return null;
+                    return (
+                      <optgroup key={cat.key} label={cat.label}>
+                        {items.map((variant) => (
+                          <option key={variant.id} value={variant.id}>
+                            {variant.label}{variant.new ? " 🆕 new" : ""}
+                          </option>
+                        ))}
+                      </optgroup>
+                    );
+                  })}
                 </select>
                 <select
                   value={gmPresetSource}
@@ -1506,7 +1530,7 @@ export default function DeveloperPageClient() {
               />
               <p className="text-[10px] text-text-muted">
                 Effective payload: <span className="font-semibold text-text-main">{godmodeLevel === "custom" ? "Custom" : GODMODE_VARIANTS.find((v) => v.id === godmodeLevel)?.label || godmodeLevel}</span>{GODMODE_VARIANTS.find((v) => v.id === godmodeLevel)?.new && <span className="ml-1 text-primary">🆕 new</span>}
-                {" · "}{godmodePreview.chars.toLocaleString()} chars
+                {" · "}{godmodePreview.chars.toLocaleString()} chars{godmodePreview.estTokens ? ` · ≈${(godmodePreview.estTokens >= 1000 ? (godmodePreview.estTokens / 1000).toFixed(1) + "k" : godmodePreview.estTokens)} tok` : ""}
               </p>
             </div>
 
@@ -1579,7 +1603,7 @@ export default function DeveloperPageClient() {
             <div className="rounded-lg border border-border bg-surface-2/50 p-2">
               <div className="mb-1 flex items-center justify-between text-[10px] text-text-muted">
                 <span className="font-semibold text-text-main">Outbound system (what ships, in order)</span>
-                <span>register {(registerCustom.trim() ? registerCustom.length : (injectPreview.chars || 0)).toLocaleString()} + payload {(godmodePreview.chars || 0).toLocaleString()} chars</span>
+                <span>register {(registerCustom.trim() ? registerCustom.length : (injectPreview.chars || 0)).toLocaleString()} + payload {(godmodePreview.chars || 0).toLocaleString()} chars · ≈{Math.round((registerCustom.trim() ? registerCustom.length : (injectPreview.chars || 0)) / 4 + (godmodePreview.chars || 0) / 4) >= 1000 ? `${(Math.round((registerCustom.trim() ? registerCustom.length : (injectPreview.chars || 0)) / 4 + (godmodePreview.chars || 0) / 4) / 1000).toFixed(1)}k` : Math.round((registerCustom.trim() ? registerCustom.length : (injectPreview.chars || 0)) / 4 + (godmodePreview.chars || 0) / 4)} tok (aggregate est)</span>
               </div>
               <ol className="space-y-0.5 text-[10px] text-text-muted">
                 <li>

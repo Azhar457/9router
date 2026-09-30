@@ -1,5 +1,6 @@
 // RTK port: compress tool_result content in LLM request bodies
 // Applied in chatCore on the source-format body, before translateRequest.
+export { estimateTokens, formatTok, estimateGlobalInjection } from "./tokenEstimate.js";
 import { RAW_CAP, MIN_COMPRESS_SIZE } from "./constants.js";
 import { autoDetectFilter } from "./autodetect.js";
 import { safeApply } from "./applyFilter.js";

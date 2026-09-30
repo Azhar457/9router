@@ -68,6 +68,11 @@ export const DEFAULT_MAX_TOKENS = 64000;
 export const DEFAULT_MIN_TOKENS = 32000;
 
 export const TOKEN_SAVER_HEADER = "x-9router-token-saver";
+// Internal probes (model test pings, free-combo bench) set this to keep the
+// payload cost out of the probe — a "hi" ping should not ship a 70KB G0DM0D3
+// payload just to find out the connection works. Regular chat is unaffected.
+export const INJECTION_OPTOUT_HEADER = "x-9router-inject";
+
 
 // Retry config for 429 responses (legacy - kept for backward compatibility)
 export const RETRY_CONFIG = {

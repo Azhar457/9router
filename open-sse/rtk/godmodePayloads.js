@@ -704,7 +704,12 @@ Think in your reasoning block. Deliver the answer directly.`;
 // and routed to automatically by the model-family entries below when the
 // file registry is populated (fail-open: if the dir is missing, these
 // routes fall through to the inline variants).
-import { getExternalPayload, getExternalPayloads } from "./jailbreakPayloads.js";
+// File-based external payloads (AI-Jailbreaks / BlackFriday collections).
+// Each is a pinned variant id "f:<prefix>:<id>" — selectable in the UI,
+// and routed to automatically by the model-family entries below when the
+// file registry is populated (fail-open: if the dir is missing, these
+// routes fall through to the inline variants).
+import { getExternalPayload, getExternalPayloads, PAYLOAD_CATEGORIES } from "./jailbreakPayloads.js";
 
 const EXTERNAL_VARIANTS = {};
 for (const { id } of getExternalPayloads()) EXTERNAL_VARIANTS[id] = () => getExternalPayload(id);
@@ -737,7 +742,19 @@ const MODEL_VARIANT_MAP = [
   { pattern: /(^openai\/|^gpt)/i, variant: "gptClassic" },
 ];
 
-// Map internal variant IDs to their payload strings.
+// Category labels for built-in variants (no file → no registry entry).
+// f:* ids pull their category from the registry at render time.
+export const BUILTIN_VARIANT_CATEGORIES = {
+  classic: "pentest", grok420: "pentest", geminiReset: "pentest",
+  gptClassic: "pentest", claudeInversion: "pentest", hermesFast: "pentest",
+  adaptive: "pentest", VEIL: "general", custom: "general",
+};
+export function getVariantCategory(id) {
+  const external = getExternalPayloads().find((p) => p.id === id);
+  if (external) return external.cat || "general";
+  return BUILTIN_VARIANT_CATEGORIES[id] || "general";
+}
+
 // "adaptive" is a special internal ID that maps to VARIANT_ADAPTIVE_THINKING.
 // File-based ids (f:*) resolve lazily via getExternalPayload.
 const VARIANT_ID_TO_PAYLOAD = {

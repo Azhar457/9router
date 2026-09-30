@@ -1,6 +1,12 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## Direction & current focus (2026-09)
+
+Read this first — it overrides default priorities:
+
+- **Go migration**: the entry layer is already Go (`go/` reverse proxy owns the public port — client-IP stamping, TTFB log, RTK sidecar; `RTK_BACKEND=go`). App logic stays in Next.js for now. Direction: move more of the hot request path (v1 lane, executors, translators) into Go; keep the Next dashboard. New performance-sensitive work SHOULD land behind the Go proxy where it fits, not in new JS hot paths.
+- **Jailbreak payload curation**: active work — sorting `AI-Jailbreaks/` + `BlackFriday-GPTs-Prompts/` payloads by validity per model family (which payloads actually land on which model, model-aware routing in `open-sse/rtk/godmodePayloads.js` `MODEL_VARIANT_MAP`). Payload files are the asset being curated; treat payload effectiveness data as first-class when touching them.
+- **Token-cost visibility**: steering/jailbreak payloads are expensive (8KB–70KB). Estimates surface via `open-sse/rtk/tokenEstimate.js` (aggregate ≈ chars/4, marked "est" — tokenizers differ per model, so per-payload numbers are approximate). New payload/steering features MUST surface their token cost, not just char count.
 
 ## What this is
 
@@ -40,8 +46,7 @@ npx vitest run unit/capabilities.test.js   # single file (path relative to tests
 ```
 > The committed `tests/package.json` `test` script hardcodes Unix paths (`NODE_PATH=/tmp/node_modules …`) — a shared-install workaround from upstream. On Windows (or anywhere), ignore it and use the `npx vitest` form above; `vitest.config.js` resolves the `open-sse`/`@/` aliases from the repo root regardless of where vitest lives.
 >
-> **The suite is NOT expected to be all-green on a plain checkout.** ~938 pass, ~64 fail. Judge regressions with `tests/__baseline__/verify-no-regression.mjs`, not a raw run. Expected red:
-> - 26 catalogued in `tests/__baseline__/known-fails.txt` (rtk, oauth-cursor-auto-import, translator-request-normalization, …).
+> **Suite is expected GREEN on a plain checkout** (as of the 0.5.60 fork sync, `tests/__baseline__/known-fails.txt` is empty — every upstream known-fail was either fixed or its test rewritten). Judge regressions with `tests/__baseline__/verify-no-regression.mjs`, not a raw run. Known expected-red, kept out of the gate:
 > - `unit/embeddings.cloud.test.js` imports `cloud/src/handlers/embeddings.js` — the `cloud/` worker dir is **not in this repo**, so it always fails here.
 > - `unit/xai-oauth-service.test.js` times out (5s) when the xAI endpoint-discovery fetch isn't reachable/mocked.
 > - `real/*.real.test.js` make live provider calls — need credentials, skip otherwise.
