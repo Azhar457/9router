@@ -377,6 +377,12 @@ export default function DeveloperPageClient() {
   const [carrierLevel, setCarrierLevel] = useState("");
   const [carrierCustom, setCarrierCustom] = useState("");
   const [carrierPreview, setCarrierPreview] = useState({ chars: 0, estTokens: 0, spliced: false, text: "" });
+  // Payload sort — "default" keeps the optgroup order; other options sort
+  // by metadata from payloadCatalog.js (carriers first, current-gen first,
+  // smallest first). Per-model ranking is not yet useful (modelFamilies is
+  // empty for f:ai:* payloads).
+  const [payloadSort, setPayloadSort] = useState("default");
+  const [payloadCatalog, setPayloadCatalog] = useState(null);
   const [savedPersonas, setSavedPersonas] = useState({});
   const [personaSource, setPersonaSource] = useState("");
   const [personaName, setPersonaName] = useState("");
@@ -445,6 +451,17 @@ export default function DeveloperPageClient() {
       cancelled = true;
     };
   }, []);
+  // Load the payload catalog once so sort metadata (sizeChars, isCarrier,
+  // effectiveness) is available to reorder the variant lists.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/developer/payload-catalog", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => { if (!cancelled && d?.catalog) setPayloadCatalog(d.catalog); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
 
   async function patchSetting(patch) {
     try {
@@ -538,6 +555,51 @@ export default function DeveloperPageClient() {
       }
     } catch {}
   }
+  // Reorder payload variants by sort key using the catalog metadata.
+  // "default" preserves the original optgroup order; the others sort by
+  // metadata so carriers / current-gen / smallest surface first.
+  const SORT_KEYS = [
+    { id: "default",  label: "Default" },
+    { id: "carrier",  label: "Carriers first" },
+    { id: "relevance", label: "Relevance (current-gen first, small first)" },
+    { id: "size-asc", label: "Smallest first" },
+    { id: "size-desc", label: "Largest first" },
+  ];
+
+  function sortVariants(items) {
+    if (!payloadCatalog || payloadSort === "default") return items;
+    const meta = new Map(payloadCatalog.map((row) => [row.id, row]));
+    const copy = [...items];
+    const lookup = (v) => meta.get(v.id) || { sizeChars: 0, isCarrier: false, hasBuiltInCarrier: false, effectiveness: "current" };
+    switch (payloadSort) {
+      case "carrier":
+        copy.sort((a, b) => {
+          const ca = lookup(a).isCarrier || lookup(a).hasBuiltInCarrier ? 0 : 1;
+          const cb = lookup(b).isCarrier || lookup(b).hasBuiltInCarrier ? 0 : 1;
+          return ca - cb || a.label.localeCompare(b.label);
+        });
+        break;
+      case "relevance":
+        copy.sort((a, b) => {
+          const la = lookup(a), lb = lookup(b);
+          const current = (r) => (r.effectiveness === "current" ? 0 : 1);
+          const diff = current(la) - current(lb);
+          if (diff) return diff;
+          return la.sizeChars - lb.sizeChars;
+        });
+        break;
+      case "size-asc":
+        copy.sort((a, b) => lookup(a).sizeChars - lookup(b).sizeChars);
+        break;
+      case "size-desc":
+        copy.sort((a, b) => lookup(b).sizeChars - lookup(a).sizeChars);
+        break;
+      default:
+        break;
+    }
+    return copy;
+  }
+
 
   // ── Carrier (optional column) handlers ─────────────────────────
   function toggleCarrierEnabled(value) {
@@ -554,11 +616,34 @@ export default function DeveloperPageClient() {
   ];
 
 
+  // Track whether the carrier text has been hand-edited past its preset —
+  // so switching presets does not silently clobber the user's edits.
+  const carrierEditedRef = useRef(false);
+
   async function changeCarrierVariant(level) {
     setCarrierLevel(level);
+    if (level === "custom" || !level) {
+      // custom / off: don't clobber existing text; off clears
+      if (!level) {
+        setCarrierCustom("");
+        patchSetting({ injectionCarrierLevel: "", injectionCarrierCustom: "" });
+        setCarrierPreview({ chars: 0, estTokens: 0, spliced: false, text: "" });
+      }
+      carrierEditedRef.current = level === "custom";
+      return;
+    }
+    // Guard: refuse to overwrite a hand-edited carrier text.
+    if (carrierEditedRef.current && carrierCustom.trim()) {
+      if (globalThis.confirm?.(`Carrier text has been hand-edited. Replace it with the "${level}" preset?`)) {
+        carrierEditedRef.current = false;
+      } else {
+        setCarrierLevel("custom");
+        return;
+      }
+    }
+    carrierEditedRef.current = false;
     setCarrierCustom("");
     patchSetting({ injectionCarrierLevel: level, injectionCarrierCustom: "" });
-    if (!level) { setCarrierPreview({ chars: 0, estTokens: 0, spliced: false, text: "" }); return; }
     try {
       const res = await fetch("/api/developer/carrier-preview", {
         method: "POST",
@@ -578,9 +663,13 @@ export default function DeveloperPageClient() {
   function handleCarrierCustomChange(event) {
     const value = event.target.value;
     setCarrierCustom(value);
+    // First manual edit to the carrier text flips it into "custom" mode —
+    // any subsequent preset switch will prompt before clobbering it.
+    carrierEditedRef.current = true;
+    if (carrierLevel !== "custom" && value.trim()) setCarrierLevel("custom");
     clearTimeout(carrierSaveTimerRef.current);
     carrierSaveTimerRef.current = setTimeout(() => {
-      patchSetting({ injectionCarrierCustom: value });
+      patchSetting({ injectionCarrierCustom: value, injectionCarrierLevel: carrierLevel === "custom" ? "custom" : carrierLevel });
     }, 600);
   }
 
@@ -1526,12 +1615,22 @@ export default function DeveloperPageClient() {
               <div className="flex flex-wrap items-center gap-2">
                 <span className="w-24 text-[11px] font-semibold uppercase tracking-wide text-text-muted">Payload</span>
                 <select
+                  value={payloadSort}
+                  onChange={(event) => setPayloadSort(event.target.value)}
+                  title="Reorder payload list by catalog metadata"
+                  className="h-8 rounded-lg border border-border bg-surface px-2 text-xs text-text-main"
+                >
+                  {SORT_KEYS.map((key) => (
+                    <option key={key.id} value={key.id}>{key.label}</option>
+                  ))}
+                </select>
+                <select
                   value={godmodeLevel}
                   onChange={(event) => changeGodmodeVariant(event.target.value)}
                   className="h-8 min-w-[280px] rounded-lg border border-border bg-surface px-2 text-xs text-text-main"
                 >
                   {PAYLOAD_CATEGORIES_UI.map((cat) => {
-                    const items = GODMODE_VARIANTS.filter((v) => v.cat === cat.key);
+                    const items = sortVariants(GODMODE_VARIANTS.filter((v) => v.cat === cat.key));
                     if (!items.length) return null;
                     return (
                       <optgroup key={cat.key} label={cat.label}>
