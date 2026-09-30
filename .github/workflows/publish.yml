@@ -6,16 +6,22 @@ on:
       - "v*"
   workflow_dispatch:
 
-# npm trusted publishing (OIDC): no npm token is stored in the repo.
-# The connection (Azhar457/9router + publish.yml + environment "npm") is
-# configured once on npmjs.com and cannot be edited after creation.
+# Dual-use policy (npm): 9router-plinian ships red-team payload collections +
+# a postinstall runtime warmer. Since the 2026-07-28 publish-time scanning,
+# a package declaring `contentPolicy: { class: "dual-use" }` may ONLY be
+# promoted to live via a 2FA-gated staged publish. Direct OIDC `npm publish`
+# is rejected; we therefore stage here and a human approves with 2FA on HP.
+#
+# Trusted publishing (OIDC) still handles the STAGING step — no npm token
+# stored in the repo. The connection (Azhar457/9router + publish.yml +
+# environment "npm") is configured once on npmjs.com.
 concurrency:
   group: npm-publish-${{ github.repository }}
   cancel-in-progress: false
 
 permissions:
   contents: read
-  id-token: write # OIDC token for npm publish
+  id-token: write # OIDC token for npm stage publish
 
 jobs:
   publish:
@@ -38,11 +44,20 @@ jobs:
       - name: Install CLI dependencies
         run: npm install --prefix cli
 
-      # Trusted publishing needs npm >= 11.5.1 for the OIDC flow
+      # Trusted publishing needs npm >= 11.5.1 for the OIDC flow;
+      # `npm stage publish` needs npm >= 11.3.
       - name: Update npm
         run: npm install -g npm@latest
 
-      - name: Build and publish
+      - name: Stage the publish (await 2FA approval)
         run: npm run cli:publish
         env:
-          NODE_AUTH_TOKEN: "" # empty on purpose — OIDC authenticates instead
+          NODE_AUTH_TOKEN: "" # empty on purpose — OIDC authenticates the stage
+
+      - name: Print next-step reminder
+        if: always()
+        run: |
+          echo "::notice::9router-plinian staged via OIDC. A human with 2FA must run:"
+          echo "::notice::    npm stage list 9router-plinian"
+          echo "::notice::    npm stage approve <stage-id>"
+          echo "::notice::  (npmjs.com → package → Staged queue → Approve also works)"

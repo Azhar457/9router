@@ -1,0 +1,44 @@
+# DISCLOSURE — 9router-plinian
+
+## What this package is
+
+`9router-plinian` is a local AI routing gateway and CLI. It proxies requests to 40+
+upstream LLM providers (OpenAI-compatible, Anthropic, Gemini, etc.) and bundles a
+dashboard for managing provider credentials, model-combo fallback, quota/usage
+tracking, and OAuth/API-key rotation.
+
+## Dual-use content
+
+The package ships a **Red-Team Toolkit** — a curated set of public jailbreak /
+prompt-attack payload collections (`AI-Jailbreaks`, `BlackFriday-GPTs-Prompts`)
+used for **security research and red-team practice against LLM systems**. These
+payloads:
+
+- Are public, community-collected prompts (demonstrations of LLM jailbreak
+  techniques), not novel exploit code.
+- Target the LLM's *instruction layer* (system prompts / register shaping), not
+  the underlying operating system, network, or other users' data.
+- Are opt-in: the payload registry can be disabled with `9ROUTER_JAILBREAK_DISABLE=1`,
+  and a slim build (no collections) is available via `9ROUTER_SKIP_JAILBREAK=1`.
+
+## Intended legitimate use
+
+Security researchers, LLM red-teamers, and model developers who test the
+robustness of language models against prompt-injection / jailbreak attacks.
+The payloads let them enumerate, stage, and evaluate which system-prompt
+registrations survive a given model family, without hand-authoring each attack.
+
+## Lifecycle scripts
+
+The `postinstall` hook (`hooks/postinstall.js`) warms up optional SQLite /
+tray runtime dependencies into `~/.9router/runtime` so the first CLI start does
+not need network. It is **fail-open** — on any error it logs a warning and exits
+0; it never blocks install. No code is downloaded from an arbitrary host; the
+runtime deps come from the pinned npm packages already declared in
+`dependencies`.
+
+## Declaration
+
+This package declares `contentPolicy: { class: "dual-use" }` per the npm
+Dual-Use Content Policy (docs.npmjs.com/policies/dual-use). Publishing is
+staged + 2FA-approved as required for dual-use content.

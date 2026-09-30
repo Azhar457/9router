@@ -324,15 +324,27 @@ function buildCliPackage() {
   // Step 7c: Copy external jailbreak payload collections into the app dir.
   // jailbreakPayloads.js resolves these via REPO_ROOT (= app dir at runtime
   // after npm install -g), so they must ship inside the bundle.
-  console.log("7c️⃣  Copying jailbreak payload collections...");
-  for (const collName of ["AI-Jailbreaks", "BlackFriday-GPTs-Prompts"]) {
-    const collSrc = path.join(appDir, collName);
-    const collDest = path.join(cliAppDir, collName);
-    if (fs.existsSync(collSrc)) {
-      copyRecursive(collSrc, collDest);
-      console.log(`✅ Copied ${collName}`);
-    } else {
-      console.warn(`⚠️  ${collName} not found — f:* variants will fall back to classic`);
+  //
+  // The collections default to ON. A full run of `npm run build` bloats the
+  // tarball from ~3.4MB to ~31MB (8.7k payload files, mostly BlackFriday
+  // deprecated-prompt) and is the likely trigger for npm's automated
+  // security review flagging the version. Set 9ROUTER_SKIP_JAILBREAK=1 to
+  // produce a slim, review-friendly tarball for the publish path; the f:*
+  // payload variants will fail-open to the classic payload at runtime.
+  const skipJailbreak = process.env["9ROUTER_SKIP_JAILBREAK"] === "1";
+  if (skipJailbreak) {
+    console.warn("7c⃣  9ROUTER_SKIP_JAILBREAK=1 — skipping payload collections (slim tarball)");
+  } else {
+    console.log("7c⃣  Copying jailbreak payload collections...");
+    for (const collName of ["AI-Jailbreaks", "BlackFriday-GPTs-Prompts"]) {
+      const collSrc = path.join(appDir, collName);
+      const collDest = path.join(cliAppDir, collName);
+      if (fs.existsSync(collSrc)) {
+        copyRecursive(collSrc, collDest);
+        console.log(`✅ Copied ${collName}`);
+      } else {
+        console.warn(`⚠️  ${collName} not found — f:* variants will fall back to classic`);
+      }
     }
   }
 

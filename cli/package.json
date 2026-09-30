@@ -10,6 +10,7 @@
     "src",
     "hooks",
     "app",
+    "DISCLOSURE",
     "../AI-Jailbreaks",
     "../BlackFriday-GPTs-Prompts",
     "README.md",
@@ -20,7 +21,8 @@
     "build": "node scripts/build-cli.js",
     "build:tray-arm64": "node scripts/buildTrayArm64.js",
     "pack:cli": "npm run build && npm pack --pack-destination ..",
-    "publish:cli": "npm run build && npm publish",
+    "publish:cli": "npm run build && npm stage publish",
+    "publish:direct": "npm run build && npm publish",
     "postinstall": "node hooks/postinstall.js",
     "prepublishOnly": "npm run build"
   },
@@ -53,5 +55,9 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/Azhar457/9router.git"
+  },
+
+  "contentPolicy": {
+    "class": "dual-use"
   }
 }
