@@ -18,6 +18,13 @@
 - **`/v1/models/image`** learns custom-node `serviceKinds` — image models of custom nodes are listed (chat-type nodes still expose `llm`).
 - **Header breadcrumb** resolves custom node names instead of raw node ids (no more broken provider icon).
 
+# v0.5.94 (2026-09-30)
+
+## Payloads
+- **Collections shipped in-repo**: `AI-Jailbreaks/` + `BlackFriday-GPTs-Prompts/` moved into the repository and included in the npm package `files` list — installed users get the 16 variants without cloning sibling repos.
+- **Bundle copy step**: build copies payload collections into the CLI bundle.
+- **Walk-up resolver**: jailbreak registry walks up from the bundled chunk to find in-repo collections (source and packaged layouts both resolve).
+
 # v0.5.93 (2026-09-30)
 
 ## Global Injection (developer card)
