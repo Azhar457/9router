@@ -29,8 +29,10 @@ jobs:
           node-version: 24
           registry-url: https://registry.npmjs.org
 
+      # package-lock.json is intentionally gitignored in this repo (.gitignore:63),
+      # so npm ci is not an option here.
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       # Trusted publishing needs npm >= 11.5.1 for the OIDC flow
       - name: Update npm
