@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -120,5 +121,46 @@ func TestV1StreamsRunConcurrently(t *testing.T) {
 	close(errs)
 	for err := range errs {
 		t.Error(err)
+	}
+}
+
+func TestRTKEndpoint(t *testing.T) {
+	payload := `{"messages":[{"role":"tool","content":"` +
+		strings.Repeat("commit abc1234\\nAuthor: a\\n", 40) + `"}]}`
+
+	// Non-loopback → 403
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/-/rtk/compress", strings.NewReader(payload))
+	rtkHandler(rec, req)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("non-loopback: got %d want 403", rec.Code)
+	}
+
+	// Loopback → 200 with body + stats envelope
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/-/rtk/compress", strings.NewReader(payload))
+	req.RemoteAddr = "127.0.0.1:54321"
+	rtkHandler(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("loopback: got %d %s", rec.Code, rec.Body.String())
+	}
+	var resp struct {
+		Body  json.RawMessage `json:"body"`
+		Stats json.RawMessage `json:"stats"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("bad response: %v", err)
+	}
+	if len(resp.Body) == 0 {
+		t.Fatal("empty body in response")
+	}
+
+	// Method guard
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/-/rtk/compress", nil)
+	req.RemoteAddr = "127.0.0.1:1"
+	rtkHandler(rec, req)
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("GET: got %d want 405", rec.Code)
 	}
 }

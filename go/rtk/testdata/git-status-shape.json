@@ -1,0 +1,36 @@
+{
+ "name": "git-status-shape",
+ "input": {
+  "messages": [
+   {
+    "role": "assistant",
+    "content": [
+     {
+      "type": "tool_result",
+      "content": "On main\nOn branch main\nChanges not staged for commit:\n\tmodified:   src/app.js\n\tmodified:   src/b.js\n\nUntracked files:\n\tsrc/new1.js\n\tsrc/new2.js"
+     }
+    ]
+   }
+  ]
+ },
+ "output": {
+  "messages": [
+   {
+    "role": "assistant",
+    "content": [
+     {
+      "type": "tool_result",
+      "content": "On main\nOn branch main\nChanges not staged for commit:\n\tmodified:   src/app.js\n\tmodified:   src/b.js\n\nUntracked files:\n\tsrc/new1.js\n\tsrc/new2.js"
+     }
+    ]
+   }
+  ]
+ },
+ "stats": {
+  "bytesBefore": 143,
+  "bytesAfter": 143,
+  "hits": []
+ },
+ "log": null,
+ "disabledStats": null
+}

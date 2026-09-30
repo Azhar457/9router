@@ -5,7 +5,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -16,6 +18,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/Azhar457/9router/go/rtk"
 )
 
 func envOr(key, def string) string {
@@ -121,6 +125,51 @@ func (w *ttfbWriter) Flush() {
 	}
 }
 
+// rtkHandler exposes the Go RTK compressor to the JS side (chatCore) over
+// loopback only. Contract: POST raw LLM JSON body ->
+// {"body": <any>, "stats": <stats|null>} (stats null = nothing to do).
+// The JS caller fails open to the JS implementation on any non-200.
+func rtkHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+		return
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil || net.ParseIP(host) == nil || !net.ParseIP(host).IsLoopback() {
+		http.Error(w, "loopback only", http.StatusForbidden)
+		return
+	}
+	// Over limit → MaxBytesReader errors; caller fails open to JS path.
+	raw, err := io.ReadAll(http.MaxBytesReader(w, r.Body, rtk.RawCap*2))
+	if err != nil {
+		http.Error(w, "body too large", http.StatusRequestEntityTooLarge)
+		return
+	}
+	if len(raw) == 0 {
+		http.Error(w, "empty body", http.StatusBadRequest)
+		return
+	}
+	start := time.Now()
+	body, stats, err := rtk.CompressMessages(json.RawMessage(raw), true)
+	if err != nil {
+		http.Error(w, "invalid JSON body", http.StatusBadRequest)
+		return
+	}
+	resp := struct {
+		Body  json.RawMessage `json:"body"`
+		Stats *rtk.Stats      `json:"stats"`
+	}{Body: body, Stats: stats}
+	if stats != nil {
+		log.Printf("rtk go compress in=%dB out=%dB saved=%dB (%s)",
+			stats.BytesBefore, stats.BytesAfter, stats.BytesBefore-stats.BytesAfter,
+			time.Since(start).Round(time.Microsecond))
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		log.Printf("rtk encode: %v", err)
+	}
+}
+
 func main() {
 	addr := envOr("GATEWAY_ADDR", ":20127")
 	upstream := envOr("UPSTREAM", "http://127.0.0.1:20129")
@@ -147,6 +196,7 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("/-/rtk/compress", rtkHandler)
 	mux.Handle("/v1/", v1Log(newProxy(target, v1Transport)))
 	mux.Handle("/", accessLog(newProxy(target, base)))
 	srv := &http.Server{

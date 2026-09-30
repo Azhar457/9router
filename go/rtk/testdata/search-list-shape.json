@@ -1,0 +1,42 @@
+{
+ "name": "search-list-shape",
+ "input": {
+  "messages": [
+   {
+    "role": "assistant",
+    "content": [
+     {
+      "type": "tool_result",
+      "content": "Result of search in '/home/proj' (total 45 files):\n- ./src/sub0/hit0.ts\n- ./src/sub1/hit1.ts\n- ./src/sub2/hit2.ts\n- ./src/sub3/hit3.ts\n- ./src/sub4/hit4.ts\n- ./src/sub5/hit5.ts\n- ./src/sub6/hit6.ts\n- ./src/sub7/hit7.ts\n- ./src/sub0/hit8.ts\n- ./src/sub1/hit9.ts\n- ./src/sub2/hit10.ts\n- ./src/sub3/hit11.ts\n- ./src/sub4/hit12.ts\n- ./src/sub5/hit13.ts\n- ./src/sub6/hit14.ts\n- ./src/sub7/hit15.ts\n- ./src/sub0/hit16.ts\n- ./src/sub1/hit17.ts\n- ./src/sub2/hit18.ts\n- ./src/sub3/hit19.ts\n- ./src/sub4/hit20.ts\n- ./src/sub5/hit21.ts\n- ./src/sub6/hit22.ts\n- ./src/sub7/hit23.ts\n- ./src/sub0/hit24.ts\n- ./src/sub1/hit25.ts\n- ./src/sub2/hit26.ts\n- ./src/sub3/hit27.ts\n- ./src/sub4/hit28.ts\n- ./src/sub5/hit29.ts\n- ./src/sub6/hit30.ts\n- ./src/sub7/hit31.ts\n- ./src/sub0/hit32.ts\n- ./src/sub1/hit33.ts\n- ./src/sub2/hit34.ts\n- ./src/sub3/hit35.ts\n- ./src/sub4/hit36.ts\n- ./src/sub5/hit37.ts\n- ./src/sub6/hit38.ts\n- ./src/sub7/hit39.ts\n- ./src/sub0/hit40.ts\n- ./src/sub1/hit41.ts\n- ./src/sub2/hit42.ts\n- ./src/sub3/hit43.ts\n- ./src/sub4/hit44.ts"
+     }
+    ]
+   }
+  ]
+ },
+ "output": {
+  "messages": [
+   {
+    "role": "assistant",
+    "content": [
+     {
+      "type": "tool_result",
+      "content": "Result of search in '/home/proj' (total 45 files):\n45 files in 8 dirs:\n\n./src/sub0/ (6):\n  hit0.ts\n  hit8.ts\n  hit16.ts\n  hit24.ts\n  hit32.ts\n  hit40.ts\n\n./src/sub1/ (6):\n  hit1.ts\n  hit9.ts\n  hit17.ts\n  hit25.ts\n  hit33.ts\n  hit41.ts\n\n./src/sub2/ (6):\n  hit2.ts\n  hit10.ts\n  hit18.ts\n  hit26.ts\n  hit34.ts\n  hit42.ts\n\n./src/sub3/ (6):\n  hit3.ts\n  hit11.ts\n  hit19.ts\n  hit27.ts\n  hit35.ts\n  hit43.ts\n\n./src/sub4/ (6):\n  hit4.ts\n  hit12.ts\n  hit20.ts\n  hit28.ts\n  hit36.ts\n  hit44.ts\n\n./src/sub5/ (5):\n  hit5.ts\n  hit13.ts\n  hit21.ts\n  hit29.ts\n  hit37.ts\n\n./src/sub6/ (5):\n  hit6.ts\n  hit14.ts\n  hit22.ts\n  hit30.ts\n  hit38.ts\n\n./src/sub7/ (5):\n  hit7.ts\n  hit15.ts\n  hit23.ts\n  hit31.ts\n  hit39.ts"
+     }
+    ]
+   }
+  ]
+ },
+ "stats": {
+  "bytesBefore": 1030,
+  "bytesAfter": 699,
+  "hits": [
+   {
+    "shape": "claude-string",
+    "filter": "search-list",
+    "saved": 331
+   }
+  ]
+ },
+ "log": "[RTK] saved 331B / 1030B (32.1%) via [search-list] hits=1",
+ "disabledStats": null
+}

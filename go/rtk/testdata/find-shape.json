@@ -1,0 +1,42 @@
+{
+ "name": "find-shape",
+ "input": {
+  "messages": [
+   {
+    "role": "assistant",
+    "content": [
+     {
+      "type": "tool_result",
+      "content": "./dir0/file-with-a-longer-name0.js\n./dir1/file-with-a-longer-name1.js\n./dir2/file-with-a-longer-name2.js\n./dir3/file-with-a-longer-name3.js\n./dir4/file-with-a-longer-name4.js\n./dir5/file-with-a-longer-name5.js\n./dir0/file-with-a-longer-name6.js\n./dir1/file-with-a-longer-name7.js\n./dir2/file-with-a-longer-name8.js\n./dir3/file-with-a-longer-name9.js\n./dir4/file-with-a-longer-name10.js\n./dir5/file-with-a-longer-name11.js\n./dir0/file-with-a-longer-name12.js\n./dir1/file-with-a-longer-name13.js\n./dir2/file-with-a-longer-name14.js\n./dir3/file-with-a-longer-name15.js\n./dir4/file-with-a-longer-name16.js\n./dir5/file-with-a-longer-name17.js\n./dir0/file-with-a-longer-name18.js\n./dir1/file-with-a-longer-name19.js\n./dir2/file-with-a-longer-name20.js\n./dir3/file-with-a-longer-name21.js\n./dir4/file-with-a-longer-name22.js\n./dir5/file-with-a-longer-name23.js\n./dir0/file-with-a-longer-name24.js\n./dir1/file-with-a-longer-name25.js\n./dir2/file-with-a-longer-name26.js\n./dir3/file-with-a-longer-name27.js\n./dir4/file-with-a-longer-name28.js\n./dir5/file-with-a-longer-name29.js\n./dir0/file-with-a-longer-name30.js\n./dir1/file-with-a-longer-name31.js\n./dir2/file-with-a-longer-name32.js\n./dir3/file-with-a-longer-name33.js\n./dir4/file-with-a-longer-name34.js\n./dir5/file-with-a-longer-name35.js\n./dir0/file-with-a-longer-name36.js\n./dir1/file-with-a-longer-name37.js\n./dir2/file-with-a-longer-name38.js\n./dir3/file-with-a-longer-name39.js\n./dir4/file-with-a-longer-name40.js\n./dir5/file-with-a-longer-name41.js\n./dir0/file-with-a-longer-name42.js\n./dir1/file-with-a-longer-name43.js\n./dir2/file-with-a-longer-name44.js\n./dir3/file-with-a-longer-name45.js\n./dir4/file-with-a-longer-name46.js\n./dir5/file-with-a-longer-name47.js\n./dir0/file-with-a-longer-name48.js\n./dir1/file-with-a-longer-name49.js\n./dir2/file-with-a-longer-name50.js\n./dir3/file-with-a-longer-name51.js\n./dir4/file-with-a-longer-name52.js\n./dir5/file-with-a-longer-name53.js\n./dir0/file-with-a-longer-name54.js\n./dir1/file-with-a-longer-name55.js\n./dir2/file-with-a-longer-name56.js\n./dir3/file-with-a-longer-name57.js\n./dir4/file-with-a-longer-name58.js\n./dir5/file-with-a-longer-name59.js"
+     }
+    ]
+   }
+  ]
+ },
+ "output": {
+  "messages": [
+   {
+    "role": "assistant",
+    "content": [
+     {
+      "type": "tool_result",
+      "content": "60 files in 6 dirs:\n\n./dir0/  (10)\n  file-with-a-longer-name0.js\n  file-with-a-longer-name6.js\n  file-with-a-longer-name12.js\n  file-with-a-longer-name18.js\n  file-with-a-longer-name24.js\n  file-with-a-longer-name30.js\n  file-with-a-longer-name36.js\n  file-with-a-longer-name42.js\n  file-with-a-longer-name48.js\n  file-with-a-longer-name54.js\n./dir1/  (10)\n  file-with-a-longer-name1.js\n  file-with-a-longer-name7.js\n  file-with-a-longer-name13.js\n  file-with-a-longer-name19.js\n  file-with-a-longer-name25.js\n  file-with-a-longer-name31.js\n  file-with-a-longer-name37.js\n  file-with-a-longer-name43.js\n  file-with-a-longer-name49.js\n  file-with-a-longer-name55.js\n./dir2/  (10)\n  file-with-a-longer-name2.js\n  file-with-a-longer-name8.js\n  file-with-a-longer-name14.js\n  file-with-a-longer-name20.js\n  file-with-a-longer-name26.js\n  file-with-a-longer-name32.js\n  file-with-a-longer-name38.js\n  file-with-a-longer-name44.js\n  file-with-a-longer-name50.js\n  file-with-a-longer-name56.js\n./dir3/  (10)\n  file-with-a-longer-name3.js\n  file-with-a-longer-name9.js\n  file-with-a-longer-name15.js\n  file-with-a-longer-name21.js\n  file-with-a-longer-name27.js\n  file-with-a-longer-name33.js\n  file-with-a-longer-name39.js\n  file-with-a-longer-name45.js\n  file-with-a-longer-name51.js\n  file-with-a-longer-name57.js\n./dir4/  (10)\n  file-with-a-longer-name4.js\n  file-with-a-longer-name10.js\n  file-with-a-longer-name16.js\n  file-with-a-longer-name22.js\n  file-with-a-longer-name28.js\n  file-with-a-longer-name34.js\n  file-with-a-longer-name40.js\n  file-with-a-longer-name46.js\n  file-with-a-longer-name52.js\n  file-with-a-longer-name58.js\n./dir5/  (10)\n  file-with-a-longer-name5.js\n  file-with-a-longer-name11.js\n  file-with-a-longer-name17.js\n  file-with-a-longer-name23.js\n  file-with-a-longer-name29.js\n  file-with-a-longer-name35.js\n  file-with-a-longer-name41.js\n  file-with-a-longer-name47.js\n  file-with-a-longer-name53.js\n  file-with-a-longer-name59.js\n"
+     }
+    ]
+   }
+  ]
+ },
+ "stats": {
+  "bytesBefore": 2149,
+  "bytesAfter": 1955,
+  "hits": [
+   {
+    "shape": "claude-string",
+    "filter": "find",
+    "saved": 194
+   }
+  ]
+ },
+ "log": "[RTK] saved 194B / 2149B (9.0%) via [find] hits=1",
+ "disabledStats": null
+}

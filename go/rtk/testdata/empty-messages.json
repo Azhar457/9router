@@ -1,0 +1,16 @@
+{
+ "name": "empty-messages",
+ "input": {
+  "messages": []
+ },
+ "output": {
+  "messages": []
+ },
+ "stats": {
+  "bytesBefore": 0,
+  "bytesAfter": 0,
+  "hits": []
+ },
+ "log": null,
+ "disabledStats": null
+}
