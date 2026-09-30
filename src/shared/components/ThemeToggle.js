@@ -6,13 +6,11 @@ import { cn } from "@/shared/utils/cn";
 import ThemePalettePicker from "./ThemePalettePicker";
 
 /**
- * Quick light/dark toggle + 4-swatch palette picker (jars-ui style).
- * Click the button to flip light/dark; hover/expand to reveal the swatch row
- * for re-theming the accent + neutrals. Every sub-token stays consistent
- * because the palette CSS derives them from the 4 root swatches.
+ * Light/dark toggle. Palette picking: PaletteToggle (header), sidebar dots,
+ * or right-click here.
  */
 export default function ThemeToggle({ className, variant = "default" }) {
-  const { isDark, toggleTheme, palette, setPalette } = useTheme();
+  const { isDark, toggleTheme } = useTheme();
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -65,20 +63,9 @@ export default function ThemeToggle({ className, variant = "default" }) {
         >
           {modeIcon}
         </span>
-        {/* Palette indicator ring — the active palette's accent */}
-        <span
-          className="absolute inset-0 rounded-full border-2 border-transparent pointer-events-none"
-          style={{
-            borderColor:
-              palette && palette !== "violet"
-                ? `var(--color-brand-500, ${getSwatch(palette)})`
-                : "transparent",
-            opacity: 0.5,
-          }}
-        />
       </button>
 
-      {/* Palette swatch row — expands on card hover, or toggled via right-click / click on the picker */}
+      {/* Palette swatch row — opens on right-click (or card hover) */}
       {open && (
         <div
           className={cn(
@@ -95,8 +82,49 @@ export default function ThemeToggle({ className, variant = "default" }) {
   );
 }
 
-function getSwatch(key) {
-  // Fallback swatch hex in case the CSS var isn't yet resolved
-  const map = { orange: "#f97316", sea: "#0ea5e9", rose: "#e11d48", neon: "#22d3ee" };
-  return map[key] || "#8B5CF6";
+/**
+ * Standalone palette picker button — same visual language as ThemeToggle,
+ * one job: open the 4-swatch palette dropdown.
+ */
+export function PaletteToggle({ className }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  return (
+    <div ref={ref} className={cn("relative flex items-center", className)}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-label="Choose palette"
+        aria-expanded={open}
+        title="Palette"
+        className={cn(
+          "relative flex items-center size-10 rounded-full",
+          "text-text-muted hover:text-text-main transition-colors"
+        )}
+      >
+        <span className="material-symbols-outlined text-[22px]">palette</span>
+      </button>
+      {open && (
+        <div
+          className={cn(
+            "absolute right-0 top-full mt-2 px-3 py-2",
+            "bg-surface border border-black/10 dark:border-white/10",
+            "rounded-xl shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150"
+          )}
+          onClick={() => setOpen(false)}
+        >
+          <ThemePalettePicker />
+        </div>
+      )}
+    </div>
+  );
 }

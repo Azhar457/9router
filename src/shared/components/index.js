@@ -8,7 +8,7 @@ export { default as Loading, Spinner, PageLoading, Skeleton, CardSkeleton } from
 export { default as Avatar } from "./Avatar";
 export { default as Badge } from "./Badge";
 export { default as Toggle } from "./Toggle";
- export { default as ThemeToggle } from "./ThemeToggle";
+ export { default as ThemeToggle, PaletteToggle } from "./ThemeToggle";
  export { default as ThemePalettePicker } from "./ThemePalettePicker";
 export { ThemeProvider } from "./ThemeProvider";
 export { default as Sidebar } from "./Sidebar";

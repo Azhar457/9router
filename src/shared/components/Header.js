@@ -7,7 +7,7 @@ import PropTypes from "prop-types";
 import ProviderIcon from "@/shared/components/ProviderIcon";
 import HeaderMenu from "@/shared/components/HeaderMenu";
 import HeaderLanguage from "@/shared/components/HeaderLanguage";
-import ThemeToggle from "@/shared/components/ThemeToggle";
+import ThemeToggle, { PaletteToggle } from "@/shared/components/ThemeToggle";
 import DonateModal from "@/shared/components/DonateModal";
 import { useHeaderSearchStore } from "@/store/headerSearchStore";
 import { OAUTH_PROVIDERS, APIKEY_PROVIDERS } from "@/shared/constants/config";
@@ -331,6 +331,7 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
           <span className="material-symbols-outlined text-[18px]">volunteer_activism</span>
           <span className="hidden sm:inline">Donate</span>
         </button>
+        <PaletteToggle />
         <ThemeToggle />
         <HeaderLanguage />
         <HeaderMenu onLogout={handleLogout} />
