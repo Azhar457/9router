@@ -17,6 +17,16 @@ const CUSTOM_EMBEDDING_DEFAULTS = {
   baseUrl: "https://api.openai.com/v1",
 };
 
+// Media capabilities a node can advertise (dashboard listing only — runtime
+// routing never gates on this).
+const ALLOWED_SERVICE_KINDS = new Set(["image", "video", "tts", "stt", "embedding"]);
+
+function sanitizeServiceKinds(value) {
+  if (!Array.isArray(value)) return undefined;
+  const kinds = [...new Set(value.filter((k) => typeof k === "string" && ALLOWED_SERVICE_KINDS.has(k)))];
+  return kinds.slice(0, 5);
+}
+
 // GET /api/provider-nodes - List all provider nodes
 export async function GET() {
   try {
@@ -33,6 +43,7 @@ export async function POST(request) {
   try {
     const body = await request.json();
     const { name, prefix, apiType, baseUrl, type } = body;
+    const serviceKinds = sanitizeServiceKinds(body.serviceKinds);
 
     if (!name?.trim()) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 });
@@ -57,6 +68,7 @@ export async function POST(request) {
         apiType,
         baseUrl: (baseUrl || OPENAI_COMPATIBLE_DEFAULTS.baseUrl).trim(),
         name: name.trim(),
+        ...(serviceKinds ? { serviceKinds } : {}),
       });
       return NextResponse.json({ node }, { status: 201 });
     }

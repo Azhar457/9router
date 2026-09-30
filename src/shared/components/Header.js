@@ -15,7 +15,7 @@ import { MEDIA_PROVIDER_KINDS, AI_PROVIDERS } from "@/shared/constants/providers
 import { getProviderIconSrc } from "@/shared/utils/providerIcon";
 import { translate } from "@/i18n/runtime";
 
-const getPageInfo = (pathname) => {
+const getPageInfo = (pathname, customNodeNames = {}) => {
   if (!pathname) return { title: "", description: "", breadcrumbs: [] };
 
   // Media provider detail: /dashboard/media-providers/[kind]/[id]
@@ -25,13 +25,15 @@ const getPageInfo = (pathname) => {
     const providerId = mediaDetailMatch[2];
     const kindConfig = MEDIA_PROVIDER_KINDS.find((k) => k.id === kindId);
     const provider = AI_PROVIDERS[providerId];
+    // Custom nodes aren't in AI_PROVIDERS — use their DB name, no icon file.
+    const label = provider?.name || customNodeNames[providerId] || providerId;
     return {
-      title: provider?.name || providerId,
+      title: label,
       description: "",
       breadcrumbs: [
         { label: "Media Providers", href: `/dashboard/media-providers/${kindId}` },
         { label: kindConfig?.label || kindId, href: `/dashboard/media-providers/${kindId}` },
-        { label: provider?.name || providerId, image: getProviderIconSrc(providerId) },
+        { label, ...(provider ? { image: getProviderIconSrc(providerId) } : {}) },
       ],
     };
   }
@@ -191,9 +193,29 @@ export default function Header({ onMenuClick, showMenuButton = true }) {
   const [displayName, setDisplayName] = useState("");
   const [loginMethod, setLoginMethod] = useState("");
   const [donateOpen, setDonateOpen] = useState(false);
+  const [customNodeNames, setCustomNodeNames] = useState(null);
+
+  // Custom media-provider nodes aren't in AI_PROVIDERS — resolve their names
+  // once so breadcrumbs don't show raw node ids.
+  useEffect(() => {
+    const match = pathname?.match(/\/media-providers\/[^/]+\/([^/]+)$/);
+    if (!match || AI_PROVIDERS[match[1]] || customNodeNames) return;
+    let cancelled = false;
+    fetch("/api/provider-nodes", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : { nodes: [] }))
+      .then((d) => {
+        if (cancelled) return;
+        setCustomNodeNames(Object.fromEntries((d.nodes || []).map((n) => [n.id, n.name])));
+      })
+      .catch(() => { if (!cancelled) setCustomNodeNames({}); });
+    return () => { cancelled = true; };
+  }, [pathname, customNodeNames]);
 
   // Memoize page info to prevent unnecessary recalculations
-  const pageInfo = useMemo(() => getPageInfo(pathname), [pathname]);
+  const pageInfo = useMemo(
+    () => getPageInfo(pathname, customNodeNames || {}),
+    [pathname, customNodeNames],
+  );
   const { title, description, icon, breadcrumbs } = pageInfo;
 
   useEffect(() => {

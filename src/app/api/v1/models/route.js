@@ -5,7 +5,7 @@ import {
   isAnthropicCompatibleProvider,
   isOpenAICompatibleProvider,
 } from "@/shared/constants/providers";
-import { getProviderConnections, getCombos, getCustomModels, getModelAliases } from "@/lib/localDb";
+import { getProviderConnections, getCombos, getCustomModels, getModelAliases, getProviderNodes } from "@/lib/localDb";
 import { getDisabledModels } from "@/lib/disabledModelsDb";
 import { resolveKiroModels } from "open-sse/services/kiroModels.js";
 import { resolveKimchiModels } from "open-sse/services/kimchiModels.js";
@@ -239,11 +239,17 @@ async function fetchCompatibleModelIds(connection) {
 
 // Provider matches kindFilter when its serviceKinds intersect the requested kinds.
 // LLM is the default kind for providers missing serviceKinds.
-function providerMatchesKinds(providerId, kindFilter) {
+function providerMatchesKinds(providerId, kindFilter, customNodeKinds = {}) {
   const provider = AI_PROVIDERS[providerId];
-  const kinds = Array.isArray(provider?.serviceKinds) && provider.serviceKinds.length > 0
+  const registryKinds = Array.isArray(provider?.serviceKinds) && provider.serviceKinds.length > 0
     ? provider.serviceKinds
-    : [LLM_KIND];
+    : null;
+  // Custom nodes (openai-compatible / anthropic-compatible / custom-embedding)
+  // are not in AI_PROVIDERS — fall back to their DB serviceKinds. Chat-type
+  // nodes always expose llm; embedding nodes expose embedding by default.
+  const kinds = registryKinds
+    || customNodeKinds[providerId]
+    || [LLM_KIND];
   return kindFilter.some((k) => kinds.includes(k));
 }
 
@@ -269,6 +275,22 @@ export async function buildModelsList(kindFilter, options = {}) {
     connections = connections.filter(c => c.isActive !== false);
   } catch (e) {
     console.log("Could not fetch providers, returning all models");
+  }
+
+  // Custom node kinds: not in AI_PROVIDERS, so providerMatchesKinds would
+  // otherwise default them to llm-only and hide their image/tts/etc models.
+  let customNodeKinds = {};
+  try {
+    const nodes = await getProviderNodes();
+    for (const node of nodes) {
+      if (!node?.id) continue;
+      const extra = Array.isArray(node.serviceKinds) ? node.serviceKinds : [];
+      customNodeKinds[node.id] = node.type === "custom-embedding"
+        ? (extra.length > 0 ? extra : ["embedding"])
+        : ["llm", ...extra];
+    }
+  } catch (e) {
+    console.log("Could not fetch provider nodes for kind filter");
   }
 
   let combos = [];
@@ -336,7 +358,7 @@ export async function buildModelsList(kindFilter, options = {}) {
     );
     for (const [alias, providerModels] of Object.entries(PROVIDER_MODELS)) {
       const providerId = aliasToProviderId[alias] || alias;
-      if (!providerMatchesKinds(providerId, kindFilter)) continue;
+      if (!providerMatchesKinds(providerId, kindFilter, customNodeKinds)) continue;
       for (const model of providerModels) {
         if (!kindFilter.includes(modelKind(model))) continue;
         if (isDisabled(alias, model.id)) continue;
@@ -367,7 +389,7 @@ export async function buildModelsList(kindFilter, options = {}) {
     }
   } else {
     for (const [providerId, conn] of activeConnectionByProvider.entries()) {
-      if (!providerMatchesKinds(providerId, kindFilter)) continue;
+      if (!providerMatchesKinds(providerId, kindFilter, customNodeKinds)) continue;
 
       const staticAlias = PROVIDER_ID_TO_ALIAS[providerId] || providerId;
       const outputAlias = (

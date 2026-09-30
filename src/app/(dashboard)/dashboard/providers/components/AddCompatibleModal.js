@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
-import { Badge, Button, Input, Modal, Select } from "@/shared/components";
+import { Badge, Button, Input, Modal, Select, Toggle } from "@/shared/components";
 
 const VARIANT_CONFIG = {
   openai: {
@@ -39,7 +39,7 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }) {
   const initialFormData = () => ({
     name: "",
     prefix: "",
-    ...(config.hasApiType ? { apiType: "chat" } : {}),
+    ...(config.hasApiType ? { apiType: "chat", imageEnabled: false } : {}),
     baseUrl: config.defaultBaseUrl,
   });
 
@@ -72,6 +72,7 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }) {
           name: formData.name,
           prefix: formData.prefix,
           ...(config.hasApiType ? { apiType: formData.apiType } : {}),
+          ...(config.hasApiType ? { serviceKinds: formData.imageEnabled ? ["image"] : [] } : {}),
           baseUrl: formData.baseUrl,
           type: config.type,
         }),
@@ -165,6 +166,19 @@ function AddCompatibleModal({ variant, isOpen, onClose, onCreated }) {
           placeholder={config.defaultBaseUrl}
           hint={config.baseUrlHint}
         />
+        {config.hasApiType && (
+          <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+            <div>
+              <div className="text-sm font-medium">Text to Image</div>
+              <div className="text-xs text-text-muted">Also route image generation: POST {"{base URL}"}/images/generations with prefix model IDs.</div>
+            </div>
+            <Toggle
+              checked={formData.imageEnabled}
+              onChange={(v) => setFormData((prev) => ({ ...prev, imageEnabled: typeof v === "boolean" ? v : !prev.imageEnabled }))}
+              title="Text to Image capability"
+            />
+          </div>
+        )}
         <Input
           label="API Key (for Check)"
           type="password"

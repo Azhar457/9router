@@ -7,6 +7,11 @@ export async function PUT(request, { params }) {
     const { id } = await params;
     const body = await request.json();
     const { name, prefix, apiType, baseUrl } = body;
+    // undefined = leave unchanged; [] clears (POST helper returns [] for empty arrays)
+    const ALLOWED_SERVICE_KINDS = new Set(["image", "video", "tts", "stt", "embedding"]);
+    const serviceKinds = Array.isArray(body.serviceKinds)
+      ? [...new Set(body.serviceKinds.filter((k) => typeof k === "string" && ALLOWED_SERVICE_KINDS.has(k)))].slice(0, 5)
+      : undefined;
     const node = await getProviderNodeById(id);
 
     if (!node) {
@@ -56,6 +61,9 @@ export async function PUT(request, { params }) {
 
     if (node.type === "openai-compatible") {
       updates.apiType = apiType;
+    }
+    if (serviceKinds !== undefined) {
+      updates.serviceKinds = serviceKinds;
     }
 
     const updated = await updateProviderNode(id, updates);

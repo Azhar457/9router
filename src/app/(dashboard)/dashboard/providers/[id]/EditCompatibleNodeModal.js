@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import PropTypes from "prop-types";
-import { Button, Badge, Input, Modal, Select } from "@/shared/components";
+import { Button, Badge, Input, Modal, Select, Toggle } from "@/shared/components";
 
 export default function EditCompatibleNodeModal({ isOpen, node, onSave, onClose, isAnthropic }) {
   const [formData, setFormData] = useState({
@@ -10,6 +10,7 @@ export default function EditCompatibleNodeModal({ isOpen, node, onSave, onClose,
     prefix: "",
     apiType: "chat",
     baseUrl: "https://api.openai.com/v1",
+    imageEnabled: false,
   });
   const [saving, setSaving] = useState(false);
   const [checkKey, setCheckKey] = useState("");
@@ -24,6 +25,7 @@ export default function EditCompatibleNodeModal({ isOpen, node, onSave, onClose,
         prefix: node.prefix || "",
         apiType: node.apiType || "chat",
         baseUrl: node.baseUrl || (isAnthropic ? "https://api.anthropic.com/v1" : "https://api.openai.com/v1"),
+        imageEnabled: (node.serviceKinds || []).includes("image"),
       });
     }
   }, [node, isAnthropic]);
@@ -44,6 +46,7 @@ export default function EditCompatibleNodeModal({ isOpen, node, onSave, onClose,
       };
       if (!isAnthropic) {
         payload.apiType = formData.apiType;
+        payload.serviceKinds = formData.imageEnabled ? ["image"] : [];
       }
       await onSave(payload);
     } finally {
@@ -107,6 +110,19 @@ export default function EditCompatibleNodeModal({ isOpen, node, onSave, onClose,
           placeholder={isAnthropic ? "https://api.anthropic.com/v1" : "https://api.openai.com/v1"}
           hint={`Use the base URL (ending in /v1) for your ${isAnthropic ? "Anthropic" : "OpenAI"}-compatible API.`}
         />
+        {!isAnthropic && (
+          <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+            <div>
+              <div className="text-sm font-medium">Text to Image</div>
+              <div className="text-xs text-text-muted">List this node under Text to Image. Models are called via POST {formData.baseUrl || "…"}/images/generations with prefix model IDs.</div>
+            </div>
+            <Toggle
+              checked={formData.imageEnabled}
+              onChange={(v) => setFormData((prev) => ({ ...prev, imageEnabled: typeof v === "boolean" ? v : !prev.imageEnabled }))}
+              title="Text to Image capability"
+            />
+          </div>
+        )}
         <div className="flex gap-2">
           <Input
             label="API Key (for Check)"

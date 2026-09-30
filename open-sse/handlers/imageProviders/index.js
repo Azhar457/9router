@@ -12,6 +12,7 @@ import blackForestLabs from "./blackForestLabs.js";
 import runwayml from "./runwayml.js";
 import cloudflareAi from "./cloudflareAi.js";
 import antigravity from "./antigravity.js";
+import openaiCompatNode from "./openaiCompatNode.js";
 
 const ADAPTERS = {
   openai: createOpenAIAdapter("openai"),
@@ -35,7 +36,11 @@ const ADAPTERS = {
 };
 
 export function getImageAdapter(provider) {
-  return ADAPTERS[provider] || null;
+  if (ADAPTERS[provider]) return ADAPTERS[provider];
+  // Custom nodes get the generic OpenAI-compatible image adapter (baseUrl +
+  // key from credentials) — capability is per-model upstream, not registry.
+  if (provider?.startsWith?.("openai-compatible-")) return openaiCompatNode;
+  return null;
 }
 
 export function isImageProvider(provider) {

@@ -62,6 +62,7 @@ export async function createProviderNode(data) {
     prefix: data.prefix,
     apiType: data.apiType,
     baseUrl: data.baseUrl,
+    ...(data.serviceKinds !== undefined ? { serviceKinds: data.serviceKinds } : {}),
     createdAt: now,
     updatedAt: now,
   };
