@@ -309,6 +309,12 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       injectionGodmodeCustom: typeof chatSettings.injectionGodmodeCustom === "string"
         ? chatSettings.injectionGodmodeCustom
         : (typeof chatSettings.godmodeCustom === "string" ? chatSettings.godmodeCustom : ""),
+      injectionCarrierEnabled: !!chatSettings.injectionCarrierEnabled,
+      injectionCarrierLevel:
+        (typeof chatSettings.injectionCarrierLevel === "string" && chatSettings.injectionCarrierLevel) ||
+        (chatSettings.injectionCarrierEnabled ? (chatSettings.injectionCarrierLevel || "") : ""),
+      injectionCarrierCustom:
+        typeof chatSettings.injectionCarrierCustom === "string" ? chatSettings.injectionCarrierCustom : "",
       pxpipeEnabled: !!chatSettings.pxpipeEnabled,
       pxpipeMinChars: chatSettings.pxpipeMinChars,
       pxpipeTimeoutMs: chatSettings.pxpipeTimeoutMs,

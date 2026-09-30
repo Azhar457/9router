@@ -67,6 +67,12 @@ const DEFAULT_SETTINGS = {
   injectionIdentity: "",
   injectionGodmodeLevel: "classic",
   injectionGodmodeCustom: "",
+  // Optional carrier wrapping — a second "carrier" payload that auto-wraps
+  // the main payload into its slot when enabled. Off by default (wrapping is
+  // not always more effective). The carrier text is customizable.
+  injectionCarrierEnabled: false,
+  injectionCarrierLevel: "",
+  injectionCarrierCustom: "",
   pxpipeEnabled: false,
   pxpipeAutoInstall: true,
   pxpipeMinChars: 25000,

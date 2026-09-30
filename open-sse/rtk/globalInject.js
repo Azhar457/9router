@@ -7,6 +7,13 @@
 // Same fail-open contract as caveman.js / ponytail.js / plinian.js /
 // godmode.js: any error leaves the body untouched.
 //
+// Carrier column (optional, off by default): a second "carrier" payload
+// (dark-RP v12, RFC framework, or custom text) wraps the main payload —
+// auto-spliced into the [YOUR JAILBREAK HERE] slot, or appended when the
+// carrier has no slot. Wrapping is NOT always more effective; the column
+// is opt-in precisely for that reason. Some payloads (VEIL) already embed
+// a carrier frame internally — see payloadCatalog.js BUILTIN_CARRIER_IDS.
+//
 // Model-aware: when a model string is provided and the level is not pinned,
 // pickGodmodeVariant picks the best-fit payload — including the adaptive
 // thinking payload for modern Claude Fable 5.1 / Opus 5 / GPT-6 / Grok 4.5+
@@ -15,6 +22,9 @@
 import { injectPlinian } from "./plinian.js";
 import { injectGodmode } from "./godmode.js";
 import { injectSystemPrompt } from "./systemInject.js";
+import { getGodmodePrompt } from "./godmodePayloads.js";
+import { CARRIER_SLOT, spliceCarrier, resolvePayload } from "./payloadCatalog.js";
+import { getExternalPayload } from "./jailbreakPayloads.js";
 
 export function injectGlobal(body, format, opts = {}) {
   const {
@@ -25,6 +35,9 @@ export function injectGlobal(body, format, opts = {}) {
     godmodeLevel = "classic",
     godmodeCustom = "",
     model = "",
+    carrierEnabled = false,
+    carrierLevel = "",
+    carrierCustom = "",
   } = opts;
 
   if (!enabled || !body) return;
@@ -39,8 +52,26 @@ export function injectGlobal(body, format, opts = {}) {
     } else if (registerLevel) {
       injectPlinian(body, format, registerLevel, identity);
     }
-    // 2. Jailbreak payload — selected or auto-picked per model
-    if (godmodeLevel) injectGodmode(body, format, godmodeLevel, godmodeCustom, model);
+    // 2. Jailbreak payload — selected or auto-picked per model.
+    //    Carrier (optional, off by default): when carrierEnabled + a carrier
+    //    is chosen, the main payload is auto-wrapped into the carrier's slot.
+    //    carrierCustom overrides the carrier text (user-editable).
+    if (godmodeLevel) {
+      const mainText = getGodmodePrompt(godmodeLevel, godmodeCustom);
+      const carrierOn = carrierEnabled && (carrierCustom.trim() || carrierLevel);
+      if (carrierOn) {
+        const carrierText = carrierCustom.trim() || getExternalPayload(carrierLevel) || "";
+        const composed = spliceCarrier(carrierText, mainText);
+        injectSystemPrompt(body, format, composed);
+        opts.onCarrierSplice?.({
+          carrier: carrierLevel || "custom",
+          chars: composed.length,
+          spliced: carrierText.includes(CARRIER_SLOT),
+        });
+      } else {
+        injectSystemPrompt(body, format, mainText);
+      }
+    }
   } catch (_) {
     // never break a proxied request because of steering
   }

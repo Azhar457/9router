@@ -124,7 +124,10 @@ const GODMODE_VARIANTS = [
   { id: "f:ai:gemini-3.5-flash-lite", label: "📄 Gemini 3.5 Flash Lite — ENI RP (AI-Jailbreaks)", cat: "creative", new: true },
   // (nsfw roleplay variants removed — focus is attacking / building / pentest)
   // ── General / other ────────────────────────────────────────────
-  { id: "VEIL",    label: "VEIL", cat: "general" },
+  // Built-in payloads that already embed a carrier/identity frame — the
+  // carrier column is optional on top of these (see BUILTIN_CARRIER_IDS in
+  // open-sse/rtk/payloadCatalog.js).
+  { id: "VEIL",    label: "VEIL — embedded identity frame", cat: "general", builtInCarrier: true },
   { id: "f:ai:mistral",              label: "📄 Mistral (AI-Jailbreaks)", cat: "general", new: true },
   { id: "f:ai:qwen-3.8-max-preview", label: "📄 Qwen 3.8 Max Preview (AI-Jailbreaks)", cat: "general", new: true },
   { id: "custom",  label: "Custom — your own payload", cat: "general" },
@@ -369,6 +372,11 @@ export default function DeveloperPageClient() {
   const [savedGodmodePresets, setSavedGodmodePresets] = useState({});
   const [gmPresetSource, setGmPresetSource] = useState("");
   const [gmPresetName, setGmPresetName] = useState("");
+  // Optional carrier column — wraps the main payload into a carrier slot.
+  const [carrierEnabled, setCarrierEnabled] = useState(false);
+  const [carrierLevel, setCarrierLevel] = useState("");
+  const [carrierCustom, setCarrierCustom] = useState("");
+  const [carrierPreview, setCarrierPreview] = useState({ chars: 0, estTokens: 0, spliced: false, text: "" });
   const [savedPersonas, setSavedPersonas] = useState({});
   const [personaSource, setPersonaSource] = useState("");
   const [personaName, setPersonaName] = useState("");
@@ -418,6 +426,9 @@ export default function DeveloperPageClient() {
         setRegisterCustom(typeof settings.injectionRegisterCustom === "string" ? settings.injectionRegisterCustom : "");
         setGodmodeLevel(settings.injectionGodmodeLevel || settings.godmodeLevel || "classic");
         setGodmodeCustom(typeof settings.injectionGodmodeCustom === "string" ? settings.injectionGodmodeCustom : (typeof settings.godmodeCustom === "string" ? settings.godmodeCustom : ""));
+        setCarrierEnabled(!!settings.injectionCarrierEnabled);
+        setCarrierLevel(typeof settings.injectionCarrierLevel === "string" ? settings.injectionCarrierLevel : "");
+        setCarrierCustom(typeof settings.injectionCarrierCustom === "string" ? settings.injectionCarrierCustom : "");
       })
       .catch(() => {})
       .finally(() => {
@@ -527,6 +538,52 @@ export default function DeveloperPageClient() {
       }
     } catch {}
   }
+
+  // ── Carrier (optional column) handlers ─────────────────────────
+  function toggleCarrierEnabled(value) {
+    setCarrierEnabled(value);
+    patchSetting({ injectionCarrierEnabled: value, injectionCarrierLevel: value ? (carrierLevel || "f:bf:dark-roleplay-v12") : "" });
+  }
+  const CARRIER_VARIANTS = [
+    { id: "", label: "Off" },
+    { id: "f:bf:dark-roleplay-v12", label: "📦 Dark RP v1.2 BASE — meta-wrapper (slot [YOUR JAILBREAK HERE])", carrier: true },
+    { id: "f:bf:dark-roleplay-v11", label: "📦 Dark RP v1.1 BASE — meta-wrapper", carrier: true },
+    { id: "f:bf:rfc-framework", label: "📦 RFC Jailbreak Framework 454 — tag config", carrier: true },
+    { id: "VEIL", label: "📦 VEIL — embedded identity frame", carrier: true, builtin: true },
+    { id: "custom", label: "Custom carrier text (paste below)" },
+  ];
+
+
+  async function changeCarrierVariant(level) {
+    setCarrierLevel(level);
+    setCarrierCustom("");
+    patchSetting({ injectionCarrierLevel: level, injectionCarrierCustom: "" });
+    if (!level) { setCarrierPreview({ chars: 0, estTokens: 0, spliced: false, text: "" }); return; }
+    try {
+      const res = await fetch("/api/developer/carrier-preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ level: godmodeLevel, custom: godmodeCustom, carrierLevel: level }),
+      });
+      const data = await res.json();
+      if (data?.text) {
+        setCarrierCustom(data.text);
+        patchSetting({ injectionCarrierCustom: data.text });
+        setCarrierPreview({ chars: data.chars, estTokens: data.estTokens, spliced: data.spliced, text: data.text });
+      }
+    } catch {}
+  }
+
+  const carrierSaveTimerRef = useRef(null);
+  function handleCarrierCustomChange(event) {
+    const value = event.target.value;
+    setCarrierCustom(value);
+    clearTimeout(carrierSaveTimerRef.current);
+    carrierSaveTimerRef.current = setTimeout(() => {
+      patchSetting({ injectionCarrierCustom: value });
+    }, 600);
+  }
+
 
   function persistGodmodePresets(next) {
     setSavedGodmodePresets(next);
@@ -1480,7 +1537,7 @@ export default function DeveloperPageClient() {
                       <optgroup key={cat.key} label={cat.label}>
                         {items.map((variant) => (
                           <option key={variant.id} value={variant.id}>
-                            {variant.label}{variant.new ? " 🆕 new" : ""}
+                            {variant.label}{variant.new ? " 🆕 new" : ""}{variant.builtInCarrier ? " (already wraps)" : ""}
                           </option>
                         ))}
                       </optgroup>
@@ -1536,6 +1593,50 @@ export default function DeveloperPageClient() {
                 Effective payload: <span className="font-semibold text-text-main">{godmodeLevel === "custom" ? "Custom" : GODMODE_VARIANTS.find((v) => v.id === godmodeLevel)?.label || godmodeLevel}</span>{GODMODE_VARIANTS.find((v) => v.id === godmodeLevel)?.new && <span className="ml-1 text-primary">🆕 new</span>}
                 {" · "}{godmodePreview.chars.toLocaleString()} chars{godmodePreview.estTokens ? ` · ≈${(godmodePreview.estTokens >= 1000 ? (godmodePreview.estTokens / 1000).toFixed(1) + "k" : godmodePreview.estTokens)} tok` : ""}
               </p>
+
+              {/* ── 2b. Carrier (optional column) ───────────────────────── */}
+              <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-surface-2/40 p-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
+                    <input
+                      type="checkbox"
+                      checked={carrierEnabled}
+                      onChange={(event) => toggleCarrierEnabled(event.target.checked)}
+                      className="h-4 w-4 accent-primary"
+                    />
+                    Carrier wrap <span className="normal-case text-text-muted">(optional — not always more effective)</span>
+                  </label>
+                  {carrierEnabled && (
+                    <>
+                      <select
+                        value={carrierLevel}
+                        onChange={(event) => changeCarrierVariant(event.target.value)}
+                        className="h-8 min-w-[240px] rounded-lg border border-border bg-surface px-2 text-xs text-text-main"
+                      >
+                        {CARRIER_VARIANTS.map((variant) => (
+                          <option key={variant.id || "off"} value={variant.id}>
+                            {variant.label}{variant.carrier ? " (auto-wrap)" : ""}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="text-[10px] text-text-muted">
+                        {carrierPreview.spliced
+                          ? "📦 splices payload into [YOUR JAILBREAK HERE]"
+                          : (carrierLevel ? "appends payload after carrier (no slot)" : "")}
+                      </span>
+                    </>
+                  )}
+                </div>
+                {carrierEnabled && (
+                  <textarea
+                    value={carrierCustom}
+                    onChange={handleCarrierCustomChange}
+                    rows={3}
+                    placeholder="Effective carrier text — edit to customize the wrap (e.g. tweak the [YOUR JAILBREAK HERE] slot or add framing)."
+                    className="w-full resize-y rounded-lg border border-border bg-surface px-3 py-2 font-mono text-xs text-text-main outline-none focus:border-primary/50"
+                  />
+                )}
+              </div>
             </div>
 
             {/* ── 3. Plinian (register) preset ────────────────── */}
@@ -1622,16 +1723,26 @@ export default function DeveloperPageClient() {
                   {godmodeLevel === "custom" ? "Custom" : GODMODE_VARIANTS.find((v) => v.id === godmodeLevel)?.label || godmodeLevel}
                   {GODMODE_VARIANTS.find((v) => v.id === godmodeLevel)?.new && <span className="ml-1 text-primary">🆕 new</span>}
                 </li>
+                {carrierEnabled && (
+                  <li>
+                    <span className="font-semibold text-text-main">3. Carrier wrap</span> —{" "}
+                    {carrierLevel ? (CARRIER_VARIANTS.find((v) => (v.id || "off") === carrierLevel)?.label || carrierLevel) : "Custom carrier"}
+                    {carrierPreview.spliced ? " (auto-wraps payload)" : " (appends payload)"}
+                  </li>
+                )}
               </ol>
               <p className="mt-1 text-[10px] text-text-muted">
                 While ON, both are appended to every proxied request — Hermes, CLI tools, all clients.
               </p>
             </div>
+            {carrierEnabled && (
+              <p className="text-[10px] text-text-muted">
+                With carrier ON, the payload rides inside the carrier frame on every proxied request — toggle off if wrapping hurts land-rate for your target model.
+              </p>
+            )}
           </div>
         )}
       </div>
-
-
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-3">
         <label className="flex flex-col gap-1 text-xs text-text-muted">
           Style preset

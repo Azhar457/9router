@@ -28,6 +28,8 @@ export function formatTok(n) {
 // variant. Same text selection as injectGlobal() in globalInject.js.
 import { getPlinianPrompt } from "./plinianPrompts.js";
 import { getGodmodePrompt, pickGodmodeVariant } from "./godmodePayloads.js";
+import { getExternalPayload } from "./jailbreakPayloads.js";
+import { CARRIER_SLOT, spliceCarrier } from "./payloadCatalog.js";
 
 export function estimateGlobalInjection({
   registerLevel = "standard",
@@ -36,6 +38,9 @@ export function estimateGlobalInjection({
   godmodeLevel = "classic",
   godmodeCustom = "",
   model = "",
+  carrierEnabled = false,
+  carrierLevel = "",
+  carrierCustom = "",
 } = {}) {
   const regText = registerCustom ? registerCustom : getPlinianPrompt(registerLevel);
   const reg = `${String(identity || "").trim()}\n\n${regText}`.trim();
@@ -43,11 +48,20 @@ export function estimateGlobalInjection({
   const autoPicked = !godmodeLevel || godmodeLevel === "classic";
   const effectiveLevel = autoPicked && model ? pickGodmodeVariant(model) : (godmodeLevel || "classic");
   const god = getGodmodePrompt(effectiveLevel, godmodeCustom);
+  // Mirror injectGlobal(): when the optional carrier is on, the payload is
+  // spliced into the carrier's slot (or appended when the carrier has none).
+  const carrierOn = carrierEnabled && (carrierCustom.trim() || carrierLevel);
+  const finalPayload = carrierOn
+    ? spliceCarrier(carrierCustom.trim() || getExternalPayload(carrierLevel) || "", god)
+    : god;
+  const finalCarrier = carrierOn ? (carrierCustom.trim() || getExternalPayload(carrierLevel) || "") : "";
   return {
     register: estimateTokens(reg),
     payload: estimateTokens(god),
-    total: estimateTokens(reg + "\n\n" + god),
+    total: estimateTokens(reg + "\n\n" + finalPayload),
     effectiveLevel,
+    carrier: finalCarrier ? estimateTokens(finalCarrier) : 0,
+    carrierSpliced: !!(finalCarrier && finalCarrier.includes(CARRIER_SLOT)),
     autoPicked,
   };
 }

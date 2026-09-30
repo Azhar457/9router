@@ -64,7 +64,7 @@ export function stripContinuityFields(body) {
   return body;
 }
 
-export async function handleChatCore({ body, modelInfo, credentials, log, onCredentialsRefreshed, onRequestSuccess, onDisconnect, clientRawRequest, connectionId, userAgent, apiKey, ccFilterNaming, rtkEnabled, headroomEnabled, headroomUrl, headroomCompressUserMessages, headroomTimeoutMs, cavemanEnabled, cavemanLevel, ponytailEnabled, ponytailLevel, injectionEnabled, injectionRegisterLevel, injectionRegisterCustom, injectionIdentity, injectionGodmodeLevel, injectionGodmodeCustom, pxpipeEnabled, pxpipeMinChars, pxpipeTimeoutMs, pxpipeTransform, onPxpipeEvent, sourceFormatOverride, providerThinking }) {
+export async function handleChatCore({ body, modelInfo, credentials, log, onCredentialsRefreshed, onRequestSuccess, onDisconnect, clientRawRequest, connectionId, userAgent, apiKey, ccFilterNaming, rtkEnabled, headroomEnabled, headroomUrl, headroomCompressUserMessages, headroomTimeoutMs, cavemanEnabled, cavemanLevel, ponytailEnabled, ponytailLevel, injectionEnabled, injectionRegisterLevel, injectionRegisterCustom, injectionIdentity, injectionGodmodeLevel, injectionGodmodeCustom, injectionCarrierEnabled, injectionCarrierLevel, injectionCarrierCustom, pxpipeEnabled, pxpipeMinChars, pxpipeTimeoutMs, pxpipeTransform, onPxpipeEvent, sourceFormatOverride, providerThinking }) {
   const { provider, model } = modelInfo;
   const requestStartTime = Date.now();
   // Stable per-session color so all lines of one CLI conversation share a tag
@@ -353,6 +353,9 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
       identity: injectionIdentity,
       godmodeLevel: injectionGodmodeLevel,
       godmodeCustom: injectionGodmodeCustom,
+      carrierEnabled: injectionCarrierEnabled,
+      carrierLevel: injectionCarrierLevel,
+      carrierCustom: injectionCarrierCustom,
       model: upstreamModel,
     });
     const est = estimateGlobalInjection({
@@ -361,12 +364,16 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
       identity: injectionIdentity,
       godmodeLevel: injectionGodmodeLevel,
       godmodeCustom: injectionGodmodeCustom,
+      carrierEnabled: injectionCarrierEnabled,
+      carrierLevel: injectionCarrierLevel,
+      carrierCustom: injectionCarrierCustom,
       model: upstreamModel,
     });
     xf.push(
       `GLOBAL:${injectionRegisterLevel || "none"}+` +
       `${est.effectiveLevel}` +
-      ` (est ≈${formatTok(est.total)}tok · reg ${formatTok(est.register)} + payload ${formatTok(est.payload)})`
+      ` (est ≈${formatTok(est.total)}tok · reg ${formatTok(est.register)} + payload ${formatTok(est.payload)}` +
+      ` · car ${formatTok(est.carrier || 0)})`
     );
   }
 
