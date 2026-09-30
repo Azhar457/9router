@@ -61,7 +61,7 @@ export function stripContinuityFields(body) {
   return body;
 }
 
-export async function handleChatCore({ body, modelInfo, credentials, log, onCredentialsRefreshed, onRequestSuccess, onDisconnect, clientRawRequest, connectionId, userAgent, apiKey, ccFilterNaming, rtkEnabled, headroomEnabled, headroomUrl, headroomCompressUserMessages, headroomTimeoutMs, cavemanEnabled, cavemanLevel, ponytailEnabled, ponytailLevel, injectionEnabled, injectionRegisterLevel, injectionIdentity, injectionGodmodeLevel, injectionGodmodeCustom, pxpipeEnabled, pxpipeMinChars, pxpipeTimeoutMs, pxpipeTransform, onPxpipeEvent, sourceFormatOverride, providerThinking }) {
+export async function handleChatCore({ body, modelInfo, credentials, log, onCredentialsRefreshed, onRequestSuccess, onDisconnect, clientRawRequest, connectionId, userAgent, apiKey, ccFilterNaming, rtkEnabled, headroomEnabled, headroomUrl, headroomCompressUserMessages, headroomTimeoutMs, cavemanEnabled, cavemanLevel, ponytailEnabled, ponytailLevel, injectionEnabled, injectionRegisterLevel, injectionRegisterCustom, injectionIdentity, injectionGodmodeLevel, injectionGodmodeCustom, pxpipeEnabled, pxpipeMinChars, pxpipeTimeoutMs, pxpipeTransform, onPxpipeEvent, sourceFormatOverride, providerThinking }) {
   const { provider, model } = modelInfo;
   const requestStartTime = Date.now();
   // Stable per-session color so all lines of one CLI conversation share a tag
@@ -335,10 +335,11 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   // reason the user turned this card on, and silently dropping it when a
   // tool toggles the header off would produce a near-bypass-free response
   // that looks like "the injection didn't work".
-  if (injectionEnabled && (injectionRegisterLevel || injectionGodmodeLevel)) {
+  if (injectionEnabled && (injectionRegisterLevel || injectionRegisterCustom || injectionGodmodeLevel)) {
     injectGlobal(translatedBody, finalFormat, {
       enabled: true,
       registerLevel: injectionRegisterLevel,
+      registerCustom: injectionRegisterCustom,
       identity: injectionIdentity,
       godmodeLevel: injectionGodmodeLevel,
       godmodeCustom: injectionGodmodeCustom,

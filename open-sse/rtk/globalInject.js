@@ -14,11 +14,13 @@
 
 import { injectPlinian } from "./plinian.js";
 import { injectGodmode } from "./godmode.js";
+import { injectSystemPrompt } from "./systemInject.js";
 
 export function injectGlobal(body, format, opts = {}) {
   const {
     enabled = true,
     registerLevel = "standard",
+    registerCustom = "",
     identity = "",
     godmodeLevel = "classic",
     godmodeCustom = "",
@@ -27,8 +29,16 @@ export function injectGlobal(body, format, opts = {}) {
 
   if (!enabled || !body) return;
   try {
-    // 1. Register (Plinian) + identity — shaping only, never changes policy
-    if (registerLevel) injectPlinian(body, format, registerLevel, identity);
+    // 1. Register (Plinian) + identity — shaping only, never changes policy.
+    // A custom register text (from the UI editor) overrides the preset level
+    // entirely; an empty registerCustom means "use the selected preset level".
+    const customReg = String(registerCustom || "").trim();
+    if (customReg) {
+      const prompt = [identity, customReg].filter(Boolean).join("\n\n");
+      if (prompt) injectSystemPrompt(body, format, prompt);
+    } else if (registerLevel) {
+      injectPlinian(body, format, registerLevel, identity);
+    }
     // 2. Jailbreak payload — selected or auto-picked per model
     if (godmodeLevel) injectGodmode(body, format, godmodeLevel, godmodeCustom, model);
   } catch (_) {

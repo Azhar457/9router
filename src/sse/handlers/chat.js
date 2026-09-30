@@ -300,6 +300,9 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       injectionIdentity: typeof chatSettings.injectionIdentity === "string"
         ? chatSettings.injectionIdentity
         : (chatSettings.plinianIdentity || ""),
+      injectionRegisterCustom: typeof chatSettings.injectionRegisterCustom === "string"
+        ? chatSettings.injectionRegisterCustom
+        : "",
       injectionGodmodeLevel: chatSettings.injectionGodmodeLevel
         || chatSettings.godmodeLevel
         || "classic",

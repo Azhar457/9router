@@ -63,6 +63,7 @@ const DEFAULT_SETTINGS = {
   // src/sse/handlers/chat.js, so existing persisted settings keep working.
   injectionEnabled: false,
   injectionRegisterLevel: "standard",
+  injectionRegisterCustom: "",
   injectionIdentity: "",
   injectionGodmodeLevel: "classic",
   injectionGodmodeCustom: "",

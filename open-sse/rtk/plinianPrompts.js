@@ -4,6 +4,7 @@
 // Levels mirror plinian-lite → plinian-ultra on the Developer page.
 
 export const PLINIAN_LEVELS = {
+  NONE: "none",
   LITE: "lite",
   STANDARD: "standard",
   FULL: "full",
@@ -18,6 +19,7 @@ const SHARED_RULES = [
 ].join(" ");
 
 const PLINIAN_PROMPTS = {
+  [PLINIAN_LEVELS.NONE]: "",
   [PLINIAN_LEVELS.LITE]: [
     "Before answering, silently verify your draft: check facts, logic, and completeness against the question. Fix any gap without mentioning the check.",
     SHARED_RULES,
@@ -40,5 +42,10 @@ const PLINIAN_PROMPTS = {
 };
 
 export function getPlinianPrompt(level) {
-  return PLINIAN_PROMPTS[level] || PLINIAN_PROMPTS[PLINIAN_LEVELS.STANDARD];
+  // "none" maps to an empty string (deliberate falsy value) — guard with
+  // `in` so it isn't swallowed by the `||` standard fallback. Unknown levels
+  // still fall back to standard; an explicit "none" returns "".
+  return level === PLINIAN_LEVELS.NONE
+    ? ""
+    : (PLINIAN_PROMPTS[level] || PLINIAN_PROMPTS[PLINIAN_LEVELS.STANDARD]);
 }
