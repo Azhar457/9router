@@ -34,6 +34,10 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      # cli/scripts/buildMitm.js needs esbuild (cli devDependency)
+      - name: Install CLI dependencies
+        run: npm install --prefix cli
+
       # Trusted publishing needs npm >= 11.5.1 for the OIDC flow
       - name: Update npm
         run: npm install -g npm@latest
