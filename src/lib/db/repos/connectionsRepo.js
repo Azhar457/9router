@@ -190,6 +190,19 @@ export async function createProviderConnection(data) {
       });
     } else if (data.authType === "apikey" && data.name) {
       existing = all.find(c => c.authType === "apikey" && c.name === data.name);
+     } else if (data.authType === "oauth" && data.provider === "zed") {
+      // Zed connections carry no email (the Zed OAuth /client/users/me does not
+      // return one), so the email-keyed dedup above never matches and every
+      // re-import creates a new "Account N" row. Zed's userId is stable per
+      // login (systemId is not — it rotates per native-app keypair), so key the
+      // dedup on userId. Same user re-importing → update in place, one row.
+      const incomingZedUser = data.providerSpecificData?.userId;
+      if (incomingZedUser) {
+        existing = all.find((c) =>
+          c.authType === "oauth" &&
+          c.providerSpecificData?.userId === incomingZedUser
+        );
+      }
     }
     // access_token: never dedup — user manages duplicates manually
 

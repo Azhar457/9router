@@ -11,7 +11,9 @@ import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import useSettingsStore from "@/store/settingsStore";
 import Button from "./Button";
 import { ConfirmModal } from "./Modal";
-import NineRemotePromoModal from "./NineRemotePromoModal";
+ import NineRemotePromoModal from "./NineRemotePromoModal";
+ import { useTheme } from "@/shared/hooks/useTheme";
+ import { PALETTES } from "@/shared/constants/config";
 
 // const VISIBLE_MEDIA_KINDS = ["embedding", "image", "imageToText", "tts", "stt", "webSearch", "webFetch", "video", "music"];
 const VISIBLE_MEDIA_KINDS = ["embedding", "image", "video", "tts", "stt", "systemone"];
@@ -51,7 +53,8 @@ export default function Sidebar({ onClose }) {
   const [isUpdating, setIsUpdating] = useState(false);
   const [shutdownCountdown, setShutdownCountdown] = useState(0);
   const [enableTranslator, setEnableTranslator] = useState(false);
-  const { copied, copy } = useCopyToClipboard(2000);
+   const { copied, copy } = useCopyToClipboard(2000);
+   const { palette, setPalette } = useTheme();
 
   const INSTALL_CMD = UPDATER_CONFIG.installCmdLatest;
 
@@ -114,12 +117,40 @@ export default function Sidebar({ onClose }) {
   return (
     <>
       <aside className="flex w-72 flex-col border-r border-border-subtle bg-vibrancy backdrop-blur-xl transition-colors duration-300 min-h-full">
-        {/* Traffic lights */}
-        <div className="flex items-center gap-2 px-6 pt-5 pb-2">
-          <div className="w-3 h-3 rounded-full bg-[#FF5F56]" />
-          <div className="w-3 h-3 rounded-full bg-[#FFBD2E]" />
-          <div className="w-3 h-3 rounded-full bg-[#27C93F]" />
-        </div>
+         {/* Palette switcher (jars-ui port) — 5 dots, one per palette.
+             Each dot keeps its macOS "rest" color when inactive; when a
+             palette is active its dot shows that palette's accent + a ring.
+             Clicking an inactive dot switches palette; the active one is a
+             no-op (no surprise reset). Sizes: 24px hit area / 16px dot / 4px gap. */}
+         <div className="flex items-center gap-1 px-6 pt-5 pb-2" title="Klik dot untuk ganti palette">
+           {["amber", "sea", "rose", "teal", "violet"].map((key) => {
+             const active = palette === key;
+             // Rest colors: the 3 original macOS traffic-lights + 2 new ones
+             // (teal = cyan, violet = brand). Inactive dots show the rest color.
+             const REST = { amber: "#FF5F56", sea: "#FFBD2E", rose: "#27C93F", teal: "#22d3ee", violet: "#8B5CF6" };
+             const color = active ? PALETTES[key].swatch : REST[key];
+             return (
+               <button
+                 key={key}
+                 type="button"
+                 onClick={() => { if (!active) setPalette(key); }}
+                 className="group/dot relative flex items-center justify-center size-6 rounded-full transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 cursor-pointer"
+                 title={active ? `${PALETTES[key].label} (aktif)` : `Ganti ke ${PALETTES[key].label}`}
+                 aria-label={`Palette ${PALETTES[key].label}`}
+                 aria-pressed={active}
+               >
+                 {/* swatch disc — bordered so it reads as a button, ringed when active */}
+                 <span
+                   className="size-4 rounded-full border border-black/10 dark:border-white/10 transition-all"
+                   style={{
+                     backgroundColor: color,
+                     boxShadow: active ? `0 0 0 2px var(--color-bg), 0 0 0 4px ${PALETTES[key].swatch}` : "none",
+                   }}
+                 />
+               </button>
+             );
+           })}
+         </div>
 
         {/* Logo */}
         <div className="px-6 py-4 flex flex-col gap-2">

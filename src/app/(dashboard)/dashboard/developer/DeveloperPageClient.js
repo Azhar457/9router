@@ -344,6 +344,8 @@ export default function DeveloperPageClient() {
   const [personaSource, setPersonaSource] = useState("");
   const [personaName, setPersonaName] = useState("");
   const [registerCustom, setRegisterCustom] = useState("");
+  const [registerLevel, setRegisterLevel] = useState("standard");
+  const [registerEffective, setRegisterEffective] = useState("");
   const [registerPresetSource, setRegisterPresetSource] = useState("");
   const [registerPresetName, setRegisterPresetName] = useState("");
   const [savedRegisterPresets, setSavedRegisterPresets] = useState({});
@@ -380,7 +382,9 @@ export default function DeveloperPageClient() {
             ? !!settings.injectionEnabled
             : (!!settings.plinianEnabled || !!settings.godmodeEnabled)
         );
-        setInjectLevel(settings.injectionRegisterLevel || settings.plinianLevel || "standard");
+         const loadedLevel = settings.injectionRegisterLevel || settings.plinianLevel || "standard";
+         setInjectLevel(loadedLevel);
+         setRegisterLevel(loadedLevel);
         setInjectIdentity(typeof settings.injectionIdentity === "string" ? settings.injectionIdentity : (settings.plinianIdentity || ""));
         setRegisterCustom(typeof settings.injectionRegisterCustom === "string" ? settings.injectionRegisterCustom : "");
         setGodmodeLevel(settings.injectionGodmodeLevel || settings.godmodeLevel || "classic");
@@ -435,12 +439,43 @@ export default function DeveloperPageClient() {
     return () => { cancelled = true; clearTimeout(t); };
   }, [injectEnabled, injectLevel, injectIdentity, registerCustom]);
 
-  function changeInjectLevel(level) {
+  // Load the preset's canonical register text so the editor shows it. Re-runs
+  // when the level changes (not when the user is mid-edit, so typing doesn't
+  // wipe the textarea).
+  useEffect(() => {
+    if (injectLevel === "none") { setRegisterEffective(""); return; }
+    let cancelled = false;
+    fetch("/api/developer/plinian-preview", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ level: injectLevel, preset: true }),
+    })
+      .then((r) => r.json())
+      .then((d) => { if (!cancelled && d?.text) setRegisterEffective(d.text); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [injectLevel]);
+
+  async function changeInjectLevel(level) {
     setInjectLevel(level);
-    // Switching presets clears any custom register override so the preset's
-    // canonical text is what ships (matches the godmode variant behavior).
+    setRegisterLevel(level);
+    // Load the preset's canonical register text into the editor (empty for
+    // "none"). Switching presets clears any custom override — matches the
+    // godmode variant behavior. Editing the loaded text flips to "custom".
     setRegisterCustom("");
+    setRegisterEffective("");
     patchSetting({ injectionRegisterLevel: level, injectionRegisterCustom: "" });
+    if (level !== "none") {
+      try {
+        const res = await fetch("/api/developer/plinian-preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ level, preset: true }),
+        });
+        const data = await res.json();
+        if (data?.text) setRegisterEffective(data.text);
+      } catch {}
+    }
   }
 
 
@@ -516,14 +551,11 @@ export default function DeveloperPageClient() {
 
   function applyRegisterPreset() {
     if (!registerPresetSource) return;
-    if (registerPresetSource.startsWith("lvl:")) {
-      const lvl = registerPresetSource.slice(4);
-      changeInjectLevel(lvl);
-      // Load the preset's canonical text into the editor (empty for "none").
-      setRegisterCustom("");
-      patchSetting({ injectionRegisterCustom: "" });
-      return;
-    }
+     if (registerPresetSource.startsWith("lvl:")) {
+       const lvl = registerPresetSource.slice(4);
+       changeInjectLevel(lvl); // loads preset text into the editor
+       return;
+     }
     if (registerPresetSource.startsWith("user:")) {
       const text = savedRegisterPresets[registerPresetSource.slice(5)];
       if (text !== undefined) {
@@ -1526,19 +1558,22 @@ export default function DeveloperPageClient() {
                 >
                   Delete
                 </Button>
-                <span className="text-[10px] text-text-muted">
-                  {registerCustom.trim()
-                    ? `${registerCustom.length.toLocaleString()} chars custom register — overrides preset`
-                    : `preset ${injectLevel} active · ${ (injectPreview.chars || 0).toLocaleString() } chars`}
-                </span>
-              </div>
-              <textarea
-                value={registerCustom}
-                onChange={handleRegisterCustomChange}
-                rows={4}
-                placeholder={injectLevel === "none" ? "Register text (empty = no register shaping)" : `Edit the ${injectLevel} register text — leave empty to use the preset`}
-                className="w-full resize-y rounded-lg border border-border bg-surface px-3 py-2 font-mono text-xs text-text-main outline-none focus:border-primary/50"
-              />
+                 <span className="text-[10px] text-text-muted">
+                   {registerCustom.trim()
+                     ? `${registerCustom.length.toLocaleString()} chars custom register — overrides ${injectLevel} preset`
+                     : (injectLevel === "none"
+                         ? "none — no register shaping"
+                         : `preset ${injectLevel} · ${(registerEffective.length || injectPreview.chars || 0).toLocaleString()} chars`)}
+                 </span>
+               </div>
+               <textarea
+                 value={registerCustom.trim() ? registerCustom : registerEffective}
+                 onChange={handleRegisterCustomChange}
+                 rows={4}
+                 disabled={injectLevel === "none"}
+                 placeholder={injectLevel === "none" ? "Register disabled (none)" : "Edit the register text — editing flips to Custom; save an empty value to fall back to the preset"}
+                 className="w-full resize-y rounded-lg border border-border bg-surface px-3 py-2 font-mono text-xs text-text-main outline-none focus:border-primary/50 disabled:opacity-40 disabled:cursor-not-allowed"
+               />
             </div>
 
             <div className="rounded-lg border border-border bg-surface-2/50 p-2">

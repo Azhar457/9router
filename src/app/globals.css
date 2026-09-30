@@ -146,24 +146,6 @@
     (surfaces, borders, text, shadows, glows) stays consistent.
     Selected via [data-palette] on <html>; .dark still controls mode.
     ============================================================ */
- [data-palette="orange"] {
-   --color-brand-50:  #fff7ed; --color-brand-100: #ffedd5; --color-brand-200: #fed7aa;
-   --color-brand-300: #fdba74; --color-brand-400: #fb923c; --color-brand-500: #f97316;
-   --color-brand-600: #ea580c; --color-brand-700: #c2410c; --color-brand-800: #9a3412;
-   --color-brand-900: #7c2d12;
-   --color-primary: #f97316; --color-primary-hover: #ea580c;
-   --color-info: #fb923c;
- }
- [data-palette="orange"].dark {
-   --color-bg: #0c0602; --color-bg-alt: #180d05;
-   --color-surface: #180d05; --color-surface-2: #221307; --color-surface-3: #2c1a0a;
-   --color-sidebar: rgba(24,13,5,0.85);
-   --color-border: rgba(249,115,22,.16); --color-border-subtle: rgba(249,115,22,.10);
-   --color-text: #fff7ed; --color-text-main: #fff7ed; --color-text-muted: #fdba74; --color-text-subtle: #c2410c;
-   --shadow-warm: 0 2px 12px -2px rgba(249,115,22,.28);
-   --shadow-focus: 0 0 0 3px rgba(249,115,22,.22);
- }
-
  [data-palette="sea"] {
    --color-brand-50:  #ecfeff; --color-brand-100: #cffafe; --color-brand-200: #a5f3fc;
    --color-brand-300: #67e8f9; --color-brand-400: #22d3ee; --color-brand-500: #0ea5e9;
@@ -200,22 +182,44 @@
    --shadow-focus: 0 0 0 3px rgba(225,29,72,.22);
  }
 
- [data-palette="neon"] {
-   --color-brand-50:  #e0faff; --color-brand-100: #b5f3ff; --color-brand-200: #7dedff;
-   --color-brand-300: #43ddff; --color-brand-400: #22d3ee; --color-brand-500: #06b6d4;
-   --color-brand-600: #0891b2; --color-brand-700: #0e7490; --color-brand-800: #155e75;
-   --color-brand-900: #164e63;
-   --color-primary: #22d3ee; --color-primary-hover: #06b6d4;
-   --color-info: #22d3ee; --color-success: #a3e635;
+ /* Amber — colorhunt #F9E6A8 #F2A900 #CC6F00 #4D2A00 (low-contrast warm) */
+ [data-palette="amber"] {
+   --color-brand-50:  #fdf7e9; --color-brand-100: #fcecc4;
+   --color-brand-200: #F9E6A8; --color-brand-300: #f7d766;
+   --color-brand-400: #f4bb24; --color-brand-500: #F2A900;
+   --color-brand-600: #CC6F00; --color-brand-700: #a85b00;
+   --color-brand-800: #7a4200; --color-brand-900: #4D2A00;
+   --color-primary: #F2A900; --color-primary-hover: #CC6F00;
+   --color-info: #f4bb24;
  }
- [data-palette="neon"].dark {
-   --color-bg: #020409; --color-bg-alt: #04070f;
-   --color-surface: #040b12; --color-surface-2: #0a1826; --color-surface-3: #0f2233;
-   --color-sidebar: rgba(2,4,9,0.85);
-   --color-border: rgba(34,211,238,.18); --color-border-subtle: rgba(34,211,238,.10);
-   --color-text: #e0faff; --color-text-main: #e0faff; --color-text-muted: #7dedff; --color-text-subtle: #0891b2;
-   --shadow-warm: 0 2px 12px -2px rgba(34,211,238,.30);
-   --shadow-focus: 0 0 0 3px rgba(34,211,238,.24);
+ [data-palette="amber"].dark {
+   --color-bg: #0b0702; --color-bg-alt: #130c04;
+   --color-surface: #150e05; --color-surface-2: #1e1407; --color-surface-3: #271a0a;
+   --color-sidebar: rgba(21,14,5,0.85);
+   --color-border: rgba(242,169,0,.14); --color-border-subtle: rgba(242,169,0,.09);
+   --color-text: #f7efe0; --color-text-main: #f7efe0; --color-text-muted: #cdb391; --color-text-subtle: #96754d;
+   --shadow-warm: 0 2px 12px -2px rgba(242,169,0,.20);
+   --shadow-focus: 0 0 0 3px rgba(242,169,0,.16);
+ }
+
+ /* Teal — colorhunt 005461 018790 00b7b5 f4f4f4 (low-contrast cool) */
+ [data-palette="teal"] {
+   --color-brand-50:  #eafcfc; --color-brand-100: #cbf7f6;
+   --color-brand-200: #97edeb; --color-brand-300: #55e0dd;
+   --color-brand-400: #13cecb; --color-brand-500: #00B7B5;
+   --color-brand-600: #018790; --color-brand-700: #01707c;
+   --color-brand-800: #005461; --color-brand-900: #003f48;
+   --color-primary: #00B7B5; --color-primary-hover: #018790;
+   --color-info: #018790; --color-success: #14b8a6;
+ }
+ [data-palette="teal"].dark {
+   --color-bg: #020a0b; --color-bg-alt: #041315;
+   --color-surface: #041619; --color-surface-2: #082226; --color-surface-3: #0b2c31;
+   --color-sidebar: rgba(4,22,25,0.85);
+   --color-border: rgba(0,183,181,.15); --color-border-subtle: rgba(0,183,181,.09);
+   --color-text: #f4f4f4; --color-text-main: #f4f4f4; --color-text-muted: #93c9c8; --color-text-subtle: #4f8f90;
+   --shadow-warm: 0 2px 12px -2px rgba(0,183,181,.22);
+   --shadow-focus: 0 0 0 3px rgba(0,183,181,.16);
  }
 
 /* ============================================================
@@ -415,14 +419,11 @@ input, textarea {
   background: linear-gradient(180deg, var(--color-bg-alt) 0%, var(--color-bg) 100%);
 }
 
-  /* macOS Vibrancy */
+  /* macOS Vibrancy — semantic: follows --color-sidebar (mode + palette aware) */
 .bg-vibrancy {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  background: rgba(255, 255, 255, 0.72);
-}
-.dark .bg-vibrancy {
-  background: rgba(21, 18, 38, 0.72);
+  background: var(--color-sidebar);
 }
 
 /* macOS Traffic Lights */

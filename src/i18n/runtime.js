@@ -104,28 +104,64 @@ function processTextNode(node) {
   }
 }
 
-// Process all text nodes in element
-function processElement(element) {
-  if (!element) return;
-  
-  const walker = document.createTreeWalker(
-    element,
-    NodeFilter.SHOW_TEXT,
-    null,
-    false
-  );
-  
-  let node;
-  const nodesToProcess = [];
-  
-  // Collect all nodes first to avoid live collection issues
-  while ((node = walker.nextNode())) {
-    nodesToProcess.push(node);
-  }
-  
-  // Process collected nodes
-  nodesToProcess.forEach(processTextNode);
-}
+ // Attributes that carry user-facing copy and should follow the locale.
+ // These are NOT text nodes, so the DOM walker above misses them; translate
+ // them here (idempotent via the same "translate from original" invariant).
+ const TRANSLATABLE_ATTRS = ["placeholder", "title", "aria-label", "alt"];
+
+ function processAttribute(el, attr) {
+   const original = el.getAttribute(attr);
+   if (!original || !original.trim()) return;
+   // Skip if an ancestor marks the whole subtree as skip
+   let element = el;
+   while (element) {
+     if (element.hasAttribute && element.hasAttribute("data-i18n-skip")) return;
+     element = element.parentElement;
+   }
+   const record = el._attrOriginals || (el._attrOriginals = {});
+   if (record[attr] == null) record[attr] = original; // first capture
+   const translated = translate(record[attr]);
+   el._attrTranslated = el._attrTranslated || {};
+   if (translated !== el._attrTranslated[attr]) {
+     el._attrTranslated[attr] = translated;
+     if (translated !== original) el.setAttribute(attr, translated);
+   }
+ }
+
+ // Process all text nodes in element
+ function processElement(element) {
+   if (!element) return;
+
+   const walker = document.createTreeWalker(
+     element,
+     NodeFilter.SHOW_TEXT,
+     null,
+     false
+   );
+
+   let node;
+   const nodesToProcess = [];
+
+   // Collect all nodes first to avoid live collection issues
+   while ((node = walker.nextNode())) {
+     nodesToProcess.push(node);
+   }
+
+   // Process collected nodes
+   nodesToProcess.forEach(processTextNode);
+
+   // Translate user-facing attributes (placeholder/title/aria-label/alt)
+   const elementWalker = document.createTreeWalker(
+     element,
+     NodeFilter.SHOW_ELEMENT,
+     null,
+     false
+   );
+   let el;
+   const elementsToProcess = [];
+   while ((el = elementWalker.nextNode())) elementsToProcess.push(el);
+   elementsToProcess.forEach((e) => TRANSLATABLE_ATTRS.forEach((a) => processAttribute(e, a)));
+ }
 
 // Initialize runtime i18n
 export async function initRuntimeI18n() {

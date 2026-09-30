@@ -1,3 +1,15 @@
+# v0.5.95 (2026-09-30)
+
+## Theme
+- **Palette picker split**: standalone `PaletteToggle` (row of swatches) next to the existing light/dark `ThemeToggle` in the header — pick accent palette without opening the theme menu.
+
+## Media — image generation for custom nodes (Plinian fork)
+- **Generic image adapter**: any `openai-compatible-*` provider node can serve image models. Base URL comes from the node credentials; missing base URL is refused (no `api.openai.com` fallback — prevents key leakage).
+- **"Text to Image" toggle** in Add/Edit OpenAI-compatible node modals stores a sanitized `serviceKinds` flag; node creation now persists it (was dropped by the whitelist).
+- **Text to Image page** lists flagged custom nodes as cards; detail page gets Edit (modal) + Delete, kind guard (`notFound` when unflagged).
+- **`/v1/models/image`** learns custom-node `serviceKinds` — image models of custom nodes are listed (chat-type nodes still expose `llm`).
+- **Header breadcrumb** resolves custom node names instead of raw node ids (no more broken provider icon).
+
 # v0.5.93 (2026-09-30)
 
 ## Global Injection (developer card)

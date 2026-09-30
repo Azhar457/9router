@@ -36,20 +36,20 @@ export const UPDATER_CONFIG = {
  export const THEME_CONFIG = {
    storageKey: "theme",
    defaultTheme: "system", // "light" | "dark" | "system"
-   defaultPalette: "violet", // "violet" | "orange" | "sea" | "rose" | "neon"
+   defaultPalette: "violet", // "violet" | "sea" | "rose" | "amber" | "teal"
  };
 
  // 4-swatch palettes (ported from jars-ui). Each palette drives the
  // --color-brand-* + bg/text/surface tokens via [data-palette] in globals.css.
  // "violet" is the 9router default (Aurora). Sub-tokens are derived from the
  // 4 roots so a root change stays consistent — no hand-set sub values.
- export const PALETTES = {
-   violet: { label: "Violet", swatch: "#8B5CF6", dark: true },
-   orange: { label: "Ember", swatch: "#f97316", dark: true },
-   sea:    { label: "Sea",    swatch: "#0ea5e9", dark: true },
-   rose:   { label: "Rose",   swatch: "#e11d48", dark: true },
-   neon:   { label: "Neon",   swatch: "#22d3ee", dark: true },
- };
+export const PALETTES = {
+  violet: { label: "Violet", swatch: "#8B5CF6", dark: true },
+  sea:    { label: "Sea",    swatch: "#0ea5e9", dark: true },
+  rose:   { label: "Rose",   swatch: "#e11d48", dark: true },
+  amber:  { label: "Amber",  swatch: "#F2A900", dark: true },
+  teal:   { label: "Teal",   swatch: "#00B7B5", dark: true },
+};
 
 // Subscription
 export const SUBSCRIPTION_CONFIG = {
