@@ -42,7 +42,8 @@
     "cli",
     "proxy",
     "ai",
-    "api"
+    "api",
+    "9router-plinian"
   ],
   "license": "MIT",
   "devDependencies": {

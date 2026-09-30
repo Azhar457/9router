@@ -1,0 +1,42 @@
+name: Publish to npm
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+# npm trusted publishing (OIDC): no npm token is stored in the repo.
+# The connection (Azhar457/9router + publish.yml + environment "npm") is
+# configured once on npmjs.com and cannot be edited after creation.
+concurrency:
+  group: npm-publish-${{ github.repository }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write # OIDC token for npm publish
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: npm # must match the "Environment name" on npmjs.com
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Trusted publishing needs npm >= 11.5.1 for the OIDC flow
+      - name: Update npm
+        run: npm install -g npm@latest
+
+      - name: Build and publish
+        run: npm run cli:publish
+        env:
+          NODE_AUTH_TOKEN: "" # empty on purpose — OIDC authenticates instead
