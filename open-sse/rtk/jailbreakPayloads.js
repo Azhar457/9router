@@ -112,6 +112,11 @@ const COLLECTIONS = [
       { id: "ultimate-hacking", path: "ultimate-hacking-ai-20-4.md", cat: "pentest" },
       { id: "coding-jailbreak", path: "coding-generator-jailbreak-70.md", cat: "coding" },
       { id: "codemaster-jailbreak", path: "codemaster-chatgpt-4-jailbreak.md", cat: "coding" },
+      // Curated — meta-frameworks & structural carriers (unique approach, not just content payloads)
+      { id: "dark-roleplay-v12", path: "dark-roleplay-v12-base.md", cat: "pentest" },
+      { id: "dark-roleplay-v11", path: "dark-roleplay-v11-base.md", cat: "pentest" },
+      { id: "rfc-framework", path: "rfc-jailbreak-framework-454.md", cat: "pentest" },
+      { id: "s-dan", path: "s-dan-jailbreak.md", cat: "pentest" },
       // (nsfw roleplay gpts removed — focus is attacking / building / pentest)
     ],
   },

@@ -116,6 +116,10 @@ const GODMODE_VARIANTS = [
   { id: "f:bf:blackhat-hacker",     label: "📄 BlackFriday — Blackhat Hacker", cat: "pentest", new: true },
   { id: "f:bf:unlimited-hacking",   label: "📄 BlackFriday — Unlimited Hacking AI", cat: "pentest", new: true },
   { id: "f:bf:ultimate-hacking",    label: "📄 BlackFriday — Ultimate Hacking AI", cat: "pentest", new: true },
+      { id: "f:bf:dark-roleplay-v12",   label: "📄 BF — Dark RP v1.2 BASE (meta-wrapper)", cat: "pentest", new: true },
+      { id: "f:bf:dark-roleplay-v11",   label: "📄 BF — Dark RP v1.1 BASE (meta-wrapper)", cat: "pentest", new: true },
+      { id: "f:bf:rfc-framework",       label: "📄 BF — RFC Jailbreak Framework 454", cat: "pentest", new: true },
+      { id: "f:bf:s-dan",              label: "📄 BF — S-DAN (classic baseline)", cat: "pentest", new: true },
   // ── Creative / RP ──────────────────────────────────────────────
   { id: "f:ai:gemini-3.5-flash-lite", label: "📄 Gemini 3.5 Flash Lite — ENI RP (AI-Jailbreaks)", cat: "creative", new: true },
   // (nsfw roleplay variants removed — focus is attacking / building / pentest)
