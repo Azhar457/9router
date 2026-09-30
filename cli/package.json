@@ -49,5 +49,9 @@
   "devDependencies": {
     "esbuild": "^0.25.12",
     "nodemon": "^3.1.14"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Azhar457/9router.git"
   }
 }
