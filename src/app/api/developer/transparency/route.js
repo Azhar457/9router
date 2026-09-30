@@ -53,12 +53,25 @@ export async function POST(request) {
     godmodeCustom = typeof legacy.godmode?.custom === "string" ? legacy.godmode.custom : "";
   }
 
-  // Build the register text (identity prefix + Plinian prompt)
+  // Build the register text. A custom register (from the UI editor) overrides
+  // the preset level entirely — mirrors injectGlobal() in open-sse/rtk/
+  // globalInject.js, which does exactly this. Identity prefixes in both cases.
+  const registerCustom = typeof unified?.registerCustom === "string"
+    ? unified.registerCustom
+    : typeof legacy.plinian?.registerCustom === "string" ? legacy.plinian.registerCustom : "";
+
   let registerText = "";
-  if (enabled && registerLevel) {
-    registerText = getPlinianPrompt(registerLevel);
-    if (identity && identity.trim()) {
-      registerText = `${identity.trim()}\n\n---\n\n${registerText}`;
+  if (enabled) {
+    if (registerCustom.trim()) {
+      registerText = registerCustom.trim();
+      if (identity && identity.trim()) {
+        registerText = `${identity.trim()}\n\n---\n\n${registerText}`;
+      }
+    } else if (registerLevel) {
+      registerText = getPlinianPrompt(registerLevel);
+      if (identity && identity.trim()) {
+        registerText = `${identity.trim()}\n\n---\n\n${registerText}`;
+      }
     }
   }
 
