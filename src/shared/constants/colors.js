@@ -1,36 +1,39 @@
-// Claude-inspired color palette for Endpoint Proxy
-// Light theme: Warm beige/cream tones
-// Dark theme: Deep charcoal/brown tones
+// Aurora Violet palette for 9router-plinian (UI-Playground-beta #15)
+// Light theme: cool neutrals, violet-tinted accents
+// Dark theme: deep indigo, violet highlights
+// This is the JS mirror of the CSS token source (src/app/globals.css).
+// Keep the two in sync — stylelint bans literal hex outside globals.css,
+// so new colors must land in that file first.
 
 export const COLORS = {
-  // Primary - Warm Coral/Terracotta (Claude-like)
+  // Primary — Aurora violet
   primary: {
-    DEFAULT: "#D97757",
-    hover: "#C56243",
-    light: "#E8A58C",
-    dark: "#B0664D",
+    DEFAULT: "#8B5CF6",
+    hover: "#7C3AED",
+    light: "#C4B5FD",
+    dark: "#6D28D9",
   },
 
   // Light theme backgrounds
   light: {
-    bg: "#FBF9F6",
-    bgAlt: "#F5F1ED",
+    bg: "#FAFAFA",
+    bgAlt: "#F3F4F6",
     surface: "#FFFFFF",
-    sidebar: "rgba(246, 246, 246, 0.8)",
+    sidebar: "rgba(255, 255, 255, 0.85)",
     border: "rgba(0, 0, 0, 0.1)",
-    textMain: "#383733",
-    textMuted: "#75736E",
+    textMain: "#1E293B",
+    textMuted: "#64748B",
   },
 
   // Dark theme backgrounds
   dark: {
-    bg: "#191918",
-    bgAlt: "#1F1F1E",
-    surface: "#242423",
-    sidebar: "rgba(30, 30, 30, 0.8)",
+    bg: "#0C0A1A",
+    bgAlt: "#12101F",
+    surface: "#151226",
+    sidebar: "rgba(18, 16, 31, 0.85)",
     border: "rgba(255, 255, 255, 0.1)",
-    textMain: "#ECEBE8",
-    textMuted: "#9E9D99",
+    textMain: "#E2E8F0",
+    textMuted: "#94A3B8",
   },
 
   // Status colors

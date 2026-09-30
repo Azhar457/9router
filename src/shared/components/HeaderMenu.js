@@ -4,7 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import PropTypes from "prop-types";
 import { useTheme } from "@/shared/hooks/useTheme";
 import ChangelogModal from "./ChangelogModal";
-import { ConfirmModal } from "./Modal";
+ import { ConfirmModal } from "./Modal";
+ import ThemePalettePicker from "./ThemePalettePicker";
 
 function MenuItem({ icon, label, onClick, trailing, danger }) {
   return (
@@ -38,7 +39,7 @@ export default function HeaderMenu({ onLogout }) {
   const [changelogOpen, setChangelogOpen] = useState(false);
   const [shutdownOpen, setShutdownOpen] = useState(false);
   const [isShuttingDown, setIsShuttingDown] = useState(false);
-  const { toggleTheme, isDark } = useTheme();
+  const { toggleTheme, isDark, palette } = useTheme();
   const menuRef = useRef(null);
 
   const handleShutdown = async () => {
@@ -89,6 +90,12 @@ export default function HeaderMenu({ onLogout }) {
               label="Theme"
               onClick={() => { toggleTheme(); close(); }}
             />
+            <div className="px-4 py-2.5">
+              <div className="text-xs font-medium text-text-subtle mb-2">
+                Palette
+              </div>
+              <ThemePalettePicker />
+            </div>
             <MenuItem
               icon="power_settings_new"
               label="Shutdown"
