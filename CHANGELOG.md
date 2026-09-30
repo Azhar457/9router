@@ -2,6 +2,14 @@
 
 ## Theme
 - **Palette picker split**: standalone `PaletteToggle` (row of swatches) next to the existing light/dark `ThemeToggle` in the header — pick accent palette without opening the theme menu.
+- **5 palettes**: Violet (default), Sea, Rose, **Amber** (`#F2A900`) and **Teal** (`#00B7B5`) replace Ember/Neon; picker, header dropdown and sidebar dots all show the same five.
+- **Sidebar palette dots**: 24px hit area / 16px disc / 4px gap (multiples of 4), bordered disc, cursor + hover scale + focus ring, active ring from theme tokens; clicking the active dot no longer resets to violet.
+- **Semantic sidebar surfaces**: `.bg-vibrancy` now uses the `--color-sidebar` token (mode + palette aware) instead of a hardcoded dark rgba — dark mode no longer over-contrasted.
+- **Pre-paint palette**: root layout inline script applies `data-palette` (not just the `dark` class) before first paint — reload keeps the chosen accent, no violet flash.
+- **Donate card removed**: "Support 9Router" header button + modal disabled by default (`DonateModal` component kept).
+
+## Red team docs
+- **README split**: npm page (`cli/README.md`) rewritten for the fork — fork-diff section, Red Team Toolkit docs, `9router-plinian` badges/install; root README gains Fork Differences + Red Team Toolkit sections.
 
 ## Media — image generation for custom nodes (Plinian fork)
 - **Generic image adapter**: any `openai-compatible-*` provider node can serve image models. Base URL comes from the node credentials; missing base URL is refused (no `api.openai.com` fallback — prevents key leakage).

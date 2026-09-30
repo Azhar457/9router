@@ -3,7 +3,7 @@
   
   # 9Router-Plinian — Personal Fork
 
-  **Personal fork of [9Router](https://github.com/decolua/9router) — Aurora Violet theme, custom providers.**
+  **Personal fork of [9Router](https://github.com/decolua/9router) — Aurora Violet theme, Red Team Toolkit, custom providers.**
 
   [![npm](https://img.shields.io/npm/v/9router-plinian.svg)](https://www.npmjs.com/package/9router-plinian)
   [![License](https://img.shields.io/npm/l/9router-plinian.svg)](./LICENSE)
@@ -33,6 +33,33 @@
 - ✅ **Auto fallback** - Subscription → Cheap → Free, zero downtime
 - ✅ **Multi-account** - Round-robin between accounts per provider
 - ✅ **Universal** - Works with Claude Code, Codex, Cursor, Cline, any CLI tool
+
+---
+
+## 🍴 Fork Differences (Plinian)
+
+What this fork adds on top of upstream 9Router:
+
+- 🔴 **Red Team Toolkit** — Global Injection, external jailbreak payload registry, transparency console (section below)
+- 🎨 **Aurora Violet + 5 palettes** — violet (default), sea, rose, amber, teal; header PaletteToggle, light/dark/system themes, semantic sidebar surfaces
+- 🖼️ **Image generation for custom nodes** — any `openai-compatible` node serves image models via the Text-to-Image page; `GET /v1/models/image` lists them
+- 🆓 **Free-tier auto-combo** — `POST /api/combos/free-tier` finds + races free models, keeps per-family winners
+- 📥 **Import from /models + Test All / Disable All Failed** — bulk provider management
+
+---
+
+## 🔴 Red Team Toolkit (authorized testing)
+
+Fork-only feature set for red-team / security-research workflows:
+
+- **Global Injection** — one master toggle drives register prompt + G0DM0D3 payload into the same system message (payload appended last, closest to the user query). Levels, identity, and custom payload configurable; legacy settings keys still honored.
+- **External jailbreak payload registry** — 16 file-based variants ingested from sibling `AI-Jailbreaks/` + `BlackFriday-GPTs-Prompts/` collections (NYX V4, Cronus, Bladwin 67, Opus 4.8, GPT 5.6, GLM RAGE, DAN, Dev Mode, ...) with model-aware auto-routes (`claude-*` → Opus 4.8, `gpt-*` → Bladwin, `grok` → NYX, ...). Fail-open: missing file → classic payload.
+  - `9ROUTER_JAILBREAK_DIR=/path/to/collections` — override collection dir
+  - `9ROUTER_JAILBREAK_DISABLE=1` — disable the registry
+- **Red-team transparency** — `injectionDetect` signature rules (G0DM0D3, VEIL, Plinian register, AI-Jailbreaks, BlackFriday); the developer transparency console renders register + payload in live injection order.
+- **Token-saver guardrail** — active jailbreak payloads skip headroom compression (no third-party leak) and skip terseness prompts (no dilution).
+
+> Use only on systems you are authorized to test.
 
 ---
 
