@@ -1,0 +1,24 @@
+name: Publish to npm (abandoned — see GitHub Releases)
+
+# 9router-plinian no longer publishes to npm. The dual-use scanner
+# (publish-time malware scan + dual-use policy, 2026-07-28) keeps
+# auto-purging / blocking versions that ship the Red-Team payload
+# collections, and the stage queue is owner-2FA-gated so it can't be
+# resolved without a human HP every release.
+#
+# The canonical install path is the GitHub Releases tarball:
+#   https://github.com/Azhar457/9router/releases/latest
+# ETL pack (payloads.tar.gz + manifest) keeps the tarball scanner-clean
+# and install-friendly; the payload collections load via postinstall.
+#
+# Keep this workflow disabled (no `on:` triggers) so the npm stage
+# queue doesn't accumulate stale entries. Re-enable only if npm's
+# dual-use review pipeline changes to allow non-human promotion.
+
+# Intentionally empty trigger list — workflow never runs.
+on: {}
+
+permissions:
+  contents: read
+
+jobs: {}

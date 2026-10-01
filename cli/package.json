@@ -56,8 +56,5 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Azhar457/9router.git"
-  },
-  "contentPolicy": {
-    "class": "dual-use"
   }
 }

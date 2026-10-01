@@ -44,12 +44,10 @@ Everything upstream ships and we don't touch — OAuth providers, combos, quota 
 
 ## ⬇️ Install
 
-### Option 1 — curl from GitHub Releases (no npmjs download)
-
-Downloads the package tarball straight from this repo's releases, then installs it with your local npm client:
+**GitHub Releases is the only install path.** `9router-plinian` is not published to the npm registry — the Red-Team payload collections ship as a bundled archive (ETL), and npm's publish-time dual-use scanner has repeatedly blocked the red-team content. Install straight from this repo's releases instead:
 
 ```bash
-curl -fsSL https://github.com/Azhar457/9router/releases/latest/download/9router-plinian-0.5.97.tgz -o /tmp/9router-plinian.tgz
+curl -fsSL https://github.com/Azhar457/9router/releases/latest/download/9router-plinian-latest.tgz -o /tmp/9router-plinian.tgz
 npm install -g /tmp/9router-plinian.tgz
 9router-plinian
 ```
@@ -57,21 +55,14 @@ npm install -g /tmp/9router-plinian.tgz
 PowerShell:
 
 ```powershell
-curl.exe -fsSL https://github.com/Azhar457/9router/releases/latest/download/9router-plinian-0.5.97.tgz -o $env:TEMP\9router-plinian.tgz
+curl.exe -fsSL https://github.com/Azhar457/9router/releases/latest/download/9router-plinian-latest.tgz -o $env:TEMP\9router-plinian.tgz
 npm install -g $env:TEMP\9router-plinian.tgz
 9router-plinian
 ```
 
-> `npm install -g <file>` still resolves the package's few small dependencies (react, node-forge, …) from whatever registry your npm is configured to use — a mirror counts. Only the package itself is fetched from GitHub.
+> `npm install -g <file>` still resolves the package's few small dependencies (react, node-forge, …) from whatever registry your npm is configured to use — a mirror counts. Only the package itself is fetched from GitHub. The Red-Team payloads load at install time from the bundled `payloads.tar.gz` into `~/.9router/payloads/` (override with `9ROUTER_JAILBREAK_DIR`).
 
-### Option 2 — npm registry (when 0.5.96 is live)
-
-```bash
-npm install -g 9router-plinian
-9router-plinian
-```
-
-> `9router-plinian` declares dual-use content, so new versions go through npm's staged + 2FA pipeline. Until `0.5.96` is promoted on npmjs, use Option 1.
+> 💡 **Why not npm?** `9router-plinian` ships security-research / red-team prompt payloads (dual-use content). npm's 2026-07-28 publish-time scanner + dual-use policy blocks the version at "automated review," and staged approval requires a human 2FA on every release. The GitHub release path sidesteps that entirely and is the supported install.
 
 ### Option 3 — from source
 
