@@ -130,16 +130,21 @@ export async function resolveClineModels(credentials) {
       id: m.id,
       name: m.name || m.id,
     }));
-
-  // Free tier: /api/v1/models lists no `cline-free/*` ids, so merge the feed's
-  // free[] in. First writer wins on a shared id, keeping the catalog's entry
-  // for anything the two sources agree on.
   const freeTier = await fetchClineFreeTierModels();
+  const freeIds = new Set((freeTier || []).map((m) => m.id));
+
+  // Merge: catalog first, then free-feed entries not already in the catalog.
   const byId = new Map(models.map((m) => [m.id, m]));
   for (const m of freeTier || []) {
     if (!byId.has(m.id)) byId.set(m.id, m);
   }
   const merged = Array.from(byId.values());
 
-  return merged.length ? { models: merged } : null;
+  // Tag: free-feed id, or in-catalog-but-known-free (e.g. z-ai/glm-5.3-flash)
+  // stays isFree when it's in the free feed. Everything else is paid/unknown.
+  const tagged = merged.map((m) => ({
+    ...m,
+    isFree: freeIds.has(m.id),
+  }));
+  return tagged.length ? { models: tagged } : null;
 }

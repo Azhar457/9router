@@ -89,7 +89,8 @@ export default function ProviderDetailPage() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [customModelsUrl, setCustomModelsUrl] = useState("");
   const [importPreview, setImportPreview] = useState(null);
-  const [importFreeOnly, setImportFreeOnly] = useState(false);
+  const [importMode, setImportMode] = useState("all"); // "all" | "free" | "paid"
+  const [clineFreeOnly, setClineFreeOnly] = useState(false);
   const [modelSort, setModelSort] = useState("free");
   const { copied, copy } = useCopyToClipboard();
 
@@ -664,9 +665,10 @@ export default function ProviderDetailPage() {
         alert(data.error || translate("Failed to fetch models"));
         return;
       }
-      const models = data.models || [];
+      let models = data.models || [];
+      if (clineFreeOnly) models = models.filter((m) => m.isFree);
       if (models.length === 0) {
-        alert(translate("No models returned"));
+        alert(clineFreeOnly ? "No free models returned" : translate("No models returned"));
         return;
       }
       let importedCount = 0;
@@ -776,7 +778,7 @@ export default function ProviderDetailPage() {
         .map((model) => {
           const modelId = model.id || model.name;
           if (!modelId || existingIds.has(modelId)) return null;
-          const isFree = String(modelId).endsWith(":free") || model.isFree === true;
+          const isFree = String(modelId).endsWith(":free") || model.isFree === true || (model.pricing?.prompt === "0" && model.pricing?.completion === "0");
           return { id: modelId, kind: model.kind || model.type || "llm", isFree };
         })
         .filter(Boolean);
@@ -784,6 +786,7 @@ export default function ProviderDetailPage() {
         alert(translate("All models already exist, no new models added"));
         return;
       }
+      setImportMode("all");
       setImportPreview({ total: newModels.length, freeCount: newModels.filter((m) => m.isFree).length, models: newModels });
     } catch (error) {
       console.log("Error fetching /models:", error);
@@ -793,12 +796,14 @@ export default function ProviderDetailPage() {
     }
   };
 
-  // Confirm import from preview modal — apply free-only filter if set.
+  // Confirm import from preview modal — apply the selected import mode.
   const confirmImportFromPreview = async () => {
     if (!importPreview || importingModels) return;
-    const toImport = importFreeOnly ? importPreview.models.filter((m) => m.isFree) : importPreview.models;
+    let toImport = importPreview.models;
+    if (importMode === "free") toImport = toImport.filter((m) => m.isFree);
+    else if (importMode === "paid") toImport = toImport.filter((m) => !m.isFree);
     if (!toImport.length) {
-      alert("No free models to import with current filter");
+      alert(`No ${importMode === "paid" ? "paid/unknown" : "free"} models to import with current filter`);
       setImportPreview(null);
       return;
     }
@@ -1573,16 +1578,27 @@ export default function ProviderDetailPage() {
 
         {/* Import Cline /models catalog button — only show for cline and clinepass providers */}
         {(providerId === "cline" || providerId === "clinepass") && connections.some((conn) => conn.isActive !== false) && (
-          <button
-            onClick={handleImportClineModels}
-            disabled={importingClineModels}
-            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-blue-500/40 px-3 py-2 text-xs text-blue-600 dark:text-blue-400 transition-colors hover:border-blue-500 hover:bg-blue-500/5 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <span className="material-symbols-outlined text-sm" style={importingClineModels ? { animation: "spin 1s linear infinite" } : undefined}>
-              {importingClineModels ? "progress_activity" : "download"}
-            </span>
-            {importingClineModels ? translate("Fetching...") : translate("Import from /models")}
-          </button>
+          <div className="flex w-full flex-col gap-1.5 sm:w-auto sm:flex-row sm:items-center">
+            <button
+              onClick={handleImportClineModels}
+              disabled={importingClineModels}
+              className="flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-blue-500/40 px-3 py-2 text-xs text-blue-600 dark:text-blue-400 transition-colors hover:border-blue-500 hover:bg-blue-500/5 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span className="material-symbols-outlined text-sm" style={importingClineModels ? { animation: "spin 1s linear infinite" } : undefined}>
+                {importingClineModels ? "progress_activity" : "download"}
+              </span>
+              {importingClineModels ? translate("Fetching...") : translate("Import from /models")}
+            </button>
+            <label className="flex items-center gap-1.5 text-xs text-text-muted">
+              <input
+                type="checkbox"
+                checked={clineFreeOnly}
+                onChange={(e) => setClineFreeOnly(e.target.checked)}
+                className="accent-blue-500"
+              />
+              Free models only
+            </label>
+          </div>
         )}
 
         {/* Import from /models — all providers with an active connection.
@@ -1635,7 +1651,7 @@ export default function ProviderDetailPage() {
           </div>
         </Modal>
 
-        {/* Import preview: count + free-only toggle + confirm */}
+        {/* Import preview: count + mode selector + confirm */}
         {importPreview && (
           <Modal
             isOpen={!!importPreview}
@@ -1644,24 +1660,30 @@ export default function ProviderDetailPage() {
           >
             <div className="flex flex-col gap-3">
               <p className="text-sm">
-                <b>{importPreview.total}</b> new model(s) will be imported.
+                <b>{importPreview.total}</b> new model(s) found.
                 <br />
                 <span className="text-xs text-text-muted">
                   {importPreview.freeCount} free / {importPreview.total - importPreview.freeCount} paid-or-unknown
                 </span>
               </p>
-              <label className="flex items-center gap-2 text-xs">
-                <input
-                  type="checkbox"
-                  checked={importFreeOnly}
-                  onChange={(e) => setImportFreeOnly(e.target.checked)}
-                  className="accent-blue-500"
-                />
-                Import free models only
-              </label>
-              {importPreview.total > 50 && (
+              <div className="flex items-center gap-3 text-xs">
+                <span className="text-text-muted">Import:</span>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input type="radio" checked={importMode === "all"} onChange={() => setImportMode("all")} className="accent-blue-500" />
+                  All
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input type="radio" checked={importMode === "free"} onChange={() => setImportMode("free")} className="accent-blue-500" />
+                  Free only ({importPreview.freeCount})
+                </label>
+                <label className="flex items-center gap-1.5 cursor-pointer">
+                  <input type="radio" checked={importMode === "paid"} onChange={() => setImportMode("paid")} className="accent-blue-500" />
+                  Paid/unknown ({importPreview.total - importPreview.freeCount})
+                </label>
+              </div>
+              {importPreview.total > 50 && importMode !== "free" && (
                 <p className="text-xs text-amber-600 dark:text-amber-400">
-                  Large import — {importFreeOnly ? "free-only" : "all"} selected.
+                  Large import — {importMode === "all" ? "all models" : "paid/unknown"} selected.
                 </p>
               )}
               <div className="flex justify-end gap-2">
@@ -1674,9 +1696,11 @@ export default function ProviderDetailPage() {
                 >
                   {importingModels
                     ? "Importing..."
-                    : importFreeOnly
-                      ? `Import ${importPreview.freeCount} free models`
-                      : `Import ${importPreview.total} models`}
+                    : importMode === "all"
+                      ? `Import ${importPreview.total} models`
+                      : importMode === "free"
+                        ? `Import ${importPreview.freeCount} free models`
+                        : `Import ${importPreview.total - importPreview.freeCount} models`}
                 </Button>
               </div>
             </div>

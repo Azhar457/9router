@@ -40,8 +40,17 @@ export const FILTERS = {
       .sort((a, b) => String(a.id).localeCompare(String(b.id))),
   // Raw pass-through: return every entry the endpoint lists, unfiltered.
   // Used by "Import from /models" with a custom URL (e.g. a gateway's /v1/models).
+  // Raw pass-through: return every entry the endpoint lists, unfiltered.
+  // Preserves the free signal (pricing / isFree) so the dashboard preview can
+  // compute an accurate free count and the "free-only" import works. OpenAI-style
+  // gateways mark free models with pricing.prompt/completion === "0".
   "any": (models) =>
     (Array.isArray(models) ? models : [])
       .filter((m) => m?.id || m?.name)
-      .map((m) => ({ id: m.id || m.name, name: m.name || m.id, contextLength: m.context_length || m.contextLength })),
+      .map((m) => ({
+        id: m.id || m.name,
+        name: m.name || m.id,
+        contextLength: m.context_length || m.contextLength,
+        isFree: m.isFree ?? ((m.pricing?.prompt === "0" && m.pricing?.completion === "0") || m.id?.endsWith(":free")),
+      })),
 };
