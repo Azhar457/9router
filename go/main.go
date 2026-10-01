@@ -179,21 +179,32 @@ func main() {
 		log.Fatalf("bad UPSTREAM %q: %v", upstream, err)
 	}
 
-	base := http.DefaultTransport.(*http.Transport).Clone()
-	base.DialContext = (&net.Dialer{Timeout: 5 * time.Second}).DialContext
+  base := http.DefaultTransport.(*http.Transport).Clone()
+  base.DialContext = (&net.Dialer{Timeout: 5 * time.Second}).DialContext
+  // Loopback upstream (Next.js) — size the connection pool so the proxy reuses
+  // TCP/h2c conns instead of re-dialing per idle burst. ForceAttemptHTTP2 keeps
+  // a multiplexed h2c connection to Next (custom-server.js already tolerates
+  // h2c upgrades), which removes per-request setup cost on the hot SSE path.
+  base.MaxIdleConns = 100
+  base.MaxIdleConnsPerHost = 100
+  base.IdleConnTimeout = 60 * time.Second
+  base.ForceAttemptHTTP2 = true
 
-	// /v1 gets its own transport: optional cap on time-to-response-headers
-	// (slow providers hang here first). Off by default — thinking models can
-	// take minutes before the first token; set V1_HEADER_TIMEOUT=120s to cap.
-	v1Transport := base.Clone()
-	if s := strings.TrimSpace(os.Getenv("V1_HEADER_TIMEOUT")); s != "" {
-		d, err := time.ParseDuration(s)
-		if err != nil {
-			log.Fatalf("bad V1_HEADER_TIMEOUT %q: %v", s, err)
-		}
-		v1Transport.ResponseHeaderTimeout = d
-		log.Printf("v1 response-header timeout: %s", d)
-	}
+  // /v1 gets its own transport: optional cap on time-to-response-headers
+  // (slow providers hang here first). Off by default — thinking models can
+  // take minutes before the first token; set V1_HEADER_TIMEOUT=120s to cap.
+  // SSE responses are already content-encoded upstream; don't let the Go
+  // client re-compress the provider's body on the way through.
+  v1Transport := base.Clone()
+  v1Transport.DisableCompression = true
+  if s := strings.TrimSpace(os.Getenv("V1_HEADER_TIMEOUT")); s != "" {
+    d, err := time.ParseDuration(s)
+    if err != nil {
+      log.Fatalf("bad V1_HEADER_TIMEOUT %q: %v", s, err)
+    }
+    v1Transport.ResponseHeaderTimeout = d
+    log.Printf("v1 response-header timeout: %s", d)
+  }
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/-/rtk/compress", rtkHandler)
@@ -203,6 +214,9 @@ func main() {
 		Addr:              addr,
 		Handler:           mux,
 		ReadHeaderTimeout: 15 * time.Second,
+		// Cap inbound idle conns so half-closed peers release slots.
+		// No WriteTimeout: SSE responses stream until the provider closes.
+		IdleTimeout: 120 * time.Second,
 	}
 
 	go func() {
