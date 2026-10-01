@@ -5,7 +5,6 @@
 
   **Independent fork of [9Router](https://github.com/decolua/9router)** — one AI gateway for all your coding tools, with a Red Team Toolkit, Aurora Violet UI, and payload-curation work that upstream doesn't ship.
 
-  [![npm](https://img.shields.io/npm/v/9router-plinian.svg)](https://www.npmjs.com/package/9router-plinian)
   [![GitHub Release](https://img.shields.io/github/v/release/Azhar457/9router)](https://github.com/Azhar457/9router/releases)
   [![License](https://img.shields.io/npm/l/9router-plinian.svg)](./LICENSE)
 
@@ -17,11 +16,11 @@
 
 ## 🔀 About this fork
 
-This repository is **not** the original 9Router project. It is an independent fork of [`decolua/9router`](https://github.com/decolua/9router), maintained separately with its own roadmap, its own releases, and its own npm package (`9router-plinian`).
+This repository is **not** the original 9Router project. It is an independent fork of [`decolua/9router`](https://github.com/decolua/9router), maintained separately with its own roadmap, its own releases, and its own GitHub Releases (the npm package `9router-plinian` is deprecated — see Install).
 
 - **Why it exists:** the upstream project moves slowly on the things this fork needs — jailbreak payload research, model-aware payload routing, deeper UI theming, and a Go-based entry proxy for performance work.
 - **What stays the same:** the core routing engine (40+ providers, format translation, combos, quota tracking, RTK token saver) is inherited from upstream and still credits it everywhere it matters.
-- **What you should use:** `npm install -g 9router-plinian` installs *this* fork. Installing upstream's `9router` package gets you their build, not ours.
+- **What you should use:** the GitHub Releases install below. `npm install -g 9router-plinian` still resolves on npm but is frozen at the old `0.5.94` build — it will not get you current releases.
 
 > 📜 The original README (as inherited from upstream) is preserved verbatim at [`docs/README-upstream-decolua.md`](./docs/README-upstream-decolua.md).
 
@@ -44,7 +43,9 @@ Everything upstream ships and we don't touch — OAuth providers, combos, quota 
 
 ## ⬇️ Install
 
-**GitHub Releases is the only install path.** `9router-plinian` is not published to the npm registry — the Red-Team payload collections ship as a bundled archive (ETL), and npm's publish-time dual-use scanner has repeatedly blocked the red-team content. Install straight from this repo's releases instead:
+**GitHub Releases is the only supported install path.** The `9router-plinian` npm package is deprecated (frozen at `0.5.94`; npm's publish-time dual-use scanner kept blocking the Red-Team payload content). Install straight from this repo's releases instead:
+
+### Option 1 — GitHub Releases tarball (primary)
 
 ```bash
 curl -fsSL https://github.com/Azhar457/9router/releases/latest/download/9router-plinian-latest.tgz -o /tmp/9router-plinian.tgz
@@ -64,7 +65,7 @@ npm install -g $env:TEMP\9router-plinian.tgz
 
 > 💡 **Why not npm?** `9router-plinian` ships security-research / red-team prompt payloads (dual-use content). npm's 2026-07-28 publish-time scanner + dual-use policy blocks the version at "automated review," and staged approval requires a human 2FA on every release. The GitHub release path sidesteps that entirely and is the supported install.
 
-### Option 3 — from source
+### Option 2 — from source
 
 ```bash
 git clone https://github.com/Azhar457/9router.git

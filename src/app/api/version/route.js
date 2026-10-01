@@ -1,24 +1,32 @@
 import https from "https";
 import pkg from "../../../../package.json" with { type: "json" };
 
-const NPM_PACKAGE_NAME = "9router-plinian";
-const VERSION_CACHE_TTL_MS = 3600000; // cache npm latest lookup for 1h
+// GitHub Releases is the update source of truth (npm package is deprecated).
+const ghRepo = process.env.UPDATER_GH_REPO || "Azhar457/9router";
+const VERSION_CACHE_TTL_MS = 3600000; // cache latest-release lookup for 1h
 
 // Survive hot reload; one cache per process
-const versionCache = (global.__npmVersionCache ??= { value: null, fetchedAt: 0 });
+const versionCache = (global.__ghVersionCache ??= { value: null, fetchedAt: 0 });
 
-// Fetch latest version from npm registry
+// Fetch latest release tag (e.g. "v0.5.96" → "0.5.96") from GitHub
 function fetchLatestVersion() {
   return new Promise((resolve) => {
     const req = https.get(
-      `https://registry.npmjs.org/${NPM_PACKAGE_NAME}/latest`,
-      { timeout: 4000 },
+      `https://api.github.com/repos/${ghRepo}/releases/latest`,
+      {
+        timeout: 4000,
+        headers: {
+          "User-Agent": "9router-update-check",
+          Accept: "application/vnd.github+json",
+        },
+      },
       (res) => {
         let data = "";
         res.on("data", (chunk) => (data += chunk));
         res.on("end", () => {
           try {
-            resolve(JSON.parse(data).version || null);
+            const tag = JSON.parse(data).tag_name || "";
+            resolve(tag.replace(/^v/, "") || null);
           } catch {
             resolve(null);
           }

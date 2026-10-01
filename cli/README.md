@@ -6,8 +6,7 @@
 
 **Connect all AI code tools (Claude Code, Cursor, Codex, OpenCode, Cline, OpenClaw...) to 40+ AI providers & 100+ models.**
 
-[![npm](https://img.shields.io/npm/v/9router-plinian.svg)](https://www.npmjs.com/package/9router-plinian)
-[![Downloads](https://img.shields.io/npm/dm/9router-plinian.svg)](https://www.npmjs.com/package/9router-plinian)
+[![GitHub Release](https://img.shields.io/github/v/release/Azhar457/9router)](https://github.com/Azhar457/9router/releases)
 [![License](https://img.shields.io/npm/l/9router-plinian.svg)](./LICENSE)
 
 [🌐 Website](https://9router.com) • [📖 Upstream Docs](https://github.com/decolua/9router) • [🍴 Fork](https://github.com/Azhar457/9router)
