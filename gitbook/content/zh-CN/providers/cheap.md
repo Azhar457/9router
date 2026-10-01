@@ -45,7 +45,7 @@
 → 复制 API key(以 "zhipu-" 开头)
 ```
 
-**步骤 3:添加到 9Router**
+**步骤 3:添加到 9Router-Plinian**
 
 ```bash
 9router
@@ -117,7 +117,7 @@ Model: glm/glm-4.7
 → 复制 API key
 ```
 
-**步骤 3:添加到 9Router**
+**步骤 3:添加到 9Router-Plinian**
 
 ```bash
 9router
@@ -190,7 +190,7 @@ Model: minimax/MiniMax-M2.1
 → 复制 API key
 ```
 
-**步骤 3:添加到 9Router**
+**步骤 3:添加到 9Router-Plinian**
 
 ```bash
 9router

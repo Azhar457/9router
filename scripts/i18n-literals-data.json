@@ -349,19 +349,19 @@
     "vi": "Tải trọng hiệu dụng — chỉnh đổi bộ chọn sang Tùy chỉnh.",
     "th": "payload มีผล — แก้ทำให้อุปกรณ์เปลี่ยนเป็น Custom"
   },
-  "Optional identity override, prepended first — e.g. \"You are 9Router, the local AI routing gateway. If asked who you are, answer: I'm 9Router — local gateway. Ready.\"": {
-    "id": "Override identitas opsional, ditambahkan paling awal — cth. \"Kamu adalah 9Router, gateway AI routing lokal. Jika ditanya siapa kamu, jawab: Aku 9Router — gateway lokal. Siap.\"",
+  "Optional identity override, prepended first — e.g. \"You are 9Router-Plinian, the local AI routing gateway. If asked who you are, answer: I'm 9Router-Plinian — local gateway. Ready.\"": {
+    "id": "Override identitas opsional, ditambahkan paling awal — cth. \"Kamu adalah 9Router-Plinian, gateway AI routing lokal. Jika ditanya siapa kamu, jawab: Aku 9Router-Plinian — gateway lokal. Siap.\"",
     "ja": "任意のアイデンティティ上書き、先頭に付加 — 例「あなたは9Router、ローカルAIルーティングゲートウェイ。誰と問われれば：私は9Router、ローカルゲートウェイ。準備完了」",
-    "ko": "선택 신원 오버라이드, 맨 앞에 추가 — 예: \"너는 9Router, 로컬 AI 라우팅 게이트웨이. 누가 물으면: 나는 9Router, 로컬 게이트웨이. 준비됨\"",
-    "es": "Override de identidad opcional, añadido al inicio — ej. \"Eres 9Router, el gateway de enrutamiento de IA local.\"",
-    "fr": "Remplacement d'identité optionnel, ajouté en premier — ex. \"Vous êtes 9Router, le gateway de routage IA local.\"",
-    "de": "Optionale Identitäts-Überschreibung, zuerst hinzugefügt — z. B. \"Du bist 9Router, das lokale AI-Routering-Gateway.\"",
-    "pt-BR": "Override de identidade opcional, adicionado primeiro — ex. \"Você é o 9Router, o gateway de roteamento de IA local.\"",
+    "ko": "선택 신원 오버라이드, 맨 앞에 추가 — 예: \"너는 9Router-Plinian, 로컬 AI 라우팅 게이트웨이. 누가 물으면: 나는 9Router-Plinian, 로컬 게이트웨이. 준비됨\"",
+    "es": "Override de identidad opcional, añadido al inicio — ej. \"Eres 9Router-Plinian, el gateway de enrutamiento de IA local.\"",
+    "fr": "Remplacement d'identité optionnel, ajouté en premier — ex. \"Vous êtes 9Router-Plinian, le gateway de routage IA local.\"",
+    "de": "Optionale Identitäts-Überschreibung, zuerst hinzugefügt — z. B. \"Du bist 9Router-Plinian, das lokale AI-Routering-Gateway.\"",
+    "pt-BR": "Override de identidade opcional, adicionado primeiro — ex. \"Você é o 9Router-Plinian, o gateway de roteamento de IA local.\"",
     "zh-CN": "可选身份覆盖，添加在最前 — 例「你是9Router，本地AI路由网关。被问身份时回答：我是9Router，本地网关。就绪。\"",
-    "ru": "Необязательное переопределение, добавляется первым — напр. \"Вы — 9Router, локальный шлюз AI.\"",
-    "tr": "İsteğe bağlı kimlik, en başa eklenir — örn. \"Sen 9Router, yerel AI yönlendirme gateway'isisin.\"",
-    "vi": "Ghi đè nhận dạng tùy chọn, thêm ở đầu — vd \"Bạn là 9Router, gateway điều hướng AI cục bộ.\"",
-    "th": "override รากฐานตัว (ไม่บังคับ) เพิ่่มที่หนำต้อ — เชน \"คุณคือ 9Router, gateway AI Routing ประจำที่\""
+    "ru": "Необязательное переопределение, добавляется первым — напр. \"Вы — 9Router-Plinian, локальный шлюз AI.\"",
+    "tr": "İsteğe bağlı kimlik, en başa eklenir — örn. \"Sen 9Router-Plinian, yerel AI yönlendirme gateway'isisin.\"",
+    "vi": "Ghi đè nhận dạng tùy chọn, thêm ở đầu — vd \"Bạn là 9Router-Plinian, gateway điều hướng AI cục bộ.\"",
+    "th": "override รากฐานตัว (ไม่บังคับ) เพิ่่มที่หนำต้อ — เชน \"คุณคือ 9Router-Plinian, gateway AI Routing ประจำที่\""
   },
   "Register text (empty = no register shaping)": {
     "id": "Teks register (kosong = tanpa shaping register)",

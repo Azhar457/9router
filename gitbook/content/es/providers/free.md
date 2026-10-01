@@ -376,13 +376,13 @@ Perfecto para:
 100M × $20/1M = $2,000/mes
 ```
 
-**Opción 2: Solo nivel gratis de 9Router**
+**Opción 2: Solo nivel gratis de 9Router-Plinian**
 ```
 100M vía nivel gratis = $0/mes
 Ahorros: $2,000/mes (100%)
 ```
 
-**Opción 3: Estrategia completa de 9Router**
+**Opción 3: Estrategia completa de 9Router-Plinian**
 ```
 60M vía Gemini CLI (GRATIS): $0
 30M vía Claude Code (suscripción): $0 extra

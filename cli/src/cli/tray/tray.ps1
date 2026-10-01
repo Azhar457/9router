@@ -1,4 +1,4 @@
-# 9Router tray icon for Windows using NotifyIcon
+# 9Router-Plinian tray icon for Windows using NotifyIcon
 # IPC: stdin JSON commands, stdout JSON events
 param([string]$IconPath, [string]$Tooltip)
 

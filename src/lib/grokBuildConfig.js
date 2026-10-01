@@ -97,7 +97,7 @@ function buildModelSection({ slot, model, baseUrl, apiKey, contextWindow, name }
     `model = ${tomlString(model)}`,
     `base_url = ${tomlString(baseUrl)}`,
     `name = ${tomlString(name)}`,
-    `description = ${tomlString("Routed via 9Router gateway")}`,
+    `description = ${tomlString("Routed via 9Router-Plinian gateway")}`,
     `api_backend = "chat_completions"`,
   ];
   if (apiKey) lines.push(`api_key = ${tomlString(apiKey)}`);
@@ -202,7 +202,7 @@ export function applyGrokBuildConfig(
     baseUrl,
     apiKey,
     contextWindow,
-    name: "9Router",
+    name: "9Router-Plinian",
   });
   next = setSectionField(next, MODELS_SECTION, "default", GROK_MAIN_MODEL_SLOT);
 
@@ -218,7 +218,7 @@ export function applyGrokBuildConfig(
           baseUrl,
           apiKey,
           contextWindow: selected.contextWindow,
-          name: `9Router ${type}`,
+          name: `9Router-Plinian ${type}`,
         });
         next = setSectionField(next, SUBAGENT_MODELS_SECTION, type, slot);
       } else {

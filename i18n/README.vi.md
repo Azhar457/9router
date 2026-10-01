@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="../images/9router.png?1" alt="Bảng điều khiển 9Router" width="800"/>
+  <img src="../images/9router.png?1" alt="Bảng điều khiển 9Router-Plinian" width="800"/>
   
-  # 9Router - Free AI Router & Token Saver
+  # 9Router-Plinian - Free AI Router & Token Saver
   
   **Không bao giờ ngừng code. Tiết kiệm 20-40% token với RTK + tự động dự phòng sang các mô hình AI MIỄN PHÍ & giá rẻ.**
   
@@ -16,7 +16,7 @@
 
 ---
 
-## 🤔 Tại sao chọn 9Router?
+## 🤔 Tại sao chọn 9Router-Plinian?
 
 **Ngừng lãng phí tiền bạc, token và không bao giờ lo chạm giới hạn (rate limit):**
 
@@ -26,7 +26,7 @@
 - ❌ Chi phí API đắt đỏ ($20-50/tháng cho từng nhà cung cấp)
 - ❌ Phải chuyển đổi thủ công giữa các nhà cung cấp AI
 
-**9Router giải quyết vấn đề này:**
+**9Router-Plinian giải quyết vấn đề này:**
 
 - ✅ **RTK Token Saver** - Tự động nén nội dung `tool_result`, tiết kiệm 20-40% token trên mỗi request
 - ✅ **Tối đa hóa gói đăng ký** - Theo dõi hạn mức, tận dụng triệt để trước khi reset
@@ -46,7 +46,7 @@
        │ http://localhost:20128/v1
        ↓
 ┌─────────────────────────────────────────────┐
-│           9Router (Smart Router)            │
+│           9Router-Plinian (Smart Router)            │
 │  • RTK Token Saver (nén tool_result token) │
 │  • Dịch chuyển định dạng (OpenAI ↔ Claude) │
 │  • Quota tracking (theo dõi hạn mức)       │
@@ -118,12 +118,12 @@ URL mặc định:
 
 <div align="center">
   
-### 📺 Hướng dẫn thiết lập hoàn chỉnh - 9Router + Claude Code MIỄN PHÍ
+### 📺 Hướng dẫn thiết lập hoàn chỉnh - 9Router-Plinian + Claude Code MIỄN PHÍ
   
-[![Thiết lập 9Router + Claude Code](https://img.youtube.com/vi/raEyZPg5xE0/maxresdefault.jpg)](https://www.youtube.com/watch?v=raEyZPg5xE0)
+[![Thiết lập 9Router-Plinian + Claude Code](https://img.youtube.com/vi/raEyZPg5xE0/maxresdefault.jpg)](https://www.youtube.com/watch?v=raEyZPg5xE0)
 
 **🎬 Xem hướng dẫn từng đầy đủ:**
-- ✅ Cài đặt & thiết lập 9Router
+- ✅ Cài đặt & thiết lập 9Router-Plinian
 - ✅ Cấu hình Claude Sonnet 4.5 MIỄN PHÍ
 - ✅ Tích hợp Claude Code
 - ✅ Thử nghiệm code trực tiếp
@@ -138,7 +138,7 @@ URL mặc định:
 
 ## 🛠️ Các công cụ CLI được hỗ trợ
 
-9Router hoạt động liền mạch với tất cả các công cụ code AI chính:
+9Router-Plinian hoạt động liền mạch với tất cả các công cụ code AI chính:
 
 <div align="center">
   <table>
@@ -389,7 +389,7 @@ Combo: "my-coding-stack"
 
 Dịch chuyển liền mạch giữa các định dạng:
 - **OpenAI** ↔ **Claude** ↔ **Gemini** ↔ **OpenAI Responses**
-- Công cụ CLI của bạn gửi định dạng OpenAI → 9Router dịch chuyển → Nhà cung cấp nhận định dạng gốc
+- Công cụ CLI của bạn gửi định dạng OpenAI → 9Router-Plinian dịch chuyển → Nhà cung cấp nhận định dạng gốc
 - Hoạt động với mọi công cụ hỗ trợ endpoint OpenAI tùy chỉnh
 
 ### 👥 Hỗ trợ Đa tài khoản
@@ -443,13 +443,13 @@ Dịch chuyển liền mạch giữa các định dạng:
 > **💡AN TRỌNG - Hiểu về Chi phí trên Bảng điều khiển:**
 > 
 > "Chi phí" hiển thị trong Phân tích sử dụng là **chỉ để theo dõi và so sánh**. 
-> Bản thân 9Router **không bao giờ thu phí** bạn bất cứ thứ gì. Bạn chỉ trả tiền trực tiếp cho các nhà cung cấp (nếu sử dụng dịch vụ trả phí).
+> Bản thân 9Router-Plinian **không bao giờ thu phí** bạn bất cứ thứ gì. Bạn chỉ trả tiền trực tiếp cho các nhà cung cấp (nếu sử dụng dịch vụ trả phí).
 > 
 > **Ví dụ:** Nếu bảng điều khiển của bạn hiển thị "tổng chi phí $290" trong khi sử dụng các mô hìnhFlow, điều này đại diện cho 
 > số tiền bạn sẽ phải trả nếu sử dụng API trả phí trực tiếp. Chi phí thực tế của bạn = **$0** (iFlow miễn phí không giới hạn).
 > 
 > Hãy coi nó như một "trình theo dõi tiết kiệm" cho thấy bạn đang tiết kiệm được bao nhiêu bằng cách sử dụng các mô hình miễn phí hoặc 
-> định tuyến qua 9Router!
+> định tuyến qua 9Router-Plinian!
 
 ### 🌐 Triển khai ở bất cứ đâu
 
@@ -481,15 +481,15 @@ Dịch chuyển liền mạch giữa các định dạng:
 
 ---
 
-### 📊 Hiểu về Chi phí & Thanh toán của 9Router
+### 📊 Hiểu về Chi phí & Thanh toán của 9Router-Plinian
 
-**Thực tế Thanh toán 9Router:**
+**Thực tế Thanh toán 9Router-Plinian:**
 
-✅ **Phần mềm 9Router = MIỄN PHÍ mãi mãi** (mã nguồn mở, không bao giờ thu phí)  
+✅ **Phần mềm 9Router-Plinian = MIỄN PHÍ mãi mãi** (mã nguồn mở, không bao giờ thu phí)  
 ✅ **"Chi phí" trên bảng điều khiển = Chỉ để Hiển thị/Theo dõi** (không phải hóa đơn thực tế)  
  **Bạn trả tiền trực tiếp cho nhà cung cấp** (gói đăng ký hoặc phí API)  
 ✅ **Nhà cung cấp MIỄN PHÍ vẫn MIỄN PHÍ** (iFlow, Kiro, Qwen = $0 không giới hạn)  
-❌ **9Router không bao giờ gửi hóa đơn** hoặc tính phí thẻ của bạn
+❌ **9Router-Plinian không bao giờ gửi hóa đơn** hoặc tính phí thẻ của bạn
 
 **Cách Hoạt động của Hiển thị Chi phí:**
 
@@ -510,7 +510,7 @@ Kiểm tra Thực tế:
 
 **Quy tắc Thanh toán:**
 - **Nhà cung cấp gói đăng ký** (Claude Code, Codex): Trả tiền trực tiếp cho họ qua website của họ
-- **Nhà cung cấp giá rẻ** (GLM, MiniMax): Trả tiền trực tiếp cho họ, 9Router chỉ định tuyến
+- **Nhà cung cấp giá rẻ** (GLM, MiniMax): Trả tiền trực tiếp cho họ, 9Router-Plinian chỉ định tuyến
 - **Nhà cung cấp MIỄN PHÍ** (iFlow, Kiro, Qwen): Thực sự miễn phí mãi mãi, không có phí ẩn
 - **9**: Không bao giờ thu phí bất cứ thứ gì, ever
 
@@ -586,7 +586,7 @@ Truy cập qua: WhatsApp, Telegram, Slack, Discord, iMessage, Signal...
 <details>
 <summary><b>📊 Tại sao bảng điều khiển của tôi hiển thị chi phí cao?</b></summary>
 
-Bảng điều khiển theo dõi mức sử dụng token của bạn và hiển thị **chi phí ước tính** như thể bạn đang sử dụng API trả phí trực tiếp. Đâykhông phải là thanh toán thực tế** - đó là tài liệu tham khảo để cho thấy bạn đang tiết kiệm được bao nhiêu bằng cách sử dụng các mô hình miễn phí hoặc gói đăng ký hiện có thông qua 9Router.
+Bảng điều khiển theo dõi mức sử dụng token của bạn và hiển thị **chi phí ước tính** như thể bạn đang sử dụng API trả phí trực tiếp. Đâykhông phải là thanh toán thực tế** - đó là tài liệu tham khảo để cho thấy bạn đang tiết kiệm được bao nhiêu bằng cách sử dụng các mô hình miễn phí hoặc gói đăng ký hiện có thông qua 9Router-Plinian.
 
 **Ví dụ:**
 - **Bảng điều khiển hiển thị:** "Tổng chi phí $290"
@@ -599,16 +599,16 @@ Màn hình chi phí là một "trình theo dõi tiết kiệm" để giúp bạn
 </details>
 
 <details>
-<summary><b>💳 Tôi có bị 9Router tính phí không?</b></summary>
+<summary><b>💳 Tôi có bị 9Router-Plinian tính phí không?</b></summary>
 
-**Không.** 9Router là phần mềm miễn phí, mã nguồn mở chạy trên máy tính của chính bạn. Nó không bao giờ tính phí bạn bất cứ thứ gì.
+**Không.** 9Router-Plinian là phần mềm miễn phí, mã nguồn mở chạy trên máy tính của chính bạn. Nó không bao giờ tính phí bạn bất cứ thứ gì.
 
 **Bạn chỉ trả tiền:**
 - ✅ **Nhà cung cấp gói đăng ký** (Claude Code $20/tháng, Codex $20-200/tháng) → Trả tiền trực tiếp cho họ trên website của họ
-- ✅ **Nhà cung cấp giá rẻ** (GLM, MiniMax) → Trả tiền trực tiếp cho họ, 9Router chỉ định tuyến yêu cầu của bạn
-- ❌ **Bản thân 9Router** → **Không bao giờ tính phí bất cứ thứ gì, ever**
+- ✅ **Nhà cung cấp giá rẻ** (GLM, MiniMax) → Trả tiền trực tiếp cho họ, 9Router-Plinian chỉ định tuyến yêu cầu của bạn
+- ❌ **Bản thân 9Router-Plinian** → **Không bao giờ tính phí bất cứ thứ gì, ever**
 
-9Router là một proxy/router cục bộ. Nó không cóẻ tín dụng của bạn, không thể gửi hóa đơn và không có hệ thống thanh toán. Đó là phần mềm hoàn toàn miễn phí.
+9Router-Plinian là một proxy/router cục bộ. Nó không cóẻ tín dụng của bạn, không thể gửi hóa đơn và không có hệ thống thanh toán. Đó là phần mềm hoàn toàn miễn phí.
 
 </details>
 
@@ -622,9 +622,9 @@ Màn hình chi phí là một "trình theo dõi tiết kiệm" để giúp bạn
 - **Kiro**: Các mô hình Claude miễn phí không giới hạn qua AWS Builder ID  
 - **Qwen**: Truy cập miễn phí không giới hạn vào các mô hình Qwen qua xác thực thiết bị
 
-9Router chỉ định tuyến yêu cầu của bạn đến họ - không có "cạm bẫy" hay thanh toán trong tương lai. Đó là các dịch vụ thực sự miễn phí, và 9Router giúp chúng dễ sử dụng với hỗ trợ dự phòng.
+9Router-Plinian chỉ định tuyến yêu cầu của bạn đến họ - không có "cạm bẫy" hay thanh toán trong tương lai. Đó là các dịch vụ thực sự miễn phí, và 9Router-Plinian giúp chúng dễ sử dụng với hỗ trợ dự phòng.
 
-**Lưu ý:** số nhà cung cấp gói đăng ký (Antigravity, GitHub Copilot) có thể có các khoảng thời gian dùng thử miễn phí có thể trở thành trả phí sau này, nhưng điều này sẽ được các nhà cung cấp đó thông báo rõ ràng, không phải 9Router.
+**Lưu ý:** số nhà cung cấp gói đăng ký (Antigravity, GitHub Copilot) có thể có các khoảng thời gian dùng thử miễn phí có thể trở thành trả phí sau này, nhưng điều này sẽ được các nhà cung cấp đó thông báo rõ ràng, không phải 9Router-Plinian.
 
 </details>
 
@@ -649,7 +649,7 @@ Màn hình chi phí là một "trình theo dõi tiết kiệm" để giúp bạn
 
 3. **Sử dụng nhà cung cấp gói đăng ký cuối cùng:**
    - Chỉ khi bạn đã có chúng
-   - 9Router giúp tối đa hóa giá trị của chúng thông qua theo dõi hạn mức
+   - 9Router-Plinian giúp tối đa hóa giá trị của chúng thông qua theo dõi hạn mức
 
 **Kết quả:** Hầu hết người dùng có thể hoạt động ở mức $0/tháng chỉ sử dụng các tầng miễn phí!
 
@@ -658,20 +658,20 @@ Màn hình chi phí là một "trình theo dõi tiết kiệm" để giúp bạn
 <details>
 <summary><b>📈 Điều gì xảy ra nếu mức sử dụng của tôi đột ngột tăng vọt?</b></summary>
 
-Cơ chế dự phòng thông minh của 9Router ngăn chặn các khoản phí bất ngờ:
+Cơ chế dự phòng thông minh của 9Router-Plinian ngăn chặn các khoản phí bất ngờ:
 
 **Kịch bản:** Bạn đang trong giai đoạn code nước rút và vượt qua các hạn mức
 
-**Không có 9Router:**
+**Không có 9Router-Plinian:**
 - ❌ Chạm giới hạn tốc độ → Công việc dừng lại → Thất vọng
 - ❌ Hoặc: Vô tình tích lũy hóa đơn API khổng lồ
 
-**Có 9Router:**
+**Có 9Router-Plinian:**
 - ✅ Gói đăng ký chạm giới hạn → Tự động dự phòng sang tầng giá rẻ
 - ✅ Tầng giá rẻ trở nên đắt đỏ → Tự động dự phòng sang tầng miễn phí
 - ✅ Không bao giờ ngừng code → Chi phí dự đoán được
 
-**Bạn nắm quyền kiểm soát:** Đặt giới hạn chi tiêu cho mỗi nhà cung cấp trong bảng điều khiển, và 9Router sẽ tuân thủ chúng.
+**Bạn nắm quyền kiểm soát:** Đặt giới hạn chi tiêu cho mỗi nhà cung cấp trong bảng điều khiển, và 9Router-Plinian sẽ tuân thủ chúng.
 
 </details>
 
@@ -695,7 +695,7 @@ Các mô hình:
   cc/claude-haiku-4-5-20251001
 ```
 
-**Mẹo Chuyên nghiệp:** Sử dụng Opus cho các tác vụ phức tạp, Sonnet cho tốc độ. 9Router theo dõi hạn mức cho mỗi mô hình!
+**Mẹo Chuyên nghiệp:** Sử dụng Opus cho các tác vụ phức tạp, Sonnet cho tốc độ. 9Router-Plinian theo dõi hạn mức cho mỗi mô hình!
 
 ### OpenAI Codex (Plus/Pro)
 
@@ -925,7 +925,7 @@ Bảng điều khiển → CLI Tools → OpenClaw → Chọn Mô hình → Áp d
 }
 ```
 
-> **Lưu ý:** OpenClaw chỉ hoạt động với 9Router cục bộ. Sử dụng `127.0.0.1` thay vì `localhost` để tránh các vấn đề phân giải6.
+> **Lưu ý:** OpenClaw chỉ hoạt động với 9Router-Plinian cục bộ. Sử dụng `127.0.0.1` thay vì `localhost` để tránh các vấn đề phân giải6.
 
 ### Cline / Continue / RooCode
 
@@ -1106,7 +1106,7 @@ Ghi chú:
 - Thêm combo: `cc/claude-opus-4-6 → glm/glm-4.7 → if/kimi-k2-thinking`
 
 **Token OAuth hết hạn**
-- Tự động làm mới bởi 9Router
+- Tự động làm mới bởi 9Router-Plinian
 - Nếu sự cố vẫn tiếp diễn: Bảng điều khiển → Nhà cung cấp → Kết nối lại
 
 **Chi phí cao**
@@ -1126,7 +1126,7 @@ Ghi chú:
 - Triệu chứng thường xuất hiện trên endpoint đám mây công khai (`https://9router.com/v1`) cho các lệnh gọi không phát trực tiếp (non-streaming).
 - Nguyên nhân gốc rễ: upstream trả về payload SSE (`data: ...`) trong khi client mong đợi JSON.
 -ải pháp thay thế: sử dụng `stream=true` cho các lệnh gọi trực tiếp đến đám mây.
-- Runtime 9Router cục bộ bao gồm dự phòng SSE→JSON cho các lệnh gọi không phát trực tiếp khi upstream trả về `text/event-stream`.
+- Runtime 9Router-Plinian cục bộ bao gồm dự phòng SSE→JSON cho các lệnh gọi không phát trực tiếp khi upstream trả về `text/event-stream`.
 
 **Đám mây báo đã kết nối, nhưng yêu cầu vẫn thất bại với `Invalid API key`**
 - Tạo một key mới từ bảng điều khiển cục bộ (`/api/keys`) và chạy đồng bộ đám mây (`Enable Cloud` sau đó `Sync Now`).
@@ -1263,7 +1263,7 @@ Tài liệu tham khảo kiến trúc đầy đủ: [`docs/ARCHITECTURE.md`](../d
 
 ## 👥 Người đóng góp
 
-Cảm ơn tất cả những người đã đóng góp giúp 9Router tốt hơn!
+Cảm ơn tất cả những người đã đóng góp giúp 9Router-Plinian tốt hơn!
 
 [![Contributors](https://contrib.rocks/image?repo=decolua/9router&max=100&columns=20&anon=1)](https://github.com/decolua/9router/graphs/contributors)
 
@@ -1287,7 +1287,7 @@ Xem [Pull Requests](https://github.com/decolua/9router/pulls) để biết hư�
 
 ## 🔀 Forks
 
-**[OmniRoute](https://github.com/diegosouzapw/OmniRoute)** — Một fork TypeScript đầy đủ tính năng của 9Router. Thêm 36+ nhà cung cấp, tự động dự phòng 4 tầng, API đa phương thức (hình ảnh, embedding, âm thanh, TTS), circuit breaker, bộ nhớ đệm ngữ nghĩa, đánh giá LLM và bảng điều khiển được tinh chỉnh. 368+ bài kiểm tra đơn vị. Có sẵn qua npm và.
+**[OmniRoute](https://github.com/diegosouzapw/OmniRoute)** — Một fork TypeScript đầy đủ tính năng của 9Router-Plinian. Thêm 36+ nhà cung cấp, tự động dự phòng 4 tầng, API đa phương thức (hình ảnh, embedding, âm thanh, TTS), circuit breaker, bộ nhớ đệm ngữ nghĩa, đánh giá LLM và bảng điều khiển được tinh chỉnh. 368+ bài kiểm tra đơn vị. Có sẵn qua npm và.
 
 ---
 

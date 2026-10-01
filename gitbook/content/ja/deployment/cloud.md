@@ -247,7 +247,7 @@ server {
     ssl_ciphers HIGH:!aNULL:!MD5;
     ssl_prefer_server_ciphers on;
 
-    # Proxy to 9Router
+    # Proxy to 9Router-Plinian
     location / {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;

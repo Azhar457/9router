@@ -27,7 +27,7 @@
 {
   "models": [
     {
-      "title": "9Router - Claude Opus",
+      "title": "9Router-Plinian - Claude Opus",
       "provider": "openai",
       "model": "cc/claude-opus-4-5-20251101",
       "apiKey": "your-api-key-from-dashboard",
@@ -42,28 +42,28 @@
 {
   "models": [
     {
-      "title": "9Router - Claude Opus (Best)",
+      "title": "9Router-Plinian - Claude Opus (Best)",
       "provider": "openai",
       "model": "cc/claude-opus-4-5-20251101",
       "apiKey": "your-api-key-from-dashboard",
       "apiBase": "http://localhost:20128/v1"
     },
     {
-      "title": "9Router - Claude Sonnet (Balanced)",
+      "title": "9Router-Plinian - Claude Sonnet (Balanced)",
       "provider": "openai",
       "model": "cc/claude-sonnet-4-20250514",
       "apiKey": "your-api-key-from-dashboard",
       "apiBase": "http://localhost:20128/v1"
     },
     {
-      "title": "9Router - DeepSeek Chat (Code)",
+      "title": "9Router-Plinian - DeepSeek Chat (Code)",
       "provider": "openai",
       "model": "cx/deepseek-chat",
       "apiKey": "your-api-key-from-dashboard",
       "apiBase": "http://localhost:20128/v1"
     },
     {
-      "title": "9Router - Claude Haiku (Fast)",
+      "title": "9Router-Plinian - Claude Haiku (Fast)",
       "provider": "openai",
       "model": "cc/claude-haiku-4-20250514",
       "apiKey": "your-api-key-from-dashboard",
@@ -139,7 +139,7 @@
 {
   "models": [
     {
-      "title": "9Router - Code Expert",
+      "title": "9Router-Plinian - Code Expert",
       "provider": "openai",
       "model": "cx/deepseek-chat",
       "apiKey": "your-api-key",
@@ -158,7 +158,7 @@
 {
   "models": [
     {
-      "title": "9Router - Creative Writer",
+      "title": "9Router-Plinian - Creative Writer",
       "provider": "openai",
       "model": "cc/claude-opus-4-5-20251101",
       "apiKey": "your-api-key",

@@ -1,6 +1,6 @@
 # ☁️ Triển khai Cloud
 
-Triển khai 9Router trên VPS hoặc Docker để truy cập từ xa và dùng trong production.
+Triển khai 9Router-Plinian trên VPS hoặc Docker để truy cập từ xa và dùng trong production.
 
 ---
 
@@ -74,7 +74,7 @@ PM2 giữ application chạy và tự khởi động lại khi crash:
 # Install PM2 globally
 npm install -g pm2
 
-# Start 9Router with PM2
+# Start 9Router-Plinian with PM2
 pm2 start npm --name 9router -- start
 
 # Save PM2 configuration
@@ -247,7 +247,7 @@ server {
     ssl_ciphers HIGH:!aNULL:!MD5;
     ssl_prefer_server_ciphers on;
 
-    # Proxy to 9Router
+    # Proxy to 9Router-Plinian
     location / {
         proxy_pass http://localhost:3000;
         proxy_http_version 1.1;
@@ -333,7 +333,7 @@ sudo ufw allow 22/tcp
 sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
 
-# If NOT using reverse proxy, allow 9Router ports
+# If NOT using reverse proxy, allow 9Router-Plinian ports
 sudo ufw allow 3000/tcp
 sudo ufw allow 20128/tcp
 
@@ -363,7 +363,7 @@ ssh -L 3000:localhost:3000 user@your-server.com
 # Update system packages
 sudo apt update && sudo apt upgrade -y
 
-# Update 9Router
+# Update 9Router-Plinian
 cd /path/to/9router/app
 git pull
 npm install
@@ -442,7 +442,7 @@ pm2 env 9router
 ### Nginx 502 Bad Gateway
 
 ```bash
-# Check if 9Router is running
+# Check if 9Router-Plinian is running
 pm2 status
 
 # Check Nginx error logs

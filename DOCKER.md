@@ -1,6 +1,6 @@
 # Docker
 
-Run 9Router in a container. Published image: [`decolua/9router`](https://hub.docker.com/r/decolua/9router) — multi-platform `linux/amd64` + `linux/arm64`.
+Run 9Router-Plinian in a container. Published image: [`decolua/9router`](https://hub.docker.com/r/decolua/9router) — multi-platform `linux/amd64` + `linux/arm64`.
 
 ---
 
@@ -66,7 +66,7 @@ docker run -d \
 
 ## Optional Headroom sidecar
 
-The 9Router image does not bundle Python or Headroom. To use Headroom in Docker, run it as a separate service and point 9Router at that proxy:
+The 9Router-Plinian image does not bundle Python or Headroom. To use Headroom in Docker, run it as a separate service and point 9Router-Plinian at that proxy:
 
 ```yaml
 services:

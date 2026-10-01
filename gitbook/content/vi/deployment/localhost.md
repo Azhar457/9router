@@ -1,12 +1,12 @@
 # 🏠 Triển khai Localhost
 
-Chạy 9Router trên máy cá nhân để phát triển và dùng cá nhân.
+Chạy 9Router-Plinian trên máy cá nhân để phát triển và dùng cá nhân.
 
 ---
 
 ## 📦 Cài đặt
 
-Cài đặt 9Router toàn cục qua npm:
+Cài đặt 9Router-Plinian toàn cục qua npm:
 
 ```bash
 npm install -g 9router
@@ -20,7 +20,7 @@ npm install -g 9router
 
 ## 🚀 Khởi động Server
 
-Khởi động 9Router với một lệnh duy nhất:
+Khởi động 9Router-Plinian với một lệnh duy nhất:
 
 ```bash
 9router
@@ -53,7 +53,7 @@ Port API (20128) và port dashboard (3000) được cấu hình trong applicatio
 
 ## 🛑 Dừng Server
 
-Nhấn `Ctrl+C` trong terminal đang chạy 9Router.
+Nhấn `Ctrl+C` trong terminal đang chạy 9Router-Plinian.
 
 ```bash
 # In the terminal running 9router
@@ -76,7 +76,7 @@ Mọi cấu hình, API keys và combos được giữ lại trong thư mục dat
 
 ---
 
-## 📊 Cập nhật 9Router
+## 📊 Cập nhật 9Router-Plinian
 
 Cập nhật phiên bản mới nhất:
 

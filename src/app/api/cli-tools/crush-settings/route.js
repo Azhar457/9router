@@ -147,7 +147,7 @@ export async function DELETE() {
       await fs.writeFile(configPath, JSON.stringify(existing, null, 2), "utf-8");
     }
 
-    return NextResponse.json({ success: true, message: "9Router removed from Crush" });
+    return NextResponse.json({ success: true, message: "9Router-Plinian removed from Crush" });
   } catch (err) {
     return NextResponse.json({ error: { message: err.message } }, { status: 500 });
   }

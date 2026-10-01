@@ -316,7 +316,7 @@ CLI 中使用: premium-coding
 
 ## 配额跟踪
 
-9Router 实时跟踪配额:
+9Router-Plinian 实时跟踪配额:
 
 - **Token 消耗** - 每次请求的输入/输出 tokens
 - **重置倒计时** - 下次配额重置剩余时间
@@ -385,7 +385,7 @@ Claude Code Pro
 ### "OAuth token expired"
 
 **方案:**
-- 9Router 会自动刷新
+- 9Router-Plinian 会自动刷新
 - 若仍有问题: 仪表盘 → 提供商 → 重新连接
 
 ### "Rate limiting"

@@ -29,8 +29,8 @@ describe("injectPlinian", () => {
 
   it("prepends optional identity text before the register prompt", () => {
     const body = { messages: [{ role: "user", content: "who are you" }] };
-    injectPlinian(body, "openai", "lite", "You are 9Router.");
-    expect(body.messages[0].content).toMatch(/^You are 9Router\./);
+    injectPlinian(body, "openai", "lite", "You are 9Router-Plinian.");
+    expect(body.messages[0].content).toMatch(/^You are 9Router-Plinian\./);
     expect(body.messages[0].content).toContain("silently verify your draft");
   });
 

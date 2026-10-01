@@ -277,8 +277,8 @@ async function buildDroidHeader() {
     ].join("\n");
   }
 
-  // Extract 9Router custom model config
-  const custom = settings?.customModels?.find(m => m.id === "custom:9Router-0");
+  // Extract 9Router-Plinian custom model config
+  const custom = settings?.customModels?.find(m => m.id === "custom:9Router-Plinian-0");
   const lines = [`Status:   ${COLORS.green}✓ Configured${COLORS.reset}`];
   if (custom?.baseUrl) lines.push(`Endpoint: ${COLORS.cyan}${custom.baseUrl}${COLORS.reset}`);
   if (custom?.model)   lines.push(`Model:    ${COLORS.dim}${custom.model}${COLORS.reset}`);
@@ -360,7 +360,7 @@ async function buildOpenClawHeader() {
     ].join("\n");
   }
 
-  // Extract 9Router provider config
+  // Extract 9Router-Plinian provider config
   const provider = settings?.models?.providers?.["9router"];
   const primary = settings?.agents?.defaults?.model?.primary || "";
   const model = primary.startsWith("9router/") ? primary.replace("9router/", "") : (provider?.models?.[0]?.id || "");
@@ -585,7 +585,7 @@ async function showCliToolsMenu(port, breadcrumb = []) {
   await showMenuWithBack({
     title: "🔧 CLI Tools",
     breadcrumb,
-    headerContent: `Configure CLI tools to use 9Router\nEndpoint: ${endpoint}`,
+    headerContent: `Configure CLI tools to use 9Router-Plinian\nEndpoint: ${endpoint}`,
     items: [
       {
         label: "Claude Code",

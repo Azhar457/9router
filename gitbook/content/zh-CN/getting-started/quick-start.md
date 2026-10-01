@@ -1,6 +1,6 @@
 # 入门指南
 
-5 分钟启动 9Router,开始智能路由 AI 请求。
+5 分钟启动 9Router-Plinian,开始智能路由 AI 请求。
 
 ---
 
@@ -43,7 +43,7 @@ npm install -g 9router
 **示例:Claude Code**
 1. 点击 "Connect Claude Code"
 2. 用你的 Claude 账户登录
-3. 授权 9Router
+3. 授权 9Router-Plinian
 4. ✅ 完成!使用模型:`cc/claude-opus-4-5-20251101`
 
 #### 方式 B:API Key(低价提供商)
@@ -83,7 +83,7 @@ npm install -g 9router
 
 ## 4. 在 CLI 工具中使用
 
-将你的编码工具指向 9Router:
+将你的编码工具指向 9Router-Plinian:
 
 ### Cursor IDE
 

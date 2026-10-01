@@ -6,7 +6,7 @@ Crea combinaciones de modelos personalizadas con fallback automático. Los combo
 
 ## ¿Qué son los combos?
 
-Los combos son **cadenas de fallback personalizadas** que creas en el dashboard. En lugar de usar un solo modelo, defines una secuencia de modelos que 9Router intenta en orden.
+Los combos son **cadenas de fallback personalizadas** que creas en el dashboard. En lugar de usar un solo modelo, defines una secuencia de modelos que 9Router-Plinian intenta en orden.
 
 **Ejemplo:**
 ```
@@ -22,7 +22,7 @@ Modelos:
 Model: premium-coding
 ```
 
-9Router intenta automáticamente cada modelo en secuencia hasta que uno tenga éxito.
+9Router-Plinian intenta automáticamente cada modelo en secuencia hasta que uno tenga éxito.
 
 ---
 
@@ -480,7 +480,7 @@ Dashboard → Combos → Edit → Budget:
   Monthly limit: $50
 ```
 
-Cuando se alcanza el límite, 9Router omite los modelos de pago y usa solo el nivel gratis.
+Cuando se alcanza el límite, 9Router-Plinian omite los modelos de pago y usa solo el nivel gratis.
 
 ### Habilitar/Deshabilitar modelos en un combo
 

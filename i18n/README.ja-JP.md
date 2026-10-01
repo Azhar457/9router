@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="../images/9router.png?1" alt="9Router Dashboard" width="800"/>
+  <img src="../images/9router.png?1" alt="9Router-Plinian Dashboard" width="800"/>
 
-  # 9Router - 無料 AI ルーター
+  # 9Router-Plinian - 無料 AI ルーター
 
   **コーディングを止めない。スマートフォールバックで無料＆格安AIモデルに自動ルーティング。**
 
@@ -46,7 +46,7 @@
        │ http://localhost:20128/v1
        ↓
 ┌─────────────────────────────────────────┐
-│        9Router（スマートルーター）        │
+│        9Router-Plinian（スマートルーター）        │
 │  • フォーマット変換（OpenAI ↔ Claude）   │
 │  • クオータ追跡                          │
 │  • 自動トークンリフレッシュ               │
@@ -116,9 +116,9 @@ PORT=20128 HOSTNAME=0.0.0.0 NEXT_PUBLIC_BASE_URL=http://localhost:20128 npm run 
 
 <div align="center">
 
-### 📺 完全セットアップガイド - 9Router + Claude Code 無料
+### 📺 完全セットアップガイド - 9Router-Plinian + Claude Code 無料
 
-[![9Router + Claude Code Setup](https://img.youtube.com/vi/raEyZPg5xE0/maxresdefault.jpg)](https://www.youtube.com/watch?v=raEyZPg5xE0)
+[![9Router-Plinian + Claude Code Setup](https://img.youtube.com/vi/raEyZPg5xE0/maxresdefault.jpg)](https://www.youtube.com/watch?v=raEyZPg5xE0)
 
 **🎬 ステップバイステップのチュートリアルを視聴：**
 - ✅ 9Routerのインストールとセットアップ
@@ -509,7 +509,7 @@ PORT=20128 HOSTNAME=0.0.0.0 NEXT_PUBLIC_BASE_URL=http://localhost:20128 npm run 
 - **サブスクリプションプロバイダー**（Claude Code、Codex）：各ウェブサイトで直接支払い
 - **格安プロバイダー**（GLM、MiniMax）：直接支払い、9Routerはルーティングのみ
 - **無料プロバイダー**（iFlow、Kiro、Qwen）：本当に永久無料、隠れた料金なし
-- **9Router**：一切課金しない
+- **9Router-Plinian**：一切課金しない
 
 ---
 

@@ -45,7 +45,7 @@ Dashboard → API Keys → Create New
 → Copia la API key (comienza con "zhipu-")
 ```
 
-**Paso 3: Agregar a 9Router**
+**Paso 3: Agregar a 9Router-Plinian**
 
 ```bash
 9router
@@ -117,7 +117,7 @@ Dashboard → API Management → Create Key
 → Copia la API key
 ```
 
-**Paso 3: Agregar a 9Router**
+**Paso 3: Agregar a 9Router-Plinian**
 
 ```bash
 9router
@@ -190,7 +190,7 @@ Dashboard → API Keys → Create New
 → Copia la API key
 ```
 
-**Paso 3: Agregar a 9Router**
+**Paso 3: Agregar a 9Router-Plinian**
 
 ```bash
 9router

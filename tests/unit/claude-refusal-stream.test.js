@@ -2,7 +2,7 @@
 // content blocks) must reach an OpenAI-format client as finish_reason
 // "content_filter" carrying Anthropic's explanation — not as a clean, empty "stop".
 // Captured live on 2026-09-20 against claude-opus-5 via a Claude Code OAuth
-// connection: 9Router logged "Model succeeded · OUT 0" and the client saw nothing.
+// connection: 9Router-Plinian logged "Model succeeded · OUT 0" and the client saw nothing.
 import { describe, it, expect } from "vitest";
 import { claudeToOpenAIResponse } from "../../open-sse/translator/response/claude-to-openai.js";
 

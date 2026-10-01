@@ -14,13 +14,13 @@ describe("steering stack (caveman + ponytail + plinian)", () => {
     const body = freshBody();
     injectCaveman(body, "openai", "lite");
     injectPonytail(body, "openai", "full");
-    injectPlinian(body, "openai", "ultra", "You are 9Router.");
+    injectPlinian(body, "openai", "ultra", "You are 9Router-Plinian.");
 
     const sys = body.messages[0].content;
     expect(sys.startsWith("BASE")).toBe(true);
     expect(sys).toContain("Auto-Clarity"); // caveman lite marker
     expect(sys).toContain("lazy senior developer"); // ponytail full marker
-    expect(sys).toContain("You are 9Router."); // plinian identity
+    expect(sys).toContain("You are 9Router-Plinian."); // plinian identity
     expect(sys).toContain("attack each draft"); // plinian ultra marker
     // single system message — layers append, never fork into new messages
     expect(body.messages.filter((m) => m.role === "system")).toHaveLength(1);

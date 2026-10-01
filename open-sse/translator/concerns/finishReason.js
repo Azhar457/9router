@@ -12,7 +12,7 @@ export function toOpenAIFinish(reason, format) {
         case CLAUDE_STOP.TOOL_USE: return OPENAI_FINISH.TOOL_CALLS;
         case CLAUDE_STOP.STOP_SEQUENCE: return OPENAI_FINISH.STOP;
         // A refusal is a blocked turn, not a clean stop: with the default mapping an
-        // OpenAI client saw finish_reason "stop" and an empty message (9Router logged
+        // OpenAI client saw finish_reason "stop" and an empty message (9Router-Plinian logged
         // "succeeded", OUT 0) and could not tell it from a real answer.
         case CLAUDE_STOP.REFUSAL: return OPENAI_FINISH.CONTENT_FILTER;
         default: return OPENAI_FINISH.STOP;

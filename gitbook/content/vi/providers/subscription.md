@@ -316,7 +316,7 @@ Use in CLI: premium-coding
 
 ## Quota Tracking
 
-9Router theo dõi quota thời gian thực:
+9Router-Plinian theo dõi quota thời gian thực:
 
 - **Tiêu thụ token** - Tokens input/output mỗi request
 - **Đếm ngược reset** - Thời gian đến lần reset tiếp theo
@@ -385,7 +385,7 @@ Night: Cheap/free tier
 ### "OAuth token expired"
 
 **Giải pháp:**
-- Auto-refresh bởi 9Router
+- Auto-refresh bởi 9Router-Plinian
 - Nếu vẫn lỗi: Dashboard → Provider → Reconnect
 
 ### "Rate limiting"

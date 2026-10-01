@@ -10,7 +10,7 @@ Read this first — it overrides default priorities:
 
 ## What this is
 
-9Router (`9router-app`) — a local AI routing gateway + Next.js dashboard. It exposes one OpenAI-compatible endpoint (`/v1/*`) and routes traffic across 40+ upstream providers with format translation, model-combo fallback, multi-account fallback, OAuth/API-key credential management, token refresh, quota/usage tracking, and optional cloud sync.
+9Router-Plinian (`9router-app`) — a local AI routing gateway + Next.js dashboard. It exposes one OpenAI-compatible endpoint (`/v1/*`) and routes traffic across 40+ upstream providers with format translation, model-combo fallback, multi-account fallback, OAuth/API-key credential management, token refresh, quota/usage tracking, and optional cloud sync.
 
 Two published artifacts live in this one repo:
 - The **dashboard + gateway** (root `package.json`, `9router-app`) — the Next.js server that does the actual routing.

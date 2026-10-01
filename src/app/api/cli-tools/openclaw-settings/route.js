@@ -56,7 +56,7 @@ const readSettings = async () => {
   }
 };
 
-// Check if settings has 9Router config
+// Check if settings has 9Router-Plinian config
 const has9RouterConfig = (settings) => {
   if (!settings || !settings.models || !settings.models.providers) return false;
   return !!settings.models.providers["9router"];
@@ -134,7 +134,7 @@ const writeAgentModels = async (agentDir, model, baseUrl, apiKey) => {
   await fs.writeFile(modelsPath, JSON.stringify(existing, null, 2));
 };
 
-// POST - Update 9Router settings (merge with existing settings)
+// POST - Update 9Router-Plinian settings (merge with existing settings)
 export async function POST(request) {
   try {
     // agentModels: { [agentId]: modelId } for per-agent override
@@ -234,7 +234,7 @@ export async function POST(request) {
   }
 }
 
-// DELETE - Remove 9Router settings only (keep other settings)
+// DELETE - Remove 9Router-Plinian settings only (keep other settings)
 export async function DELETE() {
   try {
     const settingsPath = getOpenClawSettingsPath();
@@ -254,7 +254,7 @@ export async function DELETE() {
       throw error;
     }
 
-    // Remove 9Router from models.providers
+    // Remove 9Router-Plinian from models.providers
     if (settings.models && settings.models.providers) {
       delete settings.models.providers["9router"];
       
@@ -285,7 +285,7 @@ export async function DELETE() {
 
     return NextResponse.json({
       success: true,
-      message: "9Router settings removed successfully",
+      message: "9Router-Plinian settings removed successfully",
     });
   } catch (error) {
     console.log("Error resetting openclaw settings:", error);

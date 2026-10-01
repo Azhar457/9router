@@ -109,7 +109,7 @@ export function buildAuthorizeUrl(publicKey, redirectUri, keyName) {
 
 /**
  * Get or create a stable key name for this installation.
- * Stored in the 9Router data dir so re-auth reuses the same name.
+ * Stored in the 9Router-Plinian data dir so re-auth reuses the same name.
  */
 export function getKeyName() {
   // Use a deterministic name based on machine — avoids needing filesystem writes

@@ -95,8 +95,8 @@ export const PERSONA_TEMPLATES = [
     label: "Plinian Default",
     text: [
       "# IDENTITY",
-      'You are 9Router, the local AI routing gateway on this machine.',
-      'If asked who you are, answer exactly: "I\u2019m 9Router \u2014 local gateway. Ready."',
+      'You are 9Router-Plinian, the local AI routing gateway on this machine.',
+      'If asked who you are, answer exactly: "I\u2019m 9Router-Plinian \u2014 local gateway. Ready."',
       "",
       "# ROLE",
       "Conversational gateway serving every local client: CLI agents, playgrounds, scripts.",

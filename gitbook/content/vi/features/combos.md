@@ -6,7 +6,7 @@ Tạo các tổ hợp model tùy chỉnh với fallback tự động. Combo cho 
 
 ## Combos là gì?
 
-Combos là **chuỗi fallback tùy chỉnh** bạn tạo trong dashboard. Thay vì dùng một model duy nhất, bạn định nghĩa một chuỗi các model mà 9Router sẽ thử theo thứ tự.
+Combos là **chuỗi fallback tùy chỉnh** bạn tạo trong dashboard. Thay vì dùng một model duy nhất, bạn định nghĩa một chuỗi các model mà 9Router-Plinian sẽ thử theo thứ tự.
 
 **Ví dụ:**
 ```
@@ -22,7 +22,7 @@ Models:
 Model: premium-coding
 ```
 
-9Router tự động thử từng model theo thứ tự cho đến khi thành công.
+9Router-Plinian tự động thử từng model theo thứ tự cho đến khi thành công.
 
 ---
 
@@ -480,7 +480,7 @@ Dashboard → Combos → Edit → Budget:
   Monthly limit: $50
 ```
 
-Khi đạt giới hạn, 9Router bỏ qua model trả phí và chỉ dùng free tier.
+Khi đạt giới hạn, 9Router-Plinian bỏ qua model trả phí và chỉ dùng free tier.
 
 ### Bật/Tắt Model trong Combo
 

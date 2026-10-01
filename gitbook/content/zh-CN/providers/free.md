@@ -376,13 +376,13 @@ CLI 中使用: complete-fallback
 100M × $20/1M = $2,000/月
 ```
 
-**方案 2:仅 9Router 免费层**
+**方案 2:仅 9Router-Plinian 免费层**
 ```
 100M 通过免费层 = $0/月
 节省: $2,000/月 (100%)
 ```
 
-**方案 3:9Router 完整策略**
+**方案 3:9Router-Plinian 完整策略**
 ```
 60M 通过 Gemini CLI(免费): $0
 30M 通过 Claude Code(订阅): 无额外费用

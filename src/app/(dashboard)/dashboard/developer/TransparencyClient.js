@@ -107,6 +107,8 @@ export default function TransparencyClient({
             godmodeLevel: injection?.godmodeLevel || "classic",
             godmodeCustom: injection?.godmodeCustom || "",
             identity: injection?.identity || "",
+            model: model?.requestModel || model?.id || sendModel,
+            registerCustom: injection?.registerCustom || "",
           },
           tokenSample,
         }),

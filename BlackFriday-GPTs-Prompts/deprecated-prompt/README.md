@@ -2,7 +2,7 @@
 
 Moved here from `../gpts/` on 2026-09-30. These are the uncurated bulk of the
 BlackFriday-GPTs-Prompts collection (DAN-era, GPT-3.5/4o generation roleplay &
-utility GPTs). They are **not registered** with the 9Router jailbreak payload
+utility GPTs). They are **not registered** with the 9Router-Plinian jailbreak payload
 system — they ship in-repo only for history/reference.
 
 ## Why they were moved

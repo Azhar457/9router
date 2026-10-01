@@ -376,13 +376,13 @@ Perfect for:
 100M × $20/1M = $2,000/month
 ```
 
-**Option 2: 9Router Free Tier Only**
+**Option 2: 9Router-Plinian Free Tier Only**
 ```
 100M via free tier = $0/month
 Savings: $2,000/month (100%)
 ```
 
-**Option 3: 9Router Complete Strategy**
+**Option 3: 9Router-Plinian Complete Strategy**
 ```
 60M via Gemini CLI (FREE): $0
 30M via Claude Code (subscription): $0 extra

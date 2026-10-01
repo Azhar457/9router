@@ -1,6 +1,6 @@
 # Installation
 
-Detailed installation guide for 9Router with troubleshooting tips.
+Detailed installation guide for 9Router-Plinian with troubleshooting tips.
 
 ---
 
@@ -31,13 +31,13 @@ npm --version
 
 ### Method 1: Global Installation (Recommended)
 
-Install 9Router globally to use from anywhere:
+Install 9Router-Plinian globally to use from anywhere:
 
 ```bash
 npm install -g 9router
 ```
 
-**Start 9Router:**
+**Start 9Router-Plinian:**
 
 ```bash
 9router
@@ -58,7 +58,7 @@ cd my-9router
 npm install 9router
 ```
 
-**Start 9Router:**
+**Start 9Router-Plinian:**
 
 ```bash
 npx 9router
@@ -345,7 +345,7 @@ Dashboard → Provider → Disconnect → Reconnect
 
 ### High Memory Usage
 
-**Issue:** 9Router using too much RAM
+**Issue:** 9Router-Plinian using too much RAM
 
 **Solution: Restart server**
 

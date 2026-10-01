@@ -126,7 +126,7 @@ curl http://localhost:20128/v1/images/generations \
   -d '{"model":"cx/gpt-5.6-sol-image","prompt":"A blue square","size":"1024x1024"}'
 ```
 
-These are 9Router aliases: the image adapter removes `-image` and sends the
+These are 9Router-Plinian aliases: the image adapter removes `-image` and sends the
 underlying model an `image_generation` tool through the Codex Responses API.
 The same endpoint accepts an `image` reference for edits. Image generation
 requires an eligible ChatGPT Plus or higher account; availability of each
@@ -337,7 +337,7 @@ Use in CLI: premium-coding
 
 ## Quota Tracking
 
-9Router tracks quota in real-time:
+9Router-Plinian tracks quota in real-time:
 
 - **Token consumption** - Input/output tokens per request
 - **Reset countdown** - Time until next quota reset
@@ -406,7 +406,7 @@ Night: Cheap/free tier
 ### "OAuth token expired"
 
 **Solution:**
-- Auto-refreshed by 9Router
+- Auto-refreshed by 9Router-Plinian
 - If issues: Dashboard → Provider → Reconnect
 
 ### "Rate limiting"

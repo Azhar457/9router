@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./images/9router.png?1" alt="9Router Plinian" width="800"/>
+  <img src="./images/9router-plinian.png" alt="9Router Plinian" width="100%" style="max-width:100%;height:auto"/>
 
   # 9Router Plinian
 
@@ -122,6 +122,7 @@ Fork-only feature set for red-team / security-research workflows:
   - `9ROUTER_JAILBREAK_DISABLE=1` — disable the registry
 - **Transparency console** — signature rules detect injections (`G0DM0D3`, `VEIL`, Plinian register, collection markers); the developer console renders register + payload in live injection order.
 - **Token-saver guardrail** — active payloads skip headroom compression (no third-party leak) and skip terseness prompts (no dilution).
+
 
 > ⚠️ Use only on systems you are authorized to test.
 

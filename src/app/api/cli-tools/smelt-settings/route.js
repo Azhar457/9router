@@ -135,7 +135,7 @@ export async function DELETE() {
       await fs.writeFile(configPath, JSON.stringify(existing, null, 2), "utf-8");
     }
 
-    return NextResponse.json({ success: true, message: "Smelt 9Router settings removed" });
+    return NextResponse.json({ success: true, message: "Smelt 9Router-Plinian settings removed" });
   } catch (err) {
     return NextResponse.json({ error: { message: err.message } }, { status: 500 });
   }

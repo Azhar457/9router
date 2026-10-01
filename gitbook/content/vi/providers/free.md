@@ -376,13 +376,13 @@ Perfect for:
 100M × $20/1M = $2,000/month
 ```
 
-**Phương án 2: Chỉ 9Router Free Tier**
+**Phương án 2: Chỉ 9Router-Plinian Free Tier**
 ```
 100M via free tier = $0/month
 Savings: $2,000/month (100%)
 ```
 
-**Phương án 3: Chiến lược Hoàn chỉnh 9Router**
+**Phương án 3: Chiến lược Hoàn chỉnh 9Router-Plinian**
 ```
 60M via Gemini CLI (FREE): $0
 30M via Claude Code (subscription): $0 extra

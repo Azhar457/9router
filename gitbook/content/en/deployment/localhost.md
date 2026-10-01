@@ -1,12 +1,12 @@
 # 🏠 Localhost Deployment
 
-Run 9Router on your local machine for development and personal use.
+Run 9Router-Plinian on your local machine for development and personal use.
 
 ---
 
 ## 📦 Installation
 
-Install 9Router globally via npm:
+Install 9Router-Plinian globally via npm:
 
 ```bash
 npm install -g 9router
@@ -20,7 +20,7 @@ npm install -g 9router
 
 ## 🚀 Starting the Server
 
-Start 9Router with a single command:
+Start 9Router-Plinian with a single command:
 
 ```bash
 9router
@@ -53,7 +53,7 @@ The API port (20128) and dashboard port (3000) are configured in the application
 
 ## 🛑 Stopping the Server
 
-Press `Ctrl+C` in the terminal where 9Router is running.
+Press `Ctrl+C` in the terminal where 9Router-Plinian is running.
 
 ```bash
 # In the terminal running 9router
@@ -76,7 +76,7 @@ All your configurations, API keys, and combos are preserved in the data director
 
 ---
 
-## 📊 Updating 9Router
+## 📊 Updating 9Router-Plinian
 
 Update to the latest version:
 

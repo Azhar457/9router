@@ -1,12 +1,12 @@
 # 🏠 Despliegue en localhost
 
-Ejecuta 9Router en tu máquina local para desarrollo y uso personal.
+Ejecuta 9Router-Plinian en tu máquina local para desarrollo y uso personal.
 
 ---
 
 ## 📦 Instalación
 
-Instala 9Router globalmente vía npm:
+Instala 9Router-Plinian globalmente vía npm:
 
 ```bash
 npm install -g 9router
@@ -20,7 +20,7 @@ npm install -g 9router
 
 ## 🚀 Iniciar el servidor
 
-Inicia 9Router con un solo comando:
+Inicia 9Router-Plinian con un solo comando:
 
 ```bash
 9router
@@ -53,7 +53,7 @@ El puerto de API (20128) y el puerto del dashboard (3000) están configurados en
 
 ## 🛑 Detener el servidor
 
-Presiona `Ctrl+C` en la terminal donde 9Router se está ejecutando.
+Presiona `Ctrl+C` en la terminal donde 9Router-Plinian se está ejecutando.
 
 ```bash
 # En la terminal ejecutando 9router
@@ -76,7 +76,7 @@ Todas tus configuraciones, API keys y combos se preservan en el directorio de da
 
 ---
 
-## 📊 Actualizar 9Router
+## 📊 Actualizar 9Router-Plinian
 
 Actualiza a la última versión:
 

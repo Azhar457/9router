@@ -1605,7 +1605,7 @@ export default function DeveloperPageClient() {
                 value={injectIdentity}
                 onChange={handleInjectIdentityChange}
                 rows={2}
-                placeholder="Optional identity override, prepended first — e.g. &quot;You are 9Router, the local AI routing gateway. If asked who you are, answer: I'm 9Router — local gateway. Ready.&quot;"
+                placeholder="Optional identity override, prepended first — e.g. &quot;You are 9Router-Plinian, the local AI routing gateway. If asked who you are, answer: I'm 9Router-Plinian — local gateway. Ready.&quot;"
                 className="w-full resize-y rounded-lg border border-border bg-surface px-3 py-2 font-mono text-xs text-text-main outline-none focus:border-primary/50"
               />
             </div>

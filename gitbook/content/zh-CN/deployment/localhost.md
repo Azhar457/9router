@@ -1,12 +1,12 @@
 # 🏠 本地部署
 
-在本机运行 9Router,用于开发和个人使用。
+在本机运行 9Router-Plinian,用于开发和个人使用。
 
 ---
 
 ## 📦 安装
 
-通过 npm 全局安装 9Router:
+通过 npm 全局安装 9Router-Plinian:
 
 ```bash
 npm install -g 9router
@@ -20,7 +20,7 @@ npm install -g 9router
 
 ## 🚀 启动服务器
 
-一条命令启动 9Router:
+一条命令启动 9Router-Plinian:
 
 ```bash
 9router
@@ -53,7 +53,7 @@ API 端口(20128)和仪表盘端口(3000)在应用中配置。如需修改,你�
 
 ## 🛑 停止服务器
 
-在运行 9Router 的终端中按 `Ctrl+C`。
+在运行 9Router-Plinian 的终端中按 `Ctrl+C`。
 
 ```bash
 # 在运行 9router 的终端中
@@ -76,7 +76,7 @@ API 端口(20128)和仪表盘端口(3000)在应用中配置。如需修改,你�
 
 ---
 
-## 📊 更新 9Router
+## 📊 更新 9Router-Plinian
 
 更新到最新版本:
 

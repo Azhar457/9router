@@ -1,12 +1,12 @@
 # Roo AI Assistant Integration
 
-Integrate 9Router with Roo AI Assistant to access multiple AI models through a unified interface.
+Integrate 9Router-Plinian with Roo AI Assistant to access multiple AI models through a unified interface.
 
 ## Prerequisites
 
 - Roo AI Assistant installed
-- 9Router API key from [dashboard](https://9router.com/dashboard)
-- 9Router running (local or cloud)
+- 9Router-Plinian API key from [dashboard](https://9router.com/dashboard)
+- 9Router-Plinian running (local or cloud)
 
 ## Configuration Steps
 
@@ -20,13 +20,13 @@ Launch Roo AI Assistant and open the settings panel.
 2. Select **Ollama** as the provider type
 3. Configure the following settings:
 
-**For Local 9Router:**
+**For Local 9Router-Plinian:**
 ```
 Base URL: http://localhost:20128/v1
 API Key: your-api-key-from-dashboard
 ```
 
-**For Cloud 9Router:**
+**For Cloud 9Router-Plinian:**
 ```
 Base URL: https://9router.com/v1
 API Key: your-api-key-from-dashboard
@@ -34,7 +34,7 @@ API Key: your-api-key-from-dashboard
 
 ### 3. Select Model
 
-Choose from available 9Router models:
+Choose from available 9Router-Plinian models:
 
 **Claude Models:**
 - `cc/claude-opus-4-5-20251101` - Most capable
@@ -54,7 +54,7 @@ Choose from available 9Router models:
 Send a test message to verify the integration:
 
 ```
-Hello! Can you confirm you're connected through 9Router?
+Hello! Can you confirm you're connected through 9Router-Plinian?
 ```
 
 ## Usage Examples
@@ -87,19 +87,19 @@ Model: cx/deepseek-reasoner
 ## Troubleshooting
 
 ### Connection Failed
-- Verify 9Router is running: `curl http://localhost:20128/health`
+- Verify 9Router-Plinian is running: `curl http://localhost:20128/health`
 - Check API key is correct
 - Ensure Base URL includes `/v1` suffix
 
 ### Model Not Available
 - Check model name matches exactly (case-sensitive)
-- Verify model is enabled in your 9Router plan
+- Verify model is enabled in your 9Router-Plinian plan
 - Try a different model from the list
 
 ### Slow Responses
 - Switch to faster models (haiku, flash)
 - Check network connection
-- Monitor 9Router logs for issues
+- Monitor 9Router-Plinian logs for issues
 
 ## Advanced Configuration
 

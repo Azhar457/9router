@@ -316,7 +316,7 @@ Usar en CLI: premium-coding
 
 ## Seguimiento de cuota
 
-9Router rastrea la cuota en tiempo real:
+9Router-Plinian rastrea la cuota en tiempo real:
 
 - **Consumo de tokens** - Tokens de entrada/salida por solicitud
 - **Cuenta regresiva de reinicio** - Tiempo hasta el próximo reinicio de cuota
@@ -385,7 +385,7 @@ Madrugada: Nivel barato/gratis
 ### "Token OAuth expirado"
 
 **Solución:**
-- Auto-refresh por 9Router
+- Auto-refresh por 9Router-Plinian
 - Si hay problemas: Dashboard → Provider → Reconnect
 
 ### "Rate limiting"

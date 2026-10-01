@@ -1,10 +1,10 @@
-# 9Router Architecture
+# 9Router-Plinian Architecture
 
 _Last updated: 2026-02-06_
 
 ## Executive Summary
 
-9Router is a local AI routing gateway and dashboard built on Next.js.
+9Router-Plinian is a local AI routing gateway and dashboard built on Next.js.
 It provides a single OpenAI-compatible endpoint (`/v1/*`) and routes traffic across multiple upstream providers with translation, fallback, token refresh, and usage tracking.
 
 Core capabilities:
@@ -52,7 +52,7 @@ flowchart LR
         BROWSER[Browser Dashboard]
     end
 
-    subgraph Router[9Router Local Process]
+    subgraph Router[9Router-Plinian Local Process]
         API[V1 Compatibility API\n/v1/*]
         DASH[Dashboard + Management API\n/api/*]
         CORE[SSE + Translation Core\nopen-sse + src/sse]
@@ -391,7 +391,7 @@ flowchart LR
         Browser[Dashboard Browser]
     end
 
-    subgraph ContainerOrProcess[9Router Runtime]
+    subgraph ContainerOrProcess[9Router-Plinian Runtime]
         Next[Next.js Server\nPORT=20128]
         Core[SSE Core + Executors]
         MainDB[(db.json)]

@@ -1,6 +1,6 @@
 # Empezar
 
-Pon en marcha 9Router en 5 minutos y comienza a enrutar solicitudes de IA de forma inteligente.
+Pon en marcha 9Router-Plinian en 5 minutos y comienza a enrutar solicitudes de IA de forma inteligente.
 
 ---
 
@@ -43,7 +43,7 @@ Dashboard → Providers → Connect [Provider]
 **Ejemplo: Claude Code**
 1. Clic en "Connect Claude Code"
 2. Inicia sesión con tu cuenta de Claude
-3. Autoriza 9Router
+3. Autoriza 9Router-Plinian
 4. ✅ ¡Listo! Usa el modelo: `cc/claude-opus-4-5-20251101`
 
 #### Opción B: API Key (Proveedores baratos)
@@ -83,7 +83,7 @@ Dashboard → Providers → Connect [Free Provider]
 
 ## 4. Usar en herramientas CLI
 
-Apunta tu herramienta de codificación a 9Router:
+Apunta tu herramienta de codificación a 9Router-Plinian:
 
 ### Cursor IDE
 

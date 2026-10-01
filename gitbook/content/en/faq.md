@@ -1,12 +1,12 @@
 # Frequently Asked Questions
 
-Common questions about 9Router.
+Common questions about 9Router-Plinian.
 
 ---
 
-## What is 9Router?
+## What is 9Router-Plinian?
 
-**9Router is an AI model router that maximizes your subscription value and minimizes costs.**
+**9Router-Plinian is an AI model router that maximizes your subscription value and minimizes costs.**
 
 It intelligently routes requests across multiple AI providers using a 3-tier fallback system:
 1. **Subscription tier** - Maximize Claude Code, Codex, Gemini quotas you already pay for
@@ -23,7 +23,7 @@ It intelligently routes requests across multiple AI providers using a 3-tier fal
 
 ## How does pricing work?
 
-**9Router uses a 3-tier pricing strategy:**
+**9Router-Plinian uses a 3-tier pricing strategy:**
 
 ### Tier 1: Subscription (Maximize First)
 - **Claude Code** (Pro/Max): $20-100/month - 5-hour + weekly quota
@@ -50,9 +50,9 @@ It intelligently routes requests across multiple AI providers using a 3-tier fal
 
 ---
 
-## Is 9Router free?
+## Is 9Router-Plinian free?
 
-**Yes, 9Router itself is 100% free and open source.**
+**Yes, 9Router-Plinian itself is 100% free and open source.**
 
 **Free tier providers available:**
 - **Gemini CLI** - 180K completions/month (FREE Google account)
@@ -96,7 +96,7 @@ See [providers documentation](providers/subscription.md) for details.
 
 ## Can I use multiple providers?
 
-**Yes! This is 9Router's core feature.**
+**Yes! This is 9Router-Plinian's core feature.**
 
 **Combos allow you to chain multiple providers with automatic fallback:**
 
@@ -129,7 +129,7 @@ See [combos documentation](features/combos.md) for examples.
 
 ## How does quota tracking work?
 
-**9Router tracks quota in real-time for all providers:**
+**9Router-Plinian tracks quota in real-time for all providers:**
 
 **Features:**
 - **Token consumption** - Input/output tokens per request
@@ -154,13 +154,13 @@ See [quota tracking documentation](features/quota-tracking.md) for details.
 
 ---
 
-## Does 9Router work with Cursor?
+## Does 9Router-Plinian work with Cursor?
 
 **Yes, but Cursor requires a cloud endpoint.**
 
 **Problem:** Cursor IDE doesn't support localhost endpoints.
 
-**Solution:** Use 9Router cloud deployment:
+**Solution:** Use 9Router-Plinian cloud deployment:
 
 ```
 Cursor Settings → Models → Advanced:
@@ -192,9 +192,9 @@ See [Cursor integration guide](integration/cursor.md) for details.
 
 ---
 
-## Can I self-host 9Router?
+## Can I self-host 9Router-Plinian?
 
-**Yes! 9Router supports multiple deployment options:**
+**Yes! 9Router-Plinian supports multiple deployment options:**
 
 ### Localhost (Default)
 ```bash
@@ -245,11 +245,11 @@ See [deployment guide](getting-started/installation.md#deployment) for details.
 
 ## Is my data secure?
 
-**Yes, 9Router prioritizes security and privacy:**
+**Yes, 9Router-Plinian prioritizes security and privacy:**
 
 **Local storage:**
 - All data stored locally in `~/.9router` (or custom `DATA_DIR`)
-- No data sent to 9Router servers
+- No data sent to 9Router-Plinian servers
 - OAuth tokens encrypted with JWT
 
 **No telemetry:**
@@ -268,20 +268,20 @@ See [deployment guide](getting-started/installation.md#deployment) for details.
 - Enable HTTPS for cloud deployments
 - Rotate API keys regularly
 
-**What 9Router stores:**
+**What 9Router-Plinian stores:**
 - Provider OAuth tokens (encrypted)
 - API keys (encrypted)
 - Usage statistics (local only)
 - Combo configurations
 
-**What 9Router does NOT store:**
+**What 9Router-Plinian does NOT store:**
 - Your prompts or responses
 - Code you generate
 - Personal information
 
 ---
 
-## How do I update 9Router?
+## How do I update 9Router-Plinian?
 
 **Update methods depend on installation type:**
 

@@ -237,7 +237,7 @@ export default function GrokBuildToolCard({
     const mainModel = selectedModel || "provider/model-id";
     const blocks = [
       `[models]\ndefault = "${MODEL_SLOT}"`,
-      `[model.${MODEL_SLOT}]\nmodel = "${mainModel}"\nbase_url = "${baseUrl}"\nname = "9Router"\ndescription = "Routed via 9Router gateway"\napi_backend = "chat_completions"\napi_key = "${keyToUse}"\ncontext_window = ${getContextWindow(mainModel) || 200000}`,
+      `[model.${MODEL_SLOT}]\nmodel = "${mainModel}"\nbase_url = "${baseUrl}"\nname = "9Router-Plinian"\ndescription = "Routed via 9Router-Plinian gateway"\napi_backend = "chat_completions"\napi_key = "${keyToUse}"\ncontext_window = ${getContextWindow(mainModel) || 200000}`,
     ];
     const mappings = [];
     for (const type of SUBAGENT_TYPES) {
@@ -245,7 +245,7 @@ export default function GrokBuildToolCard({
       if (!model) continue;
       const slot = `${MODEL_SLOT}-${type.id}`;
       mappings.push(`${type.id} = "${slot}"`);
-      blocks.push(`[model.${slot}]\nmodel = "${model}"\nbase_url = "${baseUrl}"\nname = "9Router ${type.id}"\ndescription = "Routed via 9Router gateway"\napi_backend = "chat_completions"\napi_key = "${keyToUse}"\ncontext_window = ${getContextWindow(model) || 200000}`);
+      blocks.push(`[model.${slot}]\nmodel = "${model}"\nbase_url = "${baseUrl}"\nname = "9Router-Plinian ${type.id}"\ndescription = "Routed via 9Router-Plinian gateway"\napi_backend = "chat_completions"\napi_key = "${keyToUse}"\ncontext_window = ${getContextWindow(model) || 200000}`);
     }
     if (mappings.length) blocks.splice(1, 0, `[subagents.models]\n${mappings.join("\n")}`);
     return [{ filename: "~/.grok/config.toml", content: `${blocks.join("\n\n")}\n` }];

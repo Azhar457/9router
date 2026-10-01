@@ -1,13 +1,13 @@
 # Tích hợp Continue VSCode Extension
 
-Tích hợp 9Router với extension Continue để mang trợ lý AI trực tiếp vào Visual Studio Code.
+Tích hợp 9Router-Plinian với extension Continue để mang trợ lý AI trực tiếp vào Visual Studio Code.
 
 ## Yêu cầu
 
 - Visual Studio Code đã cài đặt
 - Extension Continue đã cài đặt từ VSCode marketplace
-- 9Router API key từ [dashboard](https://9router.com/dashboard)
-- 9Router đang chạy (cục bộ hoặc cloud)
+- 9Router-Plinian API key từ [dashboard](https://9router.com/dashboard)
+- 9Router-Plinian đang chạy (cục bộ hoặc cloud)
 
 ## Các bước Cấu hình
 
@@ -18,7 +18,7 @@ Tích hợp 9Router với extension Continue để mang trợ lý AI trực ti�
 3. Gõ "Continue: Open Config" và chọn
 4. Mở `~/.continue/config.json`
 
-### 2. Thêm Cấu hình Model 9Router
+### 2. Thêm Cấu hình Model 9Router-Plinian
 
 Thêm cấu hình sau vào `config.json`:
 
@@ -27,7 +27,7 @@ Thêm cấu hình sau vào `config.json`:
 {
   "models": [
     {
-      "title": "9Router - Claude Opus",
+      "title": "9Router-Plinian - Claude Opus",
       "provider": "openai",
       "model": "cc/claude-opus-4-5-20251101",
       "apiKey": "your-api-key-from-dashboard",
@@ -42,28 +42,28 @@ Thêm cấu hình sau vào `config.json`:
 {
   "models": [
     {
-      "title": "9Router - Claude Opus (Best)",
+      "title": "9Router-Plinian - Claude Opus (Best)",
       "provider": "openai",
       "model": "cc/claude-opus-4-5-20251101",
       "apiKey": "your-api-key-from-dashboard",
       "apiBase": "http://localhost:20128/v1"
     },
     {
-      "title": "9Router - Claude Sonnet (Balanced)",
+      "title": "9Router-Plinian - Claude Sonnet (Balanced)",
       "provider": "openai",
       "model": "cc/claude-sonnet-4-20250514",
       "apiKey": "your-api-key-from-dashboard",
       "apiBase": "http://localhost:20128/v1"
     },
     {
-      "title": "9Router - DeepSeek Chat (Code)",
+      "title": "9Router-Plinian - DeepSeek Chat (Code)",
       "provider": "openai",
       "model": "cx/deepseek-chat",
       "apiKey": "your-api-key-from-dashboard",
       "apiBase": "http://localhost:20128/v1"
     },
     {
-      "title": "9Router - Claude Haiku (Fast)",
+      "title": "9Router-Plinian - Claude Haiku (Fast)",
       "provider": "openai",
       "model": "cc/claude-haiku-4-20250514",
       "apiKey": "your-api-key-from-dashboard",
@@ -73,7 +73,7 @@ Thêm cấu hình sau vào `config.json`:
 }
 ```
 
-**Cho Cloud 9Router:**
+**Cho Cloud 9Router-Plinian:**
 Thay `apiBase` bằng:
 ```json
 "apiBase": "https://9router.com/v1"
@@ -89,7 +89,7 @@ Thay `apiBase` bằng:
 
 1. Mở sidebar Continue (click icon Continue trong panel trái)
 2. Click dropdown chọn model ở trên cùng
-3. Chọn model 9Router ưa thích
+3. Chọn model 9Router-Plinian ưa thích
 
 ## Model có sẵn
 
@@ -139,7 +139,7 @@ Thêm system prompt tùy chỉnh cho hành vi cụ thể:
 {
   "models": [
     {
-      "title": "9Router - Code Expert",
+      "title": "9Router-Plinian - Code Expert",
       "provider": "openai",
       "model": "cx/deepseek-chat",
       "apiKey": "your-api-key",
@@ -158,7 +158,7 @@ Thêm system prompt tùy chỉnh cho hành vi cụ thể:
 {
   "models": [
     {
-      "title": "9Router - Creative Writer",
+      "title": "9Router-Plinian - Creative Writer",
       "provider": "openai",
       "model": "cc/claude-opus-4-5-20251101",
       "apiKey": "your-api-key",
@@ -204,13 +204,13 @@ Cấu hình context Continue gửi đến model:
 ## Troubleshooting
 
 ### Model không phản hồi
-- Kiểm tra 9Router đang chạy: `curl http://localhost:20128/health`
+- Kiểm tra 9Router-Plinian đang chạy: `curl http://localhost:20128/health`
 - Xác minh API key trong config.json
 - Kiểm tra VSCode Developer Console để xem lỗi: `Help` → `Toggle Developer Tools`
 
 ### Chọn sai Model
 - Click dropdown model trong sidebar Continue
-- Chọn đúng model 9Router
+- Chọn đúng model 9Router-Plinian
 - Tên model phải khớp chính xác (case-sensitive)
 
 ### Cấu hình không Load
@@ -221,7 +221,7 @@ Cấu hình context Continue gửi đến model:
 ### Hiệu năng Chậm
 - Chuyển sang model nhanh hơn (haiku, flash)
 - Giảm context size trong contextProviders
-- Kiểm tra độ trễ network đến 9Router
+- Kiểm tra độ trễ network đến 9Router-Plinian
 
 ## Best Practices
 

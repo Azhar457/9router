@@ -2,7 +2,7 @@ import pkg from "../../../package.json" with { type: "json" };
 
 // App configuration
 export const APP_CONFIG = {
-  name: "9Router-Plinian Plinian",
+  name: "9Router-Plinian",
   description: "AI routing gateway — red-team playground & steering research",
   version: pkg.version,
 };

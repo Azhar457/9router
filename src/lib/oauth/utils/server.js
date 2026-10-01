@@ -840,7 +840,7 @@ function renderXiaomiMimoResultPage(success, message) {
   <div class="container">
     <div class="icon">${icon}</div>
     <h1>${title}</h1>
-    <p>${message || (success ? "You can close this tab and return to 9Router." : "Please try again.")}</p>
+    <p>${message || (success ? "You can close this tab and return to 9Router-Plinian." : "Please try again.")}</p>
     ${success ? "<script>setTimeout(() => window.close(), 3000);</script>" : ""}
   </div>
 </body>
