@@ -10,6 +10,14 @@ const fs = require("fs");
 const os = require("os");
 
 const packageName = process.env.UPDATER_PKG_NAME || "9router-plinian";
+// GitHub is the update source of truth (npm is deprecated/blocked). The
+// updater downloads the latest release tarball and installs it via
+// `npm i -g <file>` — same path as the documented manual install. Env
+// overridable so forks / mirrors / self-hosted installs can point elsewhere.
+const ghRepo = process.env.UPDATER_GH_REPO || "Azhar457/9router";
+const ghAsset = process.env.UPDATER_GH_ASSET || "9router-plinian-latest.tgz";
+const ghUrl = process.env.UPDATER_GH_URL ||
+  `https://github.com/${ghRepo}/releases/latest/download/${ghAsset}`;
 const port = parseInt(process.env.UPDATER_PORT || "20129", 10);
 const tailLines = parseInt(process.env.UPDATER_TAIL_LINES || "8", 10);
 const maxRetries = parseInt(process.env.UPDATER_RETRIES || "3", 10);
@@ -131,45 +139,84 @@ function sleep(ms) {
 function runInstall() {
   state.attempt += 1;
   setPhase("installing");
-  pushLog(`[updater] attempt ${state.attempt}/${maxRetries} — npm i -g ${packageName} --prefer-online`);
+  pushLog(`[updater] attempt ${state.attempt}/${maxRetries} — GitHub: ${ghUrl}`);
 
   const isWin = process.platform === "win32";
-  const cmd = isWin ? "npm.cmd" : "npm";
-  const args = ["i", "-g", packageName, "--prefer-online"];
+  const tmpDir = path.join(getDataDir(), "update");
+  try { fs.mkdirSync(tmpDir, { recursive: true }); } catch { /* best effort */ }
+  const tarball = path.join(tmpDir, "update.tgz");
 
-  const child = spawn(cmd, args, {
-    stdio: ["ignore", "pipe", "pipe"],
-    windowsHide: true,
-    shell: isWin,
-  });
+  // Step 1: download the GitHub release tarball (curl on unix, PowerShell on win).
+  const dl = isWin
+    ? {
+        cmd: "powershell",
+        args: [
+          "-NoProfile", "-NonInteractive", "-Command",
+          `Invoke-WebRequest -UseBasicParsing -Uri "${ghUrl}" -OutFile "${tarball}"`,
+        ],
+      }
+    : { cmd: "curl", args: ["-fsSL", ghUrl, "-o", tarball] };
 
-  child.stdout.on("data", (buf) => {
-    buf.toString().split(/\r?\n/).forEach(pushLog);
-    persistStatus();
-  });
-  child.stderr.on("data", (buf) => {
-    buf.toString().split(/\r?\n/).forEach(pushLog);
-    persistStatus();
-  });
+  // Step 2: install the local tarball globally (the documented install path).
+  const npmCmd = isWin ? "npm.cmd" : "npm";
+  const install = { cmd: npmCmd, args: ["i", "-g", tarball, "--prefer-online"] };
 
-  child.on("error", (e) => {
-    pushLog(`[updater] spawn error: ${e.message}`);
-    finalize(false, null, e.message);
-  });
+  const steps = [dl, install];
+  let step = 0;
+  let lastCode = 1;
 
-  child.on("close", (code) => {
-    pushLog(`[updater] npm exited with code ${code}`);
-    if (code === 0) {
-      finalize(true, code, null);
-      return;
-    }
+  const runStep = () => {
+    const spec = steps[step];
+    pushLog(
+      `[updater] ${step === 0 ? "downloading" : "installing"} (${step + 1}/2) ...`
+    );
+    const child = spawn(spec.cmd, spec.args, {
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true,
+      shell: isWin,
+    });
+
+    child.stdout.on("data", (buf) => {
+      buf.toString().split(/\r?\n/).forEach(pushLog);
+      persistStatus();
+    });
+    child.stderr.on("data", (buf) => {
+      buf.toString().split(/\r?\n/).forEach(pushLog);
+      persistStatus();
+    });
+
+    child.on("error", (e) => {
+      pushLog(`[updater] spawn error (${step === 0 ? "download" : "install"}): ${e.message}`);
+      handleFailure();
+    });
+
+    child.on("close", (code) => {
+      lastCode = code;
+      if (code === 0) {
+        step += 1;
+        if (step < steps.length) {
+          runStep();
+          return;
+        }
+        pushLog(`[updater] update complete`);
+        finalize(true, 0, null);
+        return;
+      }
+      handleFailure();
+    });
+  };
+
+  function handleFailure() {
+    pushLog(`[updater] ${step === 0 ? "download" : "install"} failed (code=${lastCode})`);
     if (state.attempt < maxRetries) {
-      pushLog(`[updater] retrying in ${Math.round(retryDelayMs / 1000)}s...`);
-      setTimeout(runInstall, retryDelayMs);
+      pushLog(`[updater] retrying full update in ${Math.round(retryDelayMs / 1000)}s...`);
+      setTimeout(() => { step = 0; runStep(); }, retryDelayMs);
       return;
     }
-    finalize(false, code, `Install failed after ${maxRetries} attempts`);
-  });
+    finalize(false, lastCode, `Update failed after ${maxRetries} attempts`);
+  }
+
+  runStep();
 }
 
 function openBrowser(url) {

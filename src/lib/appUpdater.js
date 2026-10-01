@@ -156,12 +156,14 @@ export async function killAppProcesses() {
   }
 }
 
-// Resolve npx/9router binary to relaunch after update (cross-platform)
+// Relaunch the locally-installed binary after a GitHub-tarball update. The
+// binary name comes from the package (9router-plinian); `npx <pkg>` would
+// try to fetch from the npm registry, which is deprecated/blocked — so we
+// resolve the global bin path directly instead.
 function resolveRelaunchCommand() {
   const isWin = process.platform === "win32";
-  // Prefer `npx 9router` — works regardless of global bin path changes after npm i -g
-  const npx = isWin ? "npx.cmd" : "npx";
-  return { cmd: npx, args: [UPDATER_CONFIG.npmPackageName] };
+  const bin = UPDATER_CONFIG.npmPackageName;
+  return { cmd: isWin ? bin + ".cmd" : bin, args: [] };
 }
 
 // Spawn detached headless updater (Node process) then exit current server
@@ -181,6 +183,9 @@ export function spawnUpdaterAndExit(packageName = UPDATER_CONFIG.npmPackageName)
     env: {
       ...process.env,
       UPDATER_PKG_NAME: packageName,
+      UPDATER_GH_REPO: process.env.UPDATER_GH_REPO || UPDATER_CONFIG.ghRepo,
+      UPDATER_GH_ASSET: process.env.UPDATER_GH_ASSET || UPDATER_CONFIG.ghAsset,
+      UPDATER_GH_URL: process.env.UPDATER_GH_URL || UPDATER_CONFIG.ghUrl,
       UPDATER_PORT: String(UPDATER_CONFIG.statusPort),
       UPDATER_TAIL_LINES: String(UPDATER_CONFIG.statusLogTailLines),
       UPDATER_RETRIES: String(UPDATER_CONFIG.installRetries),

@@ -2,7 +2,7 @@ import pkg from "../../../package.json" with { type: "json" };
 
 // App configuration
 export const APP_CONFIG = {
-  name: "9Router Plinian",
+  name: "9Router-Plinian Plinian",
   description: "AI routing gateway — red-team playground & steering research",
   version: pkg.version,
 };
@@ -16,8 +16,13 @@ export const GITHUB_CONFIG = {
 // Updater configuration
 export const UPDATER_CONFIG = {
   npmPackageName: "9router-plinian",
-  installCmd: "npm i -g 9router-plinian",
-  installCmdLatest: "npm i -g 9router-plinian@latest",
+  // GitHub is the update source of truth (npm is deprecated / dual-use-blocked).
+  // The updater downloads this tarball and runs `npm i -g <file>`.
+  ghRepo: "Azhar457/9router",
+  ghAsset: "9router-plinian-latest.tgz",
+  ghUrl: "https://github.com/Azhar457/9router/releases/latest/download/9router-plinian-latest.tgz",
+  installCmd: "curl -fsSL https://github.com/Azhar457/9router/releases/latest/download/9router-plinian-latest.tgz -o /tmp/9router-plinian.tgz && npm i -g /tmp/9router-plinian.tgz",
+  installCmdLatest: "curl -fsSL https://github.com/Azhar457/9router/releases/latest/download/9router-plinian-latest.tgz -o /tmp/9router-plinian.tgz && npm i -g /tmp/9router-plinian.tgz",
   shutdownCountdownSec: 3,
   exitDelayMs: 500,
   statusPort: 20129,

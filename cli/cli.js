@@ -90,7 +90,12 @@ try { ensureTrayRuntime({ silent: true }); } catch {}
 
 // Configuration constants
 const APP_NAME = pkg.name; // Use from package.json
-const INSTALL_CMD_LATEST = `npm i -g ${APP_NAME}@latest --prefer-online`;
+// GitHub is the update source of truth (npm registry is deprecated / dual-use-blocked).
+// Check/update flows hit the GitHub releases API + latest tarball, never registry.npmjs.org.
+const GH_UPDATE_REPO = process.env.NINEROUTER_GH_REPO || "Azhar457/9router";
+const GH_UPDATE_TARBALL = process.env.NINEROUTER_GH_TARBALL || "9router-plinian-latest.tgz";
+const GH_UPDATE_URL = `https://github.com/${GH_UPDATE_REPO}/releases/latest/download/${GH_UPDATE_TARBALL}`;
+const INSTALL_CMD_LATEST = `curl -fsSL ${GH_UPDATE_URL} -o /tmp/${APP_NAME}.tgz && npm i -g /tmp/${APP_NAME}.tgz`;
 
 const DEFAULT_PORT = 20128;
 const DEFAULT_HOST = "0.0.0.0";
@@ -482,22 +487,35 @@ function checkForUpdate() {
       resolve(version);
     };
 
-    const req = https.get(`https://registry.npmjs.org/${pkg.name}/latest`, { timeout: 3000 }, (res) => {
-      let data = "";
-      res.on("data", chunk => data += chunk);
-      res.on("end", () => {
-        try {
-          const latest = JSON.parse(data);
-          if (latest.version && compareVersions(latest.version, pkg.version) > 0) {
-            done(latest.version);
-          } else {
+    // GitHub releases is the source of truth (npm registry is deprecated).
+    const req = https.get(
+      `https://api.github.com/repos/${GH_UPDATE_REPO}/releases/latest`,
+      {
+        timeout: 3000,
+        headers: {
+          "User-Agent": "9router-updater",
+          "Accept": "application/vnd.github+json",
+        },
+      },
+      (res) => {
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
+          try {
+            const latest = JSON.parse(data);
+            // GitHub tags are shaped like v0.5.97; strip the leading "v".
+            const version = (latest.tag_name || "").replace(/^v/, "");
+            if (version && compareVersions(version, pkg.version) > 0) {
+              done(version);
+            } else {
+              done(null);
+            }
+          } catch (e) {
             done(null);
           }
-        } catch (e) {
-          done(null);
-        }
-      });
-    });
+        });
+      }
+    );
 
     req.on("error", () => done(null));
     req.on("timeout", () => { req.destroy(); done(null); });
@@ -790,7 +808,7 @@ function startServer(updatePromise) {
             process.on("SIGHUP", () => {});
 
             console.log(`\n⏳ Switching to tray mode... (icon already visible in menu bar)`);
-            console.log(`🔔 9Router is running in tray (PID: ${process.pid})`);
+            console.log(`🔔 9Router-Plinian is running in tray (PID: ${process.pid})`);
             console.log(`   Server: http://${displayHost}:${port}`);
             console.log(`\n💡 You can close this terminal. Right-click tray icon to quit.\n`);
 
@@ -819,7 +837,7 @@ function startServer(updatePromise) {
             try { fs.closeSync(trayLogFd); } catch (e) { }
           }
 
-          console.log(`🔔 9Router is now running in background (PID: ${bgProcess.pid})`);
+          console.log(`🔔 9Router-Plinian is now running in background (PID: ${bgProcess.pid})`);
           console.log(`   Server: http://${displayHost}:${port}`);
           console.log(`\n💡 You can close this terminal. Right-click tray icon to quit.\n`);
 

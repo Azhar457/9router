@@ -1,8 +1,8 @@
 
 <div align="center">
-  <img src="./images/9router.png?1" alt="9Router Dashboard" width="800"/>
+  <img src="./images/9router.png?1" alt="9Router-Plinian Dashboard" width="800"/>
   
-  # 9Router - 免费 AI 路由器与 Token 节省器
+  # 9Router-Plinian - 免费 AI 路由器与 Token 节省器
   
   **编程永不停歇。使用 RTK + 自动切换到免费/低价 AI 模型，节省 20-40% 的 tokens。**
   
@@ -21,7 +21,7 @@
 
 ---
 
-## 🤔 为什么选择 9Router？
+## 🤔 为什么选择 9Router-Plinian？
 
 **告别浪费金钱、tokens 和触碰限制的困扰：**
 
@@ -31,7 +31,7 @@
 - ❌ 昂贵的 API（每个提供商 $20-50/月）
 - ❌ 需要手动在提供商之间切换
 
-**9Router 解决这一切：**
+**9Router-Plinian 解决这一切：**
 
 - ✅ **RTK Token 节省器** - 自动压缩 tool_result 内容，每次请求节省 20-40% tokens
 - ✅ **充分利用订阅** - 追踪配额，在重置前用尽每一分额度
@@ -51,7 +51,7 @@
        │ http://localhost:20128/v1
        ↓
 ┌─────────────────────────────────────────────┐
-│           9Router（智能路由器）              │
+│           9Router-Plinian（智能路由器）              │
 │  • RTK Token 节省器（减少 tool_result tokens）│
 │  • 格式转换（OpenAI ↔ Claude）              │
 │  • 配额追踪                                  │
@@ -74,8 +74,9 @@
 **1. 全局安装：**
 
 ```bash
-npm install -g 9router
-9router
+curl -fsSL https://github.com/Azhar457/9router/releases/latest/download/9router-plinian-latest.tgz -o /tmp/9router-plinian.tgz
+npm install -g /tmp/9router-plinian.tgz
+9router-plinian
 ```
 
 🎉 控制面板在 `http://localhost:20128` 打开
@@ -126,17 +127,17 @@ PORT=20128 HOSTNAME=0.0.0.0 NEXT_PUBLIC_BASE_URL=http://localhost:20128 npm run 
   <tr>
     <td align="center" width="320">
       <a href="https://www.youtube.com/watch?v=raEyZPg5xE0">
-        <img src="https://img.youtube.com/vi/raEyZPg5xE0/maxresdefault.jpg" alt="9Router Setup Tutorial" width="300"/>
+        <img src="https://img.youtube.com/vi/raEyZPg5xE0/maxresdefault.jpg" alt="9Router-Plinian Setup Tutorial" width="300"/>
       </a><br/>
       <b>🇺🇸 English</b><br/>
-      <sub>9Router + Claude Code 免费设置<br/>by <a href="https://www.youtube.com/@BuildAIWithHamid">Build AI With Hamid</a></sub>
+      <sub>9Router-Plinian + Claude Code 免费设置<br/>by <a href="https://www.youtube.com/@BuildAIWithHamid">Build AI With Hamid</a></sub>
     </td>
     <td align="center" width="320">
       <a href="https://www.youtube.com/watch?v=X69n5Lm06Yw">
-        <img src="https://img.youtube.com/vi/X69n5Lm06Yw/maxresdefault.jpg" alt="Tiết kiệm chi phí LLM với 9Router" width="300"/>
+        <img src="https://img.youtube.com/vi/X69n5Lm06Yw/maxresdefault.jpg" alt="Tiết kiệm chi phí LLM với 9Router-Plinian" width="300"/>
       </a><br/>
       <b>🇻🇳 Tiếng Việt</b><br/>
-      <sub>使用 9Router 节省 OpenClaw 的 LLM 成本<br/>by <a href="https://www.youtube.com/c/M%C3%ACAIblog">Mì AI</a></sub>
+      <sub>使用 9Router-Plinian 节省 OpenClaw 的 LLM 成本<br/>by <a href="https://www.youtube.com/c/M%C3%ACAIblog">Mì AI</a></sub>
     </td>
     <td align="center" width="320">
       <a href="https://www.youtube.com/watch?v=o3qYCyjrFYg">
@@ -152,14 +153,14 @@ PORT=20128 HOSTNAME=0.0.0.0 NEXT_PUBLIC_BASE_URL=http://localhost:20128 npm run 
         <img src="https://img.youtube.com/vi/Ttpc26m39Dw/maxresdefault.jpg" alt="Claude CLI Free Setup" width="300"/>
       </a><br/>
       <b>🇺🇸 English</b><br/>
-      <sub>使用 9Router 免费设置 Claude CLI 🚀<br/>by <a href="https://www.youtube.com/@CodeVerseSoban">CodeVerse Soban</a></sub>
+      <sub>使用 9Router-Plinian 免费设置 Claude CLI 🚀<br/>by <a href="https://www.youtube.com/@CodeVerseSoban">CodeVerse Soban</a></sub>
     </td>
     <td align="center" width="320">
       <a href="https://www.youtube.com/watch?v=G-5A_D5Pm6Y">
         <img src="https://img.youtube.com/vi/G-5A_D5Pm6Y/maxresdefault.jpg" alt="Cài đặt OpenClaw Free A-Z" width="300"/>
       </a><br/>
       <b>🇻🇳 Tiếng Việt</b><br/>
-      <sub>从零开始安装 OpenClaw 免费版 + 9Router<br/>by <a href="https://www.youtube.com/@maigia">Mai Gia</a></sub>
+      <sub>从零开始安装 OpenClaw 免费版 + 9Router-Plinian<br/>by <a href="https://www.youtube.com/@maigia">Mai Gia</a></sub>
     </td>
     <td align="center" width="320">
       <a href="https://www.youtube.com/watch?v=JXmg8_gccgE">
@@ -173,13 +174,13 @@ PORT=20128 HOSTNAME=0.0.0.0 NEXT_PUBLIC_BASE_URL=http://localhost:20128 npm run 
 
 </div>
 
-> 🎬 **制作了关于 9Router 的视频？** 提交 [Pull Request](https://github.com/decolua/9router/pulls)，将你的视频添加到此部分 — 我们会合并它！
+> 🎬 **制作了关于 9Router-Plinian 的视频？** 提交 [Pull Request](https://github.com/decolua/9router/pulls)，将你的视频添加到此部分 — 我们会合并它！
 
 ---
 
 ## 🛠️ 支持的 CLI 工具
 
-9Router 与所有主流 AI 编程工具无缝协作：
+9Router-Plinian 与所有主流 AI 编程工具无缝协作：
 
 <div align="center">
   <table>
@@ -448,7 +449,7 @@ PORT=20128 HOSTNAME=0.0.0.0 NEXT_PUBLIC_BASE_URL=http://localhost:20128 npm run 
 
 格式间无缝转换：
 - **OpenAI** ↔ **Claude** ↔ **Gemini** ↔ **Cursor** ↔ **Kiro** ↔ **Vertex** ↔ **Antigravity** ↔ **Ollama** ↔ **OpenAI Responses**
-- 你的 CLI 工具发送 OpenAI 格式 → 9Router 转换 → 提供商接收原生格式
+- 你的 CLI 工具发送 OpenAI 格式 → 9Router-Plinian 转换 → 提供商接收原生格式
 - 适用于任何支持自定义 OpenAI 端点的工具
 
 ### 👥 多账户支持
@@ -502,11 +503,11 @@ PORT=20128 HOSTNAME=0.0.0.0 NEXT_PUBLIC_BASE_URL=http://localhost:20128 npm run 
 > **💡 重要 - 了解控制面板成本：**
 > 
 > 使用分析中显示的"成本"**仅用于追踪和比较目的**。
-> 9Router 本身**永远不会向你收费**。你只直接向提供商付款（如果使用付费服务）。
+> 9Router-Plinian 本身**永远不会向你收费**。你只直接向提供商付款（如果使用付费服务）。
 > 
 > **示例：** 如果你的控制面板显示使用 Kiro 免费模型时"总成本 $290"，这代表你如果直接使用付费 API 需要支付的金额。你的实际成本 = **$0**（Kiro 免费等级：约 50 积分/月）。
 > 
-> 把它想象成一个"节省追踪器"，展示你通过使用免费模型或通过 9Router 路由节省了多少钱！
+> 把它想象成一个"节省追踪器"，展示你通过使用免费模型或通过 9Router-Plinian 路由节省了多少钱！
 
 ### 🌐 任意部署
 
@@ -539,15 +540,15 @@ PORT=20128 HOSTNAME=0.0.0.0 NEXT_PUBLIC_BASE_URL=http://localhost:20128 npm run 
 
 ---
 
-### 📊 理解 9Router 成本与计费
+### 📊 理解 9Router-Plinian 成本与计费
 
-**9Router 计费真相：**
+**9Router-Plinian 计费真相：**
 
-✅ **9Router 软件 = 永久免费**（开源，绝不收费）  
+✅ **9Router-Plinian 软件 = 永久免费**（开源，绝不收费）  
 ✅ **控制面板"成本" = 仅用于显示/追踪**（不是实际账单）  
 ✅ **你直接向提供商付款**（订阅或 API 费用）  
 ✅ **免费提供商保持免费**（Kiro 约 50 积分/月、OpenCode Free、Vertex $300 额度 = 在免费额度内 $0）— 注意 iFlow/Qwen/Gemini CLI 免费等级已于 2026 年停止
-❌ **9Router 永不发送发票** 或扣款
+❌ **9Router-Plinian 永不发送发票** 或扣款
 
 **成本显示如何工作：**
 
@@ -568,9 +569,9 @@ PORT=20128 HOSTNAME=0.0.0.0 NEXT_PUBLIC_BASE_URL=http://localhost:20128 npm run 
 
 **付款规则：**
 - **订阅提供商**（Claude Code、Codex）：通过他们的网站直接付款
-- **低价提供商**（GLM、MiniMax）：直接付款，9Router 只做路由
+- **低价提供商**（GLM、MiniMax）：直接付款，9Router-Plinian 只做路由
 - **免费提供商**（Kiro、OpenCode Free、Vertex）：真正的免费，在免费额度内无隐藏费用
-- **9Router**：从不收取任何费用，永远不会
+- **9Router-Plinian**：从不收取任何费用，永远不会
 
 ---
 
@@ -645,7 +646,7 @@ PORT=20128 HOSTNAME=0.0.0.0 NEXT_PUBLIC_BASE_URL=http://localhost:20128 npm run 
 <details>
 <summary><b>📊 为什么我的控制面板显示高成本？</b></summary>
 
-控制面板追踪你的 token 使用情况，并显示**估算成本**，如同你直接使用付费 API。这**不是实际计费** — 它是一个参考，展示你通过使用免费模型或通过 9Router 路由现有订阅节省了多少钱。
+控制面板追踪你的 token 使用情况，并显示**估算成本**，如同你直接使用付费 API。这**不是实际计费** — 它是一个参考，展示你通过使用免费模型或通过 9Router-Plinian 路由现有订阅节省了多少钱。
 
 **示例：**
 - **控制面板显示：** "$290 总成本"
@@ -658,16 +659,16 @@ PORT=20128 HOSTNAME=0.0.0.0 NEXT_PUBLIC_BASE_URL=http://localhost:20128 npm run 
 </details>
 
 <details>
-<summary><b>💳 9Router 会扣我的钱吗？</b></summary>
+<summary><b>💳 9Router-Plinian 会扣我的钱吗？</b></summary>
 
-**不会。** 9Router 是在你自己的电脑上运行的开源软件。它永远不会向你收取任何费用。
+**不会。** 9Router-Plinian 是在你自己的电脑上运行的开源软件。它永远不会向你收取任何费用。
 
 **你只需支付：**
 - ✅ **订阅提供商**（Claude Code $20/月、Codex $20-200/月）→ 在他们的网站上直接付款
-- ✅ **低价提供商**（GLM、MiniMax）→ 直接付款，9Router 只是路由你的请求
-- ❌ **9Router 本身** → **永不收费，永远不会**
+- ✅ **低价提供商**（GLM、MiniMax）→ 直接付款，9Router-Plinian 只是路由你的请求
+- ❌ **9Router-Plinian 本身** → **永不收费，永远不会**
 
-9Router 是一个本地代理/路由器。它没有你的信用卡，不能发送发票，也没有计费系统。它是完全免费的软件。
+9Router-Plinian 是一个本地代理/路由器。它没有你的信用卡，不能发送发票，也没有计费系统。它是完全免费的软件。
 
 </details>
 
@@ -681,7 +682,7 @@ PORT=20128 HOSTNAME=0.0.0.0 NEXT_PUBLIC_BASE_URL=http://localhost:20128 npm run 
 - **OpenCode Free**：无认证直连代理，模型从 `opencode.ai/zen/v1/models` 自动获取。免费模型列表会随时间变化（部分模型仅限时免费）— 可能随时变更。
 - **Vertex AI**：新 Google Cloud 账户可获得 $300 免费额度（90 天）。自 2026 年 3 月起 Gemini API 端点不再消耗这些额度 — 请改用 **Vertex AI Studio** 端点。
 
-9Router 只是路由你的请求到它们 — 没有"陷阱"或未来的计费。它们是真正的免费服务，9Router 让它们易于使用并支持切换。
+9Router-Plinian 只是路由你的请求到它们 — 没有"陷阱"或未来的计费。它们是真正的免费服务，9Router-Plinian 让它们易于使用并支持切换。
 
 **已停止的免费等级（不再推荐）：**
 - ❌ **iFlow**：曾是免费无限量，现在改为付费（2026）
@@ -711,7 +712,7 @@ PORT=20128 HOSTNAME=0.0.0.0 NEXT_PUBLIC_BASE_URL=http://localhost:20128 npm run 
 
 3. **最后使用订阅提供商：**
    - 仅当你已有订阅时
-   - 9Router 通过配额追踪帮助最大化其价值
+   - 9Router-Plinian 通过配额追踪帮助最大化其价值
 
 **结果：** 大多数用户可以仅使用免费等级以 $0/月运行！
 
@@ -720,20 +721,20 @@ PORT=20128 HOSTNAME=0.0.0.0 NEXT_PUBLIC_BASE_URL=http://localhost:20128 npm run 
 <details>
 <summary><b>📈 如果我的使用量突然激增怎么办？</b></summary>
 
-9Router 的智能切换可以防止意外费用：
+9Router-Plinian 的智能切换可以防止意外费用：
 
 **场景：** 你正在进行编码冲刺，用尽了配额
 
-**没有 9Router：**
+**没有 9Router-Plinian：**
 - ❌ 达到速率限制 → 工作停止 → 沮丧
 - ❌ 或者：不慎累积大量 API 账单
 
-**有 9Router：**
+**有 9Router-Plinian：**
 - ✅ 订阅达到限制 → 自动切换到低价等级
 - ✅ 低价等级变得昂贵 → 自动切换到免费等级
 - ✅ 编程永不停歇 → 可预测的成本
 
-**你掌控一切：** 在控制面板中设置每个提供商的支出限制，9Router 会遵守它们。
+**你掌控一切：** 在控制面板中设置每个提供商的支出限制，9Router-Plinian 会遵守它们。
 
 </details>
 
@@ -758,7 +759,7 @@ PORT=20128 HOSTNAME=0.0.0.0 NEXT_PUBLIC_BASE_URL=http://localhost:20128 npm run 
   cc/claude-haiku-4-5-20251001
 ```
 
-**专业提示：** 复杂任务使用 Opus，追求速度使用 Sonnet。9Router 按模型追踪配额！
+**专业提示：** 复杂任务使用 Opus，追求速度使用 Sonnet。9Router-Plinian 按模型追踪配额！
 
 ### OpenAI Codex (Plus/Pro)
 
@@ -1002,7 +1003,7 @@ codex "your prompt"
 }
 ```
 
-> **注意：** OpenClaw 仅适用于本地 9Router。使用 `127.0.0.1` 而不是 `localhost` 以避免 IPv6 解析问题。
+> **注意：** OpenClaw 仅适用于本地 9Router-Plinian。使用 `127.0.0.1` 而不是 `localhost` 以避免 IPv6 解析问题。
 
 ### Cline / Continue / RooCode
 
@@ -1205,7 +1206,7 @@ docker stop 9router && docker rm 9router
 - 添加组合：`cc/claude-opus-4-7 → glm/glm-5.1 → kr/claude-sonnet-4.5`
 
 **OAuth token 已过期**
-- 9Router 自动刷新
+- 9Router-Plinian 自动刷新
 - 如果问题持续：控制面板 → 提供商 → 重新连接
 
 **高成本**
@@ -1274,7 +1275,7 @@ Authorization: Bearer your-api-key
 
 ## 👥 贡献者
 
-感谢所有帮助改进 9Router 的贡献者！
+感谢所有帮助改进 9Router-Plinian 的贡献者！
 
 [![Contributors](https://contrib.rocks/image?repo=decolua/9router&max=150&columns=15&anon=1&v=20260309)](https://github.com/decolua/9router/graphs/contributors)
 
@@ -1288,7 +1289,7 @@ Authorization: Bearer your-api-key
 
 ## 🔀 分支
 
-**[OmniRoute](https://github.com/diegosouzapw/OmniRoute)** — 9Router 的全功能 TypeScript 分支。增加了 36+ 提供商、4 层自动切换、多模态 API（图像、嵌入、音频、TTS）、断路器、语义缓存、LLM 评估和精美的控制面板。368+ 单元测试。可通过 npm 和 Docker 使用。
+**[OmniRoute](https://github.com/diegosouzapw/OmniRoute)** — 9Router-Plinian 的全功能 TypeScript 分支。增加了 36+ 提供商、4 层自动切换、多模态 API（图像、嵌入、音频、TTS）、断路器、语义缓存、LLM 评估和精美的控制面板。368+ 单元测试。可通过 npm 和 Docker 使用。
 
 ---
 
@@ -1297,10 +1298,10 @@ Authorization: Bearer your-api-key
 站在巨人的肩膀上构建：
 
 - **CLIProxyAPI** — 启发了这个 JavaScript 移植的原始 Go 实现。
-- **[RTK](https://github.com/rtk-ai/rtk)** ![Stars](https://img.shields.io/github/stars/rtk-ai/rtk?style=flat&color=yellow) — Rust token 节省器。9Router 将其压缩管道移植到 JS → 每次请求 **减少 20-40% 输入 tokens**。
-- **[Caveman](https://github.com/JuliusBrussee/caveman)** ![Stars](https://img.shields.io/github/stars/JuliusBrussee/caveman?style=flat&color=yellow) by **[@JuliusBrussee](https://github.com/JuliusBrussee)** — 病毒式传播的 *"为什么用很多 token 当少的 token 就能搞定"*。9Router 适配其提示词 → **减少 65% 输出 tokens**。
+- **[RTK](https://github.com/rtk-ai/rtk)** ![Stars](https://img.shields.io/github/stars/rtk-ai/rtk?style=flat&color=yellow) — Rust token 节省器。9Router-Plinian 将其压缩管道移植到 JS → 每次请求 **减少 20-40% 输入 tokens**。
+- **[Caveman](https://github.com/JuliusBrussee/caveman)** ![Stars](https://img.shields.io/github/stars/JuliusBrussee/caveman?style=flat&color=yellow) by **[@JuliusBrussee](https://github.com/JuliusBrussee)** — 病毒式传播的 *"为什么用很多 token 当少的 token 就能搞定"*。9Router-Plinian 适配其提示词 → **减少 65% 输出 tokens**。
 
-非常感谢这些作者 — 没有他们的工作，9Router 的 token 节省功能就不会存在。在 GitHub 上给他们加星！
+非常感谢这些作者 — 没有他们的工作，9Router-Plinian 的 token 节省功能就不会存在。在 GitHub 上给他们加星！
 
 ---
 

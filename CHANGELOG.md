@@ -1,3 +1,25 @@
+# v0.5.98 (2026-10-01)
+
+## GitHub-only updates
+
+The npm package `9router-plinian` is deprecated (dual-use scanner + owner 2FA stage queue can't be automated). **GitHub Releases is now the single source of truth** for both install and update.
+
+### What changed
+- `cli/cli.js` — `checkForUpdate()` now queries the GitHub releases API instead of `registry.npmjs.org`; `INSTALL_CMD_LATEST` is the GitHub-tarball flow. Env-overridable: `NINEROUTER_GH_REPO` / `NINEROUTER_GH_TARBALL`.
+- `src/lib/updater/updater.js` — `runInstall()` downloads the GitHub release tarball (`curl` on unix, PowerShell on Windows) then runs `npm i -g <file>`. Two-step, no new dependencies.
+- `src/lib/appUpdater.js` — relaunch resolves the locally-installed global bin instead of `npx <pkg>` (which would fetch from the deprecated registry).
+- `src/shared/constants/config.js` — `UPDATER_CONFIG` carries `ghRepo`, `ghAsset`, `ghUrl` + GitHub-tarball `installCmd` / `installCmdLatest`.
+- `cli/package.json` — version → 0.5.98 (first GitHub-only release).
+
+### Install / update (the only path now)
+```bash
+curl -fsSL https://github.com/Azhar457/9router/releases/latest/download/9router-plinian-latest.tgz -o /tmp/9router-plinian.tgz
+npm install -g /tmp/9router-plinian.tgz
+9router-plinian
+```
+
+The in-app updater ("Update to vX") and the CLI "Update" menu item both run this flow automatically: download the `9router-plinian-latest.tgz` release asset → `npm i -g` it → relaunch. No npm registry involvement.
+
 # v0.5.95 (2026-09-30)
 
 ## Theme
@@ -6,7 +28,7 @@
 - **Sidebar palette dots**: 24px hit area / 16px disc / 4px gap (multiples of 4), bordered disc, cursor + hover scale + focus ring, active ring from theme tokens; clicking the active dot no longer resets to violet.
 - **Semantic sidebar surfaces**: `.bg-vibrancy` now uses the `--color-sidebar` token (mode + palette aware) instead of a hardcoded dark rgba — dark mode no longer over-contrasted.
 - **Pre-paint palette**: root layout inline script applies `data-palette` (not just the `dark` class) before first paint — reload keeps the chosen accent, no violet flash.
-- **Donate card removed**: "Support 9Router" header button + modal disabled by default (`DonateModal` component kept).
+- **Donate card removed**: "Support 9Router-Plinian" header button + modal disabled by default (`DonateModal` component kept).
 
 ## Red team docs
 - **README split**: npm page (`cli/README.md`) rewritten for the fork — fork-diff section, Red Team Toolkit docs, `9router-plinian` badges/install; root README gains Fork Differences + Red Team Toolkit sections.
@@ -421,7 +443,7 @@
 ## Features
 - **Providers**: add TokenRouter (300+ models via OpenAI-compatible gateway) with
   exact per-model pricing for 110 models and `reasoning_effort` thinking config
-- **Providers**: add Self-hosted STT / TTS / Embedding — point 9Router at your own
+- **Providers**: add Self-hosted STT / TTS / Embedding — point 9Router-Plinian at your own
   OpenAI-compatible speech and embedding servers (whisper.cpp, faster-whisper,
   Kokoro-FastAPI, llama-server, vLLM, Infinity). Unlike the named cloud providers
   these read `baseUrl` per connection, so one provider can front several machines
@@ -555,7 +577,7 @@
 - **CLI tools**: Grok Build setup — choose separate main/general-purpose/explore/plan models and preserve each model's context window
 - **GitHub Copilot**: route Claude models through Copilot's native `/v1/messages`
 - **Kiro**: add GPT-5.6 model family (#2596)
-- **RTK**: `X-9Router-Token-Saver` header to bypass token savers per request
+- **RTK**: `X-9Router-Plinian-Token-Saver` header to bypass token savers per request
 - **Providers**: quota visibility settings
 - **Translator**: drop temperature for all Claude models
 - **i18n**: Thai (th) + Persian (fa) translations / README
@@ -805,7 +827,7 @@
 - Dashboard: show provider node name instead of connection name in topology (#1770) + show explicit `kind="llm"` combos on combos page (#1684)
 
 ## Docs
-- README: add Indonesian 9Router tutorial video (#1709)
+- README: add Indonesian 9Router-Plinian tutorial video (#1709)
 
 # v0.4.71 (2026-06-06)
 

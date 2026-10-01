@@ -20,7 +20,7 @@ This repository is **not** the original 9Router project. It is an independent fo
 
 - **Why it exists:** the upstream project moves slowly on the things this fork needs — jailbreak payload research, model-aware payload routing, deeper UI theming, and a Go-based entry proxy for performance work.
 - **What stays the same:** the core routing engine (40+ providers, format translation, combos, quota tracking, RTK token saver) is inherited from upstream and still credits it everywhere it matters.
-- **What you should use:** the GitHub Releases install below. `npm install -g 9router-plinian` still resolves on npm but is frozen at the old `0.5.94` build — it will not get you current releases.
+- **What you should use:** the GitHub Releases install below. `npm install -g 9router-plinian` has been deprecated on the npm registry (dual-use scanner) and is frozen — it will not get you current releases. Use the GitHub tarball.
 
 > 📜 The original README (as inherited from upstream) is preserved verbatim at [`docs/README-upstream-decolua.md`](./docs/README-upstream-decolua.md).
 
