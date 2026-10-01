@@ -49,7 +49,7 @@ Everything upstream ships and we don't touch — OAuth providers, combos, quota 
 Downloads the package tarball straight from this repo's releases, then installs it with your local npm client:
 
 ```bash
-curl -fsSL https://github.com/Azhar457/9router/releases/latest/download/9router-plinian.tgz -o /tmp/9router-plinian.tgz
+curl -fsSL https://github.com/Azhar457/9router/releases/latest/download/9router-plinian-0.5.96.tgz -o /tmp/9router-plinian.tgz
 npm install -g /tmp/9router-plinian.tgz
 9router-plinian
 ```
