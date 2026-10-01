@@ -57,19 +57,22 @@ npm install -g /tmp/9router-plinian.tgz
 PowerShell:
 
 ```powershell
-curl.exe -fsSL https://github.com/Azhar457/9router/releases/latest/download/9router-plinian.tgz -o $env:TEMP\9router-plinian.tgz
+curl.exe -fsSL https://github.com/Azhar457/9router/releases/latest/download/9router-plinian-0.5.96.tgz -o $env:TEMP\9router-plinian.tgz
 npm install -g $env:TEMP\9router-plinian.tgz
 9router-plinian
 ```
 
 > `npm install -g <file>` still resolves the package's few small dependencies (react, node-forge, …) from whatever registry your npm is configured to use — a mirror counts. Only the package itself is fetched from GitHub.
 
-### Option 2 — npm
+### Option 2 — npm registry (when 0.5.96 is live)
 
-```bash
+npm install -g 9router-plinian
+9router-plinian
 npm install -g 9router-plinian
 9router-plinian
 ```
+
+> `9router-plinian` declares dual-use content, so new versions go through npm's staged + 2FA pipeline. Until `0.5.96` is promoted on npmjs, use Option 1.
 
 ### Option 3 — from source
 

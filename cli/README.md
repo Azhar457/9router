@@ -57,18 +57,36 @@ Fork-only feature set for red-team / security-research workflows:
 
 ## ⚡ Quick Start
 
-```bash
-npm install -g 9router-plinian
-9router-plinian
-```
+### Option 1 — GitHub Releases tarball (primary, always works)
 
-**No npmjs access?** Install the tarball straight from GitHub Releases:
+Installs the full fork build (Red Team Toolkit included) straight from this repo — no npmjs account or 2FA needed:
 
 ```bash
 curl -fsSL https://github.com/Azhar457/9router/releases/latest/download/9router-plinian-0.5.96.tgz -o /tmp/9router-plinian.tgz
 npm install -g /tmp/9router-plinian.tgz
 9router-plinian
 ```
+
+PowerShell:
+
+```powershell
+curl.exe -fsSL https://github.com/Azhar457/9router/releases/latest/download/9router-plinian-0.5.96.tgz -o $env:TEMP\9router-plinian.tgz
+npm install -g $env:TEMP\9router-plinian.tgz
+9router-plinian
+```
+
+> `npm install -g <file>` still resolves the package's few small dependencies (react, node-forge, …) from whatever registry your npm is configured to use — a mirror counts. Only the package itself is fetched from GitHub.
+
+### Option 2 — npm registry (when 0.5.96 is live)
+
+The fork is published as `9router-plinian` on npmjs. Because it declares dual-use content, new versions go through npm's staged + 2FA pipeline; once `0.5.96` is promoted it's available via:
+
+```bash
+npm install -g 9router-plinian
+9router-plinian
+```
+
+Until then, Option 1 is the way in.
 
 🎉 Dashboard opens at `http://localhost:20128`
 

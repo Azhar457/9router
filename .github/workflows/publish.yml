@@ -50,7 +50,16 @@ jobs:
         run: npm install -g npm@latest
 
       - name: Stage the publish (await 2FA approval)
-        run: npm run cli:publish
+        run: |
+          set +e
+          out=$(npm run cli:publish 2>&1)
+          code=$?
+          echo "$out"
+          if [ "$code" -ne 0 ] && grep -q "Cannot stage previously published version" <<< "$out"; then
+            echo "::notice::Version already staged — duplicate run, nothing to do. Approve the existing stage (npmjs.com → package → Staged queue)."
+            exit 0
+          fi
+          exit "$code"
         env:
           NODE_AUTH_TOKEN: "" # empty on purpose — OIDC authenticates the stage
 
