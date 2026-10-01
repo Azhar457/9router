@@ -1,7 +1,7 @@
 {
   "name": "9router-app",
   "version": "0.5.96",
-  "description": "9Router web dashboard",
+  "description": "9Router-Plinian web dashboard",
   "private": true,
   "scripts": {
     "dev": "next dev --port 20127",
@@ -14,7 +14,7 @@
     "build:bun": "bun --bun next build --webpack",
     "start:bun": "bun ./.next/standalone/custom-server.js",
     "cli:pack": "npm --prefix cli run pack:cli",
-    "cli:publish": "npm --prefix cli run publish:cli",
+    "cli:publish": "npm --prefix cli run publish:direct",
     "lint:css": "stylelint \"src/**/*.css\"",
     "gateway": "go -C go run ."
   },
