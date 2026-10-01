@@ -149,7 +149,7 @@ function assertRequiredApiArtifacts(cliAppDir) {
 }
 
 function buildCliPackage() {
-  console.log("📦 Building 9Router CLI package with Next.js...\n");
+  console.log("📦 Building 9Router-Plinian CLI package with Next.js...\n");
 
   fs.mkdirSync(buildHomeDir, { recursive: true });
   fs.mkdirSync(path.join(buildHomeDir, "AppData", "Roaming"), { recursive: true });
@@ -348,6 +348,20 @@ function buildCliPackage() {
     }
   }
 
+  // Step 7d: ETL-pack the collections into a single archive + manifest so the
+  // shipped tarball carries one payloads.tar.gz instead of 8.7k loose files.
+  // Fail-open: a tar failure just leaves the loose files in place (they're
+  // already in app/ from step 7c), so the runtime still resolves them.
+  if (!skipJailbreak) {
+    console.log("7d⃣  ETL-packing payload collections...");
+    try {
+      const { pack: etlPack } = require("./etlPayloads.js");
+      etlPack();
+    } catch (e) {
+      console.warn(`⚠️  ETL pack skipped: ${e.message}`);
+    }
+  }
+
   // Step 8: Build MITM server (config driven - see app/cli/scripts/buildMitm.js)
   console.log("8️⃣  Building MITM server...");
   try {
@@ -367,6 +381,41 @@ function buildCliPackage() {
     console.log(`📊 Package size: ${size.split("\t")[0]}`);
   } catch (e) {
     // Silent fail on size check
+  }
+
+  // Overlay a .npmignore for slim builds so `npm pack` drops the payload
+  // collections; remove it for full builds.
+  writeSlimNpmignore();
+}
+
+// When 9ROUTER_SKIP_JAILBREAK=1, write a .npmignore that excludes the payload
+// collections so `npm pack` produces a slim, review-friendly tarball. The
+// `files[]` entries ../AI-Jailbreaks and ../BlackFriday-GPTs-Prompts would
+// otherwise pull the 8.7k-file sibling collections back in via npm pack.
+// Restore the full `files[]` package.json is untouched; .npmignore is a
+// separate overlay npm applies at pack time. Delete .npmignore after pack.
+function writeSlimNpmignore() {
+  const slim = process.env["9ROUTER_SKIP_JAILBREAK"] === "1";
+  const ignorePath = path.join(cliDir, ".npmignore");
+  if (slim) {
+    fs.writeFileSync(
+      ignorePath,
+      [
+        // .npmignore gitignore-style globs: `app/` in `files[]` still lands
+        // in cli/app (the build output dir), so the collections can appear at
+        // either the tarball root or nested under app/. Exclude both shapes.
+        "AI-Jailbreaks/",
+        "BlackFriday-GPTs-Prompts/",
+        "app/AI-Jailbreaks/",
+        "app/BlackFriday-GPTs-Prompts/",
+        "**/AI-Jailbreaks/**",
+        "**/BlackFriday-GPTs-Prompts/**",
+      ].join("\n") + "\n"
+    );
+    console.log("📦 Wrote .npmignore — payload collections excluded from tarball");
+  } else if (fs.existsSync(ignorePath)) {
+    fs.rmSync(ignorePath);
+    console.log("📦 Removed .npmignore — full tarball (payloads included)");
   }
 }
 

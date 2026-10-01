@@ -18,6 +18,7 @@
 //   9ROUTER_JAILBREAK_DISABLE=1 → register nothing, registry stays empty
 
 
+import os from "node:os";
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -31,6 +32,26 @@ const REPO_ROOT = join(THIS_DIR, "..", "..");
 // directory that actually contains AI-Jailbreaks/.
 function resolveBaseDir() {
   if (process.env["9ROUTER_JAILBREAK_DIR"]) return process.env["9ROUTER_JAILBREAK_DIR"];
+  // ETL extraction target: postinstall unpacks the shipped archive into
+  // <dataDir>/payloads/, which contains AI-Jailbreaks/ + BlackFriday-GPTs-Prompts/.
+  // Prefer it over the in-bundle copy so payloads live outside the npm-owned
+  // node_modules (Windows EBUSY-free updates + no tarball bloat).
+  try {
+    const dataDir =
+      process.env["DATA_DIR"] ||
+      (process.platform === "win32"
+        ? join(process.env["APPDATA"] || join(os.homedir(), "AppData", "Roaming"), "9router")
+        : join(os.homedir(), ".9router"));
+    const marker = join(dataDir, "payloads", ".9router-jailbreak-dir");
+    if (existsSync(marker)) {
+      const dir = readFileSync(marker, "utf8").trim() || join(dataDir, "payloads");
+      if (existsSync(join(dir, "AI-Jailbreaks")) || existsSync(join(dir, "BlackFriday-GPTs-Prompts"))) {
+        return dir;
+      }
+    }
+  } catch {
+    // best-effort; fall through to in-bundle resolution
+  }
   let dir = REPO_ROOT;
   for (let i = 0; i < 5; i++) {
     if (existsSync(join(dir, "AI-Jailbreaks"))) return dir;

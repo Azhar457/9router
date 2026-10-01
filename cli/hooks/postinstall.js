@@ -6,6 +6,15 @@
 const { ensureSqliteRuntime } = require("./sqliteRuntime");
 const { ensureTrayRuntime } = require("./trayRuntime");
 
+
+// ETL load: extract the shipped payload archive into the data dir so the
+// Red-Team Toolkit works out-of-the-box without bloating the tarball.
+const { extract: extractPayloads } = require("./etlPayloads");
+try {
+  extractPayloads({ silent: false });
+} catch (e) {
+  console.warn(`[9router] payload extraction skipped: ${e.message}`);
+}
 try {
   ensureSqliteRuntime({ silent: false });
   console.log("[9router] runtime SQLite deps ready");

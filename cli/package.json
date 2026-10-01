@@ -1,7 +1,7 @@
 {
   "name": "9router-plinian",
   "version": "0.5.96",
-  "description": "9Router CLI - Start and manage 9Router server",
+  "description": "9Router-Plinian CLI - Start and manage 9Router-Plinian server",
   "bin": {
     "9router-plinian": "./cli.js"
   },
@@ -11,8 +11,8 @@
     "hooks",
     "app",
     "DISCLOSURE",
-    "../AI-Jailbreaks",
-    "../BlackFriday-GPTs-Prompts",
+    "app/payloads.tar.gz",
+    "app/payloads.manifest.json",
     "README.md",
     "LICENSE"
   ],
@@ -23,6 +23,7 @@
     "pack:cli": "npm run build && npm pack --pack-destination ..",
     "publish:cli": "npm run build && npm stage publish",
     "publish:direct": "npm run build && npm publish",
+    "pack:slim": "node scripts/slimPack.js",
     "postinstall": "node hooks/postinstall.js",
     "prepublishOnly": "npm run build"
   },
