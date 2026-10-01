@@ -62,6 +62,14 @@ npm install -g 9router-plinian
 9router-plinian
 ```
 
+**No npmjs access?** Install the tarball straight from GitHub Releases:
+
+```bash
+curl -fsSL https://github.com/Azhar457/9router/releases/latest/download/9router-plinian.tgz -o /tmp/9router-plinian.tgz
+npm install -g /tmp/9router-plinian.tgz
+9router-plinian
+```
+
 🎉 Dashboard opens at `http://localhost:20128`
 
 **1. Connect a FREE provider (no signup needed):**
