@@ -13,8 +13,30 @@ import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 import { resolveCursorModels } from "open-sse/services/cursorModels.js";
 import { resolveZedModels } from "open-sse/shared/zedAuth.js";
 import { resolveClineModels, resolveClinepassModels } from "open-sse/services/clinepassModels.js";
+ // In-memory cache for provider model lists. The dashboard re-hits this route on
+ // every open / "Import" / "Get Models" click; the provider APIs are the slow
+ // part, so we cache the *remote-fetch* results for a short TTL. Static
+ // built-in lists and per-connection secrets are keyed into the cache key.
+ const MODELS_CACHE_TTL_MS = 5 * 60 * 1000;
+ const modelsCache = new Map(); // key -> { data, expiresAt }
+ function modelsCacheGet(key) {
+   const hit = modelsCache.get(key);
+   if (!hit) return undefined;
+   if (Date.now() >= hit.expiresAt) {
+     modelsCache.delete(key);
+     return undefined;
+   }
+   return hit.data;
+ }
+ function modelsCacheSet(key, data) {
+   modelsCache.set(key, { data, expiresAt: Date.now() + MODELS_CACHE_TTL_MS });
+   if (modelsCache.size > 512) {
+     // Drop the oldest entry (Map preserves insertion order).
+     const firstKey = modelsCache.keys().next().value;
+     modelsCache.delete(firstKey);
+   }
+ }
 
-const GEMINI_CLI_MODELS_URL = "https://cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels";
 
 // The /codex/models endpoint gates each entry by minimal_client_version against this
 // value, and codex CLI's own manifest (openai/codex codex-rs/models-manager/models.json)
@@ -539,34 +561,39 @@ export async function GET(request, { params }) {
       if (!baseUrl) {
         return NextResponse.json({ error: "No base URL configured for OpenAI compatible provider" }, { status: 400 });
       }
-      const url = `${baseUrl.replace(/\/$/, "")}/models`;
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${connection.apiKey}`,
-        },
-      });
+  const url = `${baseUrl.replace(/\/$/, "")}/models`;
+  const cacheKey = `oai:${connection.id}`;
+  const cached = modelsCacheGet(cacheKey);
+  if (cached) {
+    return NextResponse.json({ provider: connection.provider, connectionId: connection.id, models: cached });
+  }
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${connection.apiKey}`,
+    },
+  });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.log(`Error fetching models from ${connection.provider}:`, errorText);
-        return NextResponse.json(
-          { error: `Failed to fetch models: ${response.status}` },
-          { status: response.status }
-        );
-      }
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.log(`Error fetching models from ${connection.provider}:`, errorText);
+    return NextResponse.json(
+      { error: `Failed to fetch models: ${response.status}` },
+      { status: response.status }
+    );
+  }
 
-      const data = await response.json();
-      const models = data.data || data.models || [];
+  const data = await response.json();
+  const models = data.data || data.models || [];
+  modelsCacheSet(cacheKey, models);
 
-      return NextResponse.json({
-        provider: connection.provider,
-        connectionId: connection.id,
-        models
-      });
+  return NextResponse.json({
+    provider: connection.provider,
+    connectionId: connection.id,
+    models
+  });
     }
-
     if (isAnthropicCompatibleProvider(connection.provider)) {
       let baseUrl = connection.providerSpecificData?.baseUrl;
       if (!baseUrl) {
@@ -578,34 +605,40 @@ export async function GET(request, { params }) {
         baseUrl = baseUrl.slice(0, -9);
       }
 
-      const url = `${baseUrl}/models`;
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": connection.apiKey,
-          "anthropic-version": "2023-06-01",
-          "Authorization": `Bearer ${connection.apiKey}`
-        },
-      });
+  const url = `${baseUrl}/models`;
+  const cacheKey = `anth:${connection.id}`;
+  const cached = modelsCacheGet(cacheKey);
+  if (cached) {
+    return NextResponse.json({ provider: connection.provider, connectionId: connection.id, models: cached });
+  }
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": connection.apiKey,
+      "anthropic-version": "2023-06-01",
+      "Authorization": `Bearer ${connection.apiKey}`
+    },
+  });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.log(`Error fetching models from ${connection.provider}:`, errorText);
-        return NextResponse.json(
-          { error: `Failed to fetch models: ${response.status}` },
-          { status: response.status }
-        );
-      }
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.log(`Error fetching models from ${connection.provider}:`, errorText);
+    return NextResponse.json(
+      { error: `Failed to fetch models: ${response.status}` },
+      { status: response.status }
+    );
+  }
 
-      const data = await response.json();
-      const models = data.data || data.models || [];
+  const data = await response.json();
+  const models = data.data || data.models || [];
+  modelsCacheSet(cacheKey, models);
 
-      return NextResponse.json({
-        provider: connection.provider,
-        connectionId: connection.id,
-        models
-      });
+  return NextResponse.json({
+    provider: connection.provider,
+    connectionId: connection.id,
+    models
+  });
     }
 
     const config = PROVIDER_MODELS_CONFIG[connection.provider];
@@ -618,10 +651,20 @@ export async function GET(request, { params }) {
 
     // Config-driven custom resolver path (OAuth refresh, non-OpenAI shape, etc.)
     if (typeof config.customResolver === "function") {
+      const cacheKey = `resolver:${connection.id}`;
+      const cached = modelsCacheGet(cacheKey);
+      if (cached) {
+        return NextResponse.json({
+          provider: connection.provider,
+          connectionId: connection.id,
+          models: cached,
+        });
+      }
       const result = await config.customResolver(connection);
       if (result.error) {
         return NextResponse.json({ error: result.error }, { status: result.status || 500 });
       }
+      modelsCacheSet(cacheKey, result.models);
       return NextResponse.json({
         provider: connection.provider,
         connectionId: connection.id,
