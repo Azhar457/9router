@@ -1,8 +1,8 @@
-# 9Router-Plinian — FREE AI Router, Token Saver & Red-Team Toolkit
+# 9Router Plinian — Independent 9Router Fork with a Red-Team Toolkit
 
-**Personal fork of [9Router](https://github.com/decolua/9router)** — same smart routing + RTK token saver, plus **Aurora Violet UI**, **Red Team Toolkit**, and **image generation for custom nodes**.
+**Independent fork of [9Router](https://github.com/decolua/9router)** — the same multi-provider gateway, plus **Red Team Toolkit**, **Aurora Violet UI**, and **image generation for custom nodes**.
 
-**Never stop coding. Save 20-40% tokens with RTK + auto-fallback to FREE & cheap AI models.**
+**One OpenAI-compatible endpoint for every AI coding tool — plus model-aware payload testing for authorized red-team work.**
 
 **Connect all AI code tools (Claude Code, Cursor, Codex, OpenCode, Cline, OpenClaw...) to 40+ AI providers & 100+ models.**
 
@@ -39,19 +39,17 @@ Fork-only feature set for red-team / security-research workflows:
 
 ---
 
-## 🤔 Why 9Router?
+## 🤔 Why this fork?
 
-- ❌ Subscription quota expires unused every month
-- ❌ Rate limits stop you mid-coding
-- ❌ Tool outputs (git diff, grep, ls...) burn tokens fast
+Upstream 9Router optimizes for saving tokens. **This fork does not** — it exists for red-team / model-research work, and that work is token-heavy by nature (injection payloads run 8KB–70KB per request). What it solves:
 
-**9Router solves this:**
+- 🔴 **Model-aware payload testing** — external jailbreak registry with per-model-family routes, so you test what actually lands on each model
+- 🔍 **Injection transparency** — see register + payload in live send order, with estimated token cost per payload (aggregate ≈ chars/4)
+- 🖼️ **Image generation for custom nodes** — any `openai-compatible` node serves image models via the Text-to-Image page
+- 🎨 **5 palettes + themes** — violet (default), sea, rose, amber, teal; light/dark/system
+- 📥 **Bulk provider management** — import a gateway's whole `/models` catalog, mass-test, mass-disable
 
-- ✅ **RTK Token Saver** — auto-compress tool_result, save 20-40% tokens
-- ✅ **Maximize subscriptions** — track quota, use every bit before reset
-- ✅ **Auto fallback** — Subscription → Cheap → Free, zero downtime
-- ✅ **Multi-account** — round-robin between accounts per provider
-- ✅ **Universal** — works with any OpenAI/Claude-compatible CLI
+Honest note: RTK and the other token savers still ship (inherited from upstream), but with Global Injection active they are **deliberately bypassed** for payload integrity — expect *higher* token use, with visibility into where it goes. Routing basics (fallback, multi-account, quota tracking) remain from upstream and are documented there.
 
 ---
 
