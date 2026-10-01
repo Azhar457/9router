@@ -66,8 +66,7 @@ npm install -g $env:TEMP\9router-plinian.tgz
 
 ### Option 2 — npm registry (when 0.5.96 is live)
 
-npm install -g 9router-plinian
-9router-plinian
+```bash
 npm install -g 9router-plinian
 9router-plinian
 ```
