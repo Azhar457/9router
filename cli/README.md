@@ -60,7 +60,7 @@ Honest note: RTK and the other token savers still ship (inherited from upstream)
 Installs the full fork build (Red Team Toolkit included) straight from this repo — no npmjs account or 2FA needed:
 
 ```bash
-curl -fsSL https://github.com/Azhar457/9router/releases/latest/download/9router-plinian-0.5.96.tgz -o /tmp/9router-plinian.tgz
+curl -fsSL https://github.com/Azhar457/9router/releases/latest/download/9router-plinian-0.5.97.tgz -o /tmp/9router-plinian.tgz
 npm install -g /tmp/9router-plinian.tgz
 9router-plinian
 ```
@@ -68,7 +68,7 @@ npm install -g /tmp/9router-plinian.tgz
 PowerShell:
 
 ```powershell
-curl.exe -fsSL https://github.com/Azhar457/9router/releases/latest/download/9router-plinian-0.5.96.tgz -o $env:TEMP\9router-plinian.tgz
+curl.exe -fsSL https://github.com/Azhar457/9router/releases/latest/download/9router-plinian-0.5.97.tgz -o $env:TEMP\9router-plinian.tgz
 npm install -g $env:TEMP\9router-plinian.tgz
 9router-plinian
 ```
