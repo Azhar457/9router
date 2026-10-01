@@ -125,6 +125,74 @@ Fork-only feature set for red-team / security-research workflows:
 
 > ⚠️ Use only on systems you are authorized to test.
 
+## 💰 Token Saver — and why jailbreaks change the math
+
+The RTK token saver compresses the *repetitive* part of your session (tool
+results, bulky image context) — that's what actually saves tokens. The jailbreak
+payload from the Red Team Toolkit is the *opposite*: it's appended to the
+system message **on every request**, so it is pure additive cost.
+
+### The caching story (this is the part that makes or breaks you)
+
+The gateway anchors Claude's prompt-cache breakpoints on the **final request
+body** (`anchorClaudeCache`), and the injection is applied **before** that
+anchor — which is deliberate and the right order:
+
+1. The jailbreak text lives inside the cached system prefix, not in the live
+   conversation. A stable payload + stable cache key means the first request
+   pays a **cache-creation** write, and every subsequent request in the same
+   session only pays **cache-read** tokens.
+2. Cache reads are **~10× cheaper** than fresh uncached input (Anthropic:
+   read = 0.1× the input rate; write = 1.25×). So the steady-state cost of a
+   ~2k-token payload is ≈ 200 cache-read tokens, not 2000.
+
+**But** the payload must stay **byte-stable** for the cache to hit. Any change
+to the system prefix — swapping `godmodeLevel`, toggling the carrier, editing
+the custom register text, changing the model that auto-picks a different
+variant, or letting a saver reshape the system message — **invalidates the
+whole prefix** and you pay a full uncached rewrite. The README's "estimate ≈ N
+tok" number (`estimateGlobalInjection`) is the *steady-state uncached* figure;
+the real billed cost is much lower **if** the cache holds.
+
+### What the dashboard already tracks
+
+`usageTracking` records `cache_read_input_tokens` / `cache_creation_input_tokens`
+per request (Claude + Kiro native fields, OpenAI `prompt_tokens_details.cached_tokens`,
+Gemini `prompt_cache_hit_tokens`). Pricing already discounts cache-read and
+cache-creation at their own rates, so the usage/cost reports show the true
+blended number — you don't have to do this by hand.
+
+### Practical levers (in order of impact)
+
+| Lever | Effect |
+| --- | --- |
+| Keep one `godmodeLevel` + one carrier **fixed** per provider/account | cache hits every turn; payload amortizes to ~0.1× |
+| Use **5m** TTL for short sessions, **1h** for long ones (`cache_control` `ttl`) | long idle gaps stop double-billing the write |
+| **Don't toggle the injection mid-session** to "save" — that's the biggest single invalidator | one rewrite costs more than the payload it's trying to avoid |
+| Turn the payload **off entirely** for the boring tasks (plain chat, coding, tool loops that don't need it) | zero additive cost on the requests that don't need it |
+| Enable **RTK compression** alongside the payload for tool-heavy sessions | the tool-result savings usually dwarf the payload cost |
+
+**Net effect:** for a typical payload-heavy session, the RTK savings on
+tool/output tokens **outweigh** the injected-payload overhead by an order of
+magnitude — as long as the cache isn't invalidated. The thing to *avoid* is
+flapping the injection settings; that's where the real money leaks.
+
+### Reading your own numbers
+
+In the gateway log, the `DONE` line for each request carries a `CACHE`
+breakdown — `↻N` = cache-read tokens, `+N` = cache-write (creation) tokens:
+
+```
+#1  DONE 1820ms · IN 4210 (CACHE +2100) · OUT 380   ← first turn: pay the write
+#2  DONE  940ms · IN 4210 (CACHE ↻2100) · OUT 250   ← next turn: read at 0.1×
+#3  DONE 1010ms · IN 4210 (CACHE ↻2100) · OUT 410   ← …and every turn after
+```
+
+The **`cache_create` row is the one-time setup cost** — after that, the
+payload is essentially free (a read at 0.1× the input rate). The single way
+to lose it is to change the injection configuration mid-session; that row
+shows up again as a new `cache_create` and you've paid the full rewrite.
+
 ---
 
 ## 💾 Data location
