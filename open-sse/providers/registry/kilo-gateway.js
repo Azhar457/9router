@@ -31,4 +31,11 @@ export default {
     { id: "kilo-auto/frontier", name: "Kilo Auto Frontier", contextLength: 1000000 },
     { id: "kilo-auto/balanced", name: "Kilo Auto Balanced", contextLength: 1000000 },
   ],
+  // Kilo gateway serves a dynamic catalog (same endpoint Kilo Code proxies via
+  // OpenRouter), so the hardcoded list above is only a fallback. Without a
+  // fetcher + passthroughModels, any `kgw/...:free` id not in the static list
+  // falls through to OpenRouter (which does not know the `kgw` vendor → 400
+  // "not a valid model ID").
+  modelsFetcher: { url: "https://api.kilo.ai/api/gateway/models", type: "openrouter-free" },
+  passthroughModels: true,
 };
