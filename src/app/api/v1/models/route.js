@@ -80,17 +80,17 @@ const LIVE_MODEL_RESOLVERS = {
     return result?.models?.length ? { models: result.models } : null;
   },
   clinepass: async (conn) => {
-    const result = await resolveClinepassModels({
-      accessToken: conn.accessToken,
-      apiKey: conn.apiKey,
-    });
+    const result = await resolveClinepassModels(
+      { accessToken: conn.accessToken, apiKey: conn.apiKey },
+      { enabledModels: conn?.providerSpecificData?.enabledModels },
+    );
     return result?.models?.length ? { models: result.models } : null;
   },
   cline: async (conn) => {
-    const result = await resolveClineModels({
-      accessToken: conn.accessToken,
-      apiKey: conn.apiKey,
-    });
+    const result = await resolveClineModels(
+      { accessToken: conn.accessToken, apiKey: conn.apiKey },
+      { enabledModels: conn?.providerSpecificData?.enabledModels },
+    );
     return result?.models?.length ? { models: result.models } : null;
   },
   "grok-cli": async (conn) => {
@@ -428,10 +428,21 @@ export async function buildModelsList(kindFilter, options = {}) {
       // Config-driven live catalog override (e.g. Kiro returns dynamic
       // -thinking/-agentic variants per account). On failure, fall back to
       // whatever rawModelIds already holds.
+      //
+      // Providers that accept an explicit enabledModels list (Cline) also run
+      // the resolver when that list is set — it narrows the live catalog to
+      // exactly those ids, so a Cline passthrough with a curated subset stops
+      // dumping its full catalog into /v1/models. Other resolvers ignore the
+      // arg and keep the old "skip when explicit list present" behaviour.
       const liveResolver = LIVE_MODEL_RESOLVERS[providerId];
-      if (liveResolver && !hasExplicitEnabledModels) {
+      const narrowable = LIVE_MODEL_RESOLVERS[providerId] === LIVE_MODEL_RESOLVERS.cline
+        || LIVE_MODEL_RESOLVERS[providerId] === LIVE_MODEL_RESOLVERS.clinepass;
+      if (liveResolver && (narrowable ? true : !hasExplicitEnabledModels)) {
         try {
-          const live = await liveResolver(conn);
+          const live = await liveResolver(
+            conn,
+            narrowable ? { enabledModels } : undefined,
+          );
           if (live?.models?.length) {
             rawModelIds = live.models.map((m) => m.id);
             liveModelKindById = new Map(

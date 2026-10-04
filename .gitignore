@@ -97,3 +97,6 @@ cli/app/
 
 # Machine-generated vitest JSON report (npm run test:ci) — rebuilt every run.
 tests/__baseline__/current.json
+
+.remember/
+.vscode/

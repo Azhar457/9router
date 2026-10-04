@@ -11,7 +11,7 @@ import {
   getBezierPath,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { AI_PROVIDERS } from "@/shared/constants/providers";
+import { AI_PROVIDERS, isOpenAICompatibleProvider, isAnthropicCompatibleProvider } from "@/shared/constants/providers";
 import { getProviderIconSrc, markProviderIconMissing } from "@/shared/utils/providerIcon";
 
 // Force-stop FE animation if a provider stays active longer than this
@@ -260,13 +260,20 @@ const nodeTypes = { provider: ProviderNode, router: RouterNode };
 const edgeTypes = { topology: TopologyEdge };
 
 // Place N nodes evenly along an ellipse around the router center.
-function buildLayout(providers, activeSet, lastSet, errorSet) {
+function buildLayout(allProviders, activeSet, lastSet, errorSet) {
   const nodeW = 180;
   const nodeH = 30;
   const routerW = 120;
   const routerH = 44;
   const nodeGap = 24;
 
+  // Drop compatible providers that have no registered node name (stale/corrupt
+  // rows) so they don't render as anonymous seed-N ghost nodes.
+  const providers = allProviders.filter((p) => {
+    if ((isOpenAICompatibleProvider(p.provider) || isAnthropicCompatibleProvider(p.provider))
+      && !p.nodeName && !p.name) return false;
+    return true;
+  });
   const count = providers.length;
 
   // Compute rx so arc spacing between nodes >= nodeW + nodeGap

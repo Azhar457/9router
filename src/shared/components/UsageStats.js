@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { FREE_PROVIDERS, AI_PROVIDERS } from "@/shared/constants/providers";
+import { FREE_PROVIDERS, AI_PROVIDERS, isOpenAICompatibleProvider, isAnthropicCompatibleProvider } from "@/shared/constants/providers";
 
 // Keep providers without serviceKinds (default LLM) or with "llm" in serviceKinds
 function isLLMProvider(id) {
@@ -239,6 +239,12 @@ export default function UsageStats({ period: periodProp, setPeriod: setPeriodPro
         const unique = (d?.connections || []).filter((c) => {
           if (c.isActive === false) return false;
           if (!isLLMProvider(c.provider)) return false;
+          // Only show openai-compatible / anthropic-compatible providers that have
+          // a registered node in the DB — skips stale/corrupt ids (e.g. legacy
+          // flavor-suffixed rows like openai-compatible-clash-<ts>).
+          if (isOpenAICompatibleProvider(c.provider) || isAnthropicCompatibleProvider(c.provider)) {
+            if (!nodeNameMap[c.provider]) return false;
+          }
           if (seen.has(c.provider)) return false;
           seen.add(c.provider);
           return true;

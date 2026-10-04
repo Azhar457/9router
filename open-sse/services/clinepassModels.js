@@ -64,12 +64,19 @@ async function fetchClineRawModels(credentials) {
  * @param {object} credentials - Connection credentials ({ accessToken, apiKey })
  * @returns {Promise<{ models: { id: string, name: string }[] } | null>}
  */
-export async function resolveClinepassModels(credentials) {
+export async function resolveClinepassModels(credentials, opts = {}) {
   const rawList = await fetchClineRawModels(credentials);
   if (!rawList) return null;
 
+  const enabled = opts.enabledModels;
+  const enabledSet =
+    Array.isArray(enabled) && enabled.length > 0
+      ? new Set(enabled.map((id) => String(id).trim()).filter((id) => id !== ""))
+      : null;
+
   const models = rawList
     .filter((m) => typeof m?.id === "string" && m.id.startsWith("cline-pass/"))
+    .filter((m) => (enabledSet ? enabledSet.has(m.id) : true))
     .map((m) => ({
       id: m.id,
       name: m.name || m.id,
@@ -120,31 +127,49 @@ async function fetchClineFreeTierModels() {
  * @param {object} credentials - Connection credentials ({ accessToken, apiKey })
  * @returns {Promise<{ models: { id: string, name: string }[] } | null>}
  */
-export async function resolveClineModels(credentials) {
+export async function resolveClineModels(credentials, opts = {}) {
   const rawList = await fetchClineRawModels(credentials);
-  if (!rawList) return null;
+  const freeTier = await fetchClineFreeTierModels();
+  const freeIds = new Set((freeTier || []).map((m) => m.id));
 
-  const models = rawList
+  const enabled = opts.enabledModels;
+  const enabledList = Array.isArray(enabled)
+    ? enabled.map((id) => String(id).trim()).filter((id) => id !== "")
+    : null;
+
+  // When an explicit active subset is supplied (curated via the dashboard),
+  // emit exactly those ids — look up their name in the live catalog when
+  // available, fall back to the free-feed, else the id itself. Without it,
+  // return the full merged live catalog (Cline's passthrough design).
+  if (enabledList) {
+    const nameById = new Map();
+    for (const m of rawList || []) if (typeof m?.id === "string") nameById.set(m.id, m.name || m.id);
+    for (const m of freeTier || []) if (!nameById.has(m.id)) nameById.set(m.id, m.name || m.id);
+    const tagged = enabledList.map((id) => ({
+      id,
+      name: nameById.get(id) || id,
+      isFree: freeIds.has(id) || id.startsWith("cline-free/"),
+    }));
+    return tagged.length ? { models: tagged } : null;
+  }
+
+  // No active subset — full live catalog (passthrough).
+  const models = (rawList || [])
     .filter((m) => typeof m?.id === "string" && m.id.trim() !== "")
     .map((m) => ({
       id: m.id,
       name: m.name || m.id,
     }));
-  const freeTier = await fetchClineFreeTierModels();
-  const freeIds = new Set((freeTier || []).map((m) => m.id));
 
-  // Merge: catalog first, then free-feed entries not already in the catalog.
   const byId = new Map(models.map((m) => [m.id, m]));
   for (const m of freeTier || []) {
     if (!byId.has(m.id)) byId.set(m.id, m);
   }
   const merged = Array.from(byId.values());
 
-  // Tag: free-feed id, or in-catalog-but-known-free (e.g. z-ai/glm-5.3-flash)
-  // stays isFree when it's in the free feed. Everything else is paid/unknown.
   const tagged = merged.map((m) => ({
     ...m,
-    isFree: freeIds.has(m.id),
+    isFree: m.isFree === true || freeIds.has(m.id) || String(m.id).startsWith("cline-free/"),
   }));
   return tagged.length ? { models: tagged } : null;
 }

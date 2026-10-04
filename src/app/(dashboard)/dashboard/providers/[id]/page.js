@@ -84,13 +84,11 @@ export default function ProviderDetailPage() {
   const [oneByOneSummary, setOneByOneSummary] = useState(null);
   const stopOneByOneRef = useRef(false);
   const [importingQoderModels, setImportingQoderModels] = useState(false);
-  const [importingClineModels, setImportingClineModels] = useState(false);
   const [importingModels, setImportingModels] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [customModelsUrl, setCustomModelsUrl] = useState("");
   const [importPreview, setImportPreview] = useState(null);
   const [importMode, setImportMode] = useState("all"); // "all" | "free" | "paid"
-  const [clineFreeOnly, setClineFreeOnly] = useState(false);
   const [modelSort, setModelSort] = useState("free");
   const { copied, copy } = useCopyToClipboard();
 
@@ -648,57 +646,9 @@ export default function ProviderDetailPage() {
       setImportingQoderModels(false);
     }
   };
-  // Fetch the live Cline /models catalog and add every model not yet present.
-  // Cline and ClinePass share the same catalog endpoint (api.cline.bot/api/v1/models).
-  const handleImportClineModels = async () => {
-    if (importingClineModels) return;
-    const activeConnection = connections.find((conn) => conn.isActive !== false);
-    if (!activeConnection) {
-      alert(translate("Please add an active Cline connection first"));
-      return;
-    }
-    setImportingClineModels(true);
-    try {
-      const res = await fetch(`/api/providers/${activeConnection.id}/models`);
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.error || translate("Failed to fetch models"));
-        return;
-      }
-      let models = data.models || [];
-      if (clineFreeOnly) models = models.filter((m) => m.isFree);
-      if (models.length === 0) {
-        alert(clineFreeOnly ? "No free models returned" : translate("No models returned"));
-        return;
-      }
-      let importedCount = 0;
-      for (const model of models) {
-        const modelId = model.id || model.name;
-        if (!modelId) continue;
-        const alreadyExists = customModels.some(
-          (entry) => entry.providerAlias === providerStorageAlias && entry.id === modelId && (entry.kind || entry.type || "llm") === "llm"
-        ) || Object.values(modelAliases).includes(`${providerStorageAlias}/${modelId}`);
-        if (alreadyExists) {
-          continue;
-        }
-        await handleAddCustomModel(modelId, "llm", providerStorageAlias);
-        importedCount += 1;
-      }
-      if (importedCount === 0) {
-        alert(translate("All models already exist, no new models added"));
-      } else {
-        alert(translate("Successfully added") + ` ${importedCount} ` + translate("models"));
-      }
-    } catch (error) {
-      console.log("Error importing Cline models:", error);
-      alert(translate("Error fetching models") + ": " + error.message);
-    } finally {
-      setImportingClineModels(false);
-    }
-  };
-  // Generic "Get Models": fetch suggested catalog (modelsFetcher) and import
-  // every model not yet present. Replaces the qoder/cline-specific handlers
-  // when the provider advertises a modelsFetcher.
+  // Generic "Get Models": fetch suggested catalog (modelsFetcher) and open the
+  // preview modal so free/paid detection happens before anything is imported.
+  // Same preview flow as "Import from /models" — every import is confirmable.
   const importModelsFromFetcher = async () => {
     if (importingModels) return;
     const fetcher = modelsFetcher;
@@ -710,24 +660,28 @@ export default function ProviderDetailPage() {
         alert(translate("No models returned"));
         return;
       }
+      // Dedup against already-known models, tag free/paid, open the shared
+      // preview modal — user confirms which slice to import (all / free /
+      // paid) instead of a silent mass import.
       const existingIds = new Set([
         ...customModels.filter((entry) => entry.providerAlias === providerStorageAlias).map((entry) => entry.id),
         ...models.map((m) => m.id),
       ]);
-      let importedCount = 0;
-      for (const m of suggested) {
-        const modelId = m.id || m.name;
-        if (!modelId || existingIds.has(modelId)) continue;
-        await handleAddCustomModel(modelId, "llm", providerStorageAlias, { isFree: m.isFree !== false });
-        importedCount += 1;
-      }
-      if (importedCount === 0) {
+      const newModels = suggested
+        .map((m) => {
+          const modelId = m.id || m.name;
+          if (!modelId || existingIds.has(modelId)) return null;
+          return { id: modelId, kind: m.kind || m.type || "llm", isFree: m.isFree === true || String(modelId).endsWith(":free") };
+        })
+        .filter(Boolean);
+      if (!newModels.length) {
         alert(translate("All models already exist, no new models added"));
-      } else {
-        alert(translate("Successfully added") + ` ${importedCount} ` + translate("models"));
+        return;
       }
+      setImportMode("all");
+      setImportPreview({ total: newModels.length, freeCount: newModels.filter((m) => m.isFree).length, models: newModels });
     } catch (error) {
-      console.log("Error importing fetcher models:", error);
+      console.log("Error fetching fetcher models:", error);
       alert(translate("Error fetching models") + ": " + error.message);
     } finally {
       setImportingModels(false);
@@ -797,6 +751,9 @@ export default function ProviderDetailPage() {
   };
 
   // Confirm import from preview modal — apply the selected import mode.
+  // Used by the universal "Import from /models" button (all providers) and
+  // "Get Models" (providers with a modelsFetcher), so free-model-only
+  // detection is consistent across every provider.
   const confirmImportFromPreview = async () => {
     if (!importPreview || importingModels) return;
     let toImport = importPreview.models;
@@ -814,6 +771,23 @@ export default function ProviderDetailPage() {
       for (const model of toImport) {
         await handleAddCustomModel(model.id, model.kind, providerStorageAlias, { isFree: model.isFree });
         importedCount += 1;
+      }
+      // Persist the active subset to the provider connection so /v1/models
+      // (via the live-catalog resolver) only emits what the user actually
+      // selected — stops Cline from dumping 460 rows when 5 are enabled.
+      const activeConnection = connections.find((c) => c.isActive !== false);
+      if (activeConnection && (providerId === "cline" || providerId === "clinepass")) {
+        const enabledIds = toImport.map((m) => m.id);
+        await fetch(`/api/providers/${activeConnection.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            providerSpecificData: {
+              ...(activeConnection.providerSpecificData || {}),
+              enabledModels: enabledIds,
+            },
+          }),
+        });
       }
       alert(translate("Successfully added") + ` ${importedCount} ` + translate("models"));
       const freeImported = toImport.filter((m) => m.isFree);
@@ -1574,31 +1548,6 @@ export default function ProviderDetailPage() {
             </span>
             {importingQoderModels ? translate("Fetching...") : translate("Fetch Qoder Models")}
           </button>
-        )}
-
-        {/* Import Cline /models catalog button — only show for cline and clinepass providers */}
-        {(providerId === "cline" || providerId === "clinepass") && connections.some((conn) => conn.isActive !== false) && (
-          <div className="flex w-full flex-col gap-1.5 sm:w-auto sm:flex-row sm:items-center">
-            <button
-              onClick={handleImportClineModels}
-              disabled={importingClineModels}
-              className="flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-blue-500/40 px-3 py-2 text-xs text-blue-600 dark:text-blue-400 transition-colors hover:border-blue-500 hover:bg-blue-500/5 sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <span className="material-symbols-outlined text-sm" style={importingClineModels ? { animation: "spin 1s linear infinite" } : undefined}>
-                {importingClineModels ? "progress_activity" : "download"}
-              </span>
-              {importingClineModels ? translate("Fetching...") : translate("Import from /models")}
-            </button>
-            <label className="flex items-center gap-1.5 text-xs text-text-muted">
-              <input
-                type="checkbox"
-                checked={clineFreeOnly}
-                onChange={(e) => setClineFreeOnly(e.target.checked)}
-                className="accent-blue-500"
-              />
-              Free models only
-            </label>
-          </div>
         )}
 
         {/* Import from /models — all providers with an active connection.
