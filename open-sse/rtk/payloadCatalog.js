@@ -24,7 +24,7 @@
 // Fail-open: any missing piece falls back to a neutral default — the catalog
 // is a sorting aid, never a hard gate.
 
-import { getExternalPayloads, getExternalPayload, PAYLOAD_CATEGORIES } from "./jailbreakPayloads.js";
+import { getExternalPayloads, isExternalPayloadCarrier, PAYLOAD_CATEGORIES } from "./jailbreakPayloads.js";
 import { GODMODE_LEVELS, getVariantCategory, BUILTIN_VARIANT_CATEGORIES, getGodmodePrompt } from "./godmodePayloads.js";
 
 export const CARRIER_SLOT = "[YOUR JAILBREAK HERE]";
@@ -105,9 +105,11 @@ export function buildPayloadCatalog() {
       modelFamilies: id.startsWith("f:ai:") ? [] : ["*"], // AI-Jailbreaks are model-specific
       effectiveness: LEGACY_IDS.has(id) ? "legacy" : "current",
       estTokens: estTokensFromChars(chars),
-      // carrier flag resolved eagerly — getExternalPayload is a local map
+      // Carrier flag resolved eagerly — getExternalPayload is a local map
       // lookup (loadRegistry() already read the files into memory at import).
-      isCarrier: isCarrierPayload(getExternalPayload(id) || ""),
+      // The regex sweep itself is memoized per id in jailbreakPayloads.js, so
+      // repeated buildPayloadCatalog() calls do not re-scan every payload.
+      isCarrier: isExternalPayloadCarrier(id, isCarrierPayload),
     });
   }
 

@@ -349,11 +349,11 @@ export default function PenetrationTabClient() {
   // that is the persisted pointer text (not a recomputed preview), so the
   // number always matches what ships.
   const activeText = injectOn && skillRouterText.trim()
-    ? `${translate("Active for all tabs & all clients — pointer only")} · ${skillRouterText.length.toLocaleString()} ${translate("chars")} · ≈${Math.max(1, Math.round(skillRouterText.length / 4))} ${translate("tok")}`
+    ? `${translate("Active for all tabs & all clients — pointer only")} · ${skillRouterText.length.toLocaleString("en-US")} ${translate("chars")} · ≈${Math.max(1, Math.round(skillRouterText.length / 4))} ${translate("tok")}`
     : "";
 
   const editedText = payloadEditing
-    ? `${translate("Edited")} · ${payloadText.length.toLocaleString()} ${translate("chars")} · ≈${Math.max(1, Math.round(payloadText.length / 4))} ${translate("tok")}`
+    ? `${translate("Edited")} · ${payloadText.length.toLocaleString("en-US")} ${translate("chars")} · ≈${Math.max(1, Math.round(payloadText.length / 4))} ${translate("tok")}`
     : "";
 
   return (
@@ -690,7 +690,7 @@ export default function PenetrationTabClient() {
                   <span className="text-[10px] text-text-muted">
                     {payloadEditing ? editedText : ""}
                     {!payloadEditing &&
-                      `${routerPayload.length.toLocaleString()} ${translate("chars")} · ≈${estTokens} ${translate("tok")}`}
+                      `${routerPayload.length.toLocaleString("en-US")} ${translate("chars")} · ≈${estTokens} ${translate("tok")}`}
                   </span>
                   {payloadEditing && (
                     <Button
@@ -714,7 +714,7 @@ export default function PenetrationTabClient() {
                 <details className="rounded-lg border border-border bg-surface/40 p-2">
                   <summary className="cursor-pointer text-[11px] font-semibold text-text-main">
                     {translate("Full index (local preview — never injected)")} ·{" "}
-                    {fullIndexPreview.length.toLocaleString()} {translate("chars")} · ≈
+                    {fullIndexPreview.length.toLocaleString("en-US")} {translate("chars")} · ≈
                     {fullIndexTokens} {translate("tok")}
                   </summary>
                   <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded bg-surface px-2 py-1.5 font-mono text-[10px] text-text-muted">
@@ -731,7 +731,7 @@ export default function PenetrationTabClient() {
                   </span>
                   <span>
                     {translate("skill router")}{" "}
-                    {routerPayload.length.toLocaleString()} {translate("chars")} · ≈{estTokens}{" "}
+                    {routerPayload.length.toLocaleString("en-US")} {translate("chars")} · ≈{estTokens}{" "}
                     {translate("tok")}
                   </span>
                 </div>
@@ -741,7 +741,7 @@ export default function PenetrationTabClient() {
                       {translate("1. Pointer (what ships)")}
                     </span>{" "}
                     — [STRIX-POINTER] one line naming the endpoints (
-                    {routerPayload.length.toLocaleString()}{" "}
+                    {routerPayload.length.toLocaleString("en-US")}{" "}
                     {translate("chars")})
                   </li>
                   <li>
@@ -756,7 +756,7 @@ export default function PenetrationTabClient() {
                   </li>
                   <li className="text-emerald-600 dark:text-emerald-400">
                     <span className="font-semibold">{translate("Not injected")}</span> —{" "}
-                    {translate("the full index")} ({fullIndexPreview.length.toLocaleString()}{" "}
+                    {translate("the full index")} ({fullIndexPreview.length.toLocaleString("en-US")}{" "}
                     {translate("chars")}, ≈{fullIndexTokens}{" "}
                     {translate("tok")}) {translate("stays local — you pay for it only when a skill is actually fetched.")}
                   </li>

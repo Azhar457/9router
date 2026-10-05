@@ -186,3 +186,17 @@ export function getExternalPayloads() {
 export function getExternalPayload(id) {
   return registry.get(id) || null;
 }
+
+// Carrier detection is a full-text regex sweep over every registered payload.
+// The texts are immutable for the life of the process (read once by
+// loadRegistry at module load), so the answer for a given id can never
+// change — memoizing it keeps the catalog route from re-scanning all payloads
+// on every request. `detect` is injected by the caller because
+// payloadCatalog.js imports this module and would otherwise form a cycle.
+const carrierFlags = new Map();
+export function isExternalPayloadCarrier(id, detect) {
+  if (carrierFlags.has(id)) return carrierFlags.get(id);
+  const marker = detect(registry.get(id) || "");
+  carrierFlags.set(id, marker);
+  return marker;
+}
