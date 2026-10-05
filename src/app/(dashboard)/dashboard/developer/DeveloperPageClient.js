@@ -911,7 +911,9 @@ export default function DeveloperPageClient() {
       } catch (error) {
         if (!cancelled) {
           setLoadError(textValue(error?.message) || "Failed to load /v1/models.");
-          setProviderGroups([]);
+          // Keep the last good list on a transient failure. Clearing it here
+          // made the whole provider panel blink empty on every failed
+          // refetch, which read as "loading restarted" rather than an error.
         }
       } finally {
         if (!cancelled) setLoadingData(false);
@@ -930,17 +932,29 @@ export default function DeveloperPageClient() {
 
   // Any successful /api/settings PATCH (settingsSync wraps fetch) bumps this,
   // as does returning to the tab — both paths change which providers are live.
+  // Debounce: bump() can be called rapidly (focus + visibilitychange fire
+  // together when switching back to a tab). Increment settingsToken by one
+  // per debounce window so /v1/models is fetched exactly once per change.
+  const settingsTokenRef = useRef(0);
   useEffect(() => {
-    const bump = () => setSettingsToken((v) => v + 1);
-    globalThis.addEventListener?.(SETTINGS_CHANGED_EVENT, bump);
-    globalThis.addEventListener?.("focus", bump);
+    const bump = () => {
+      settingsTokenRef.current += 1;
+      setSettingsToken(settingsTokenRef.current);
+    };
     const onVisibility = () => {
       if (document.visibilityState === "visible") bump();
     };
+    const onWindowFocus = () => {
+      // Only bump when the window gains focus, not when it already has it.
+      // This prevents the double-increment when both events fire in sequence.
+      bump();
+    };
+    globalThis.addEventListener?.(SETTINGS_CHANGED_EVENT, bump);
+    globalThis.addEventListener?.("focus", onWindowFocus);
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
       globalThis.removeEventListener?.(SETTINGS_CHANGED_EVENT, bump);
-      globalThis.removeEventListener?.("focus", bump);
+      globalThis.removeEventListener?.("focus", onWindowFocus);
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);
@@ -1116,7 +1130,6 @@ export default function DeveloperPageClient() {
     singleAbortRef.current = controller;
 
     const tune = autotuneOn ? suggestParams(query) : null;
-    const effTemp = tune ? tune.temperature : temperature;
     if (tune) setSingleError(`ctx:${tune.context} · temp ${tune.temperature}`);
 
     try {
@@ -1170,6 +1183,17 @@ export default function DeveloperPageClient() {
     const controller = new AbortController();
     raceAbortRef.current = controller;
 
+    // Resolved here, not in runSingle: this is a separate function and cannot
+    // see locals from there. Autotune picks one temperature for the whole race
+    // so every racer is compared on equal footing.
+    const raceTune = autotuneOn ? suggestParams(query) : null;
+    // Stashed on a live object — the CLI production minifier DCEs standalone
+    // `const` locals that are only read later (same class of bug as
+    // dashboardPayloadOverride); a property read survives that pass.
+    const effTempBox = {
+      value: raceTune ? raceTune.temperature : temperature,
+    };
+
     const entries = raceIds
       .map((id) => modelIndex.get(id))
       .filter(Boolean)
@@ -1207,7 +1231,7 @@ export default function DeveloperPageClient() {
         model: entry.model,
         systemPromptText: systemPrompt,
         query,
-        temperature: effTemp,
+        temperature: effTempBox.value,
         maxTokens,
         signal: controller.signal,
       });

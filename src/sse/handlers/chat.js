@@ -70,16 +70,18 @@ export async function handleChat(request, clientRawRequest = null) {
   // Per-request payload override (dashboard A/B test "test" arm). The
   // developer relay (src/app/api/developer/chat/route.js) stashes it here;
   // it must NOT reach the upstream provider, so strip it after capture.
-  // Captured here and forwarded to handleSingleModelChat as an explicit
-  // argument. It cannot be a closure variable: handleSingleModelChat is a
-  // separate top-level function with no access to locals from this scope.
-  // Reading it there hit an undeclared identifier and threw
-  // "dashboardPayloadOverride is not defined" on every /v1/chat/completions
-  // call, failing every model in a combo.
-  const dashboardPayloadOverride =
-    typeof body.__dashboardPayloadOverride === "string"
-      ? body.__dashboardPayloadOverride
-      : "";
+  // Captured into a live object and forwarded to handleSingleModelChat as an
+  // explicit argument. It CANNOT be a standalone local: the CLI production
+  // minifier constant-folds + dead-code-eliminates a bare `const x = ternary`
+  // that is only used as an argument, dropping the declaration and leaving
+  // dangling reads ("dashboardPayloadOverride is not defined"). Reading from
+  // a property of a live object is not foldable/DCE-able, so it survives.
+  const payloadOverrideBox = {
+    value:
+      typeof body.__dashboardPayloadOverride === "string"
+        ? body.__dashboardPayloadOverride
+        : "",
+  };
   delete body.__dashboardPayloadOverride;
 
   // Enforce API key if enabled in settings
@@ -129,7 +131,7 @@ export async function handleChat(request, clientRawRequest = null) {
             const { tools, tool_choice, ...cleanBody } = clientRawRequest.body || {};
             cleanRawReq = { ...clientRawRequest, body: cleanBody };
           }
-          return handleSingleModelChat(b, m, cleanRawReq, request, apiKey, dashboardPayloadOverride);
+          return handleSingleModelChat(b, m, cleanRawReq, request, apiKey, payloadOverrideBox.value);
         },
         log,
         comboName: modelStr,
@@ -144,7 +146,7 @@ export async function handleChat(request, clientRawRequest = null) {
       body,
       models: augmentedModels,
       handleSingleModel: withCapacityAdapterStripping(
-        (b, m) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey, dashboardPayloadOverride),
+        (b, m) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey, payloadOverrideBox.value),
         adapterAdded
       ),
       log,
@@ -164,7 +166,7 @@ export async function handleChat(request, clientRawRequest = null) {
       body,
       models: soloAugmented,
       handleSingleModel: withCapacityAdapterStripping(
-        (b, m) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey, dashboardPayloadOverride),
+        (b, m) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey, payloadOverrideBox.value),
         adapterAdded
       ),
       log,
@@ -173,7 +175,7 @@ export async function handleChat(request, clientRawRequest = null) {
     });
   }
 
-  return handleSingleModelChat(body, modelStr, clientRawRequest, request, apiKey, dashboardPayloadOverride);
+  return handleSingleModelChat(body, modelStr, clientRawRequest, request, apiKey, payloadOverrideBox.value);
 }
 
 /**
