@@ -261,8 +261,6 @@
   "Full text readable above · the agent fetches this on demand, never inlined": "完全なテキストは上に表示 — エージェントが必要な時に取得し、インライン化しません",
   "ships the pointer.": "ポインタを送信します。",
   "Local preview only — the full index is served over HTTP, not injected. Read it, copy a skill id, or hand the pointer to an external agent.": "ローカルプレビューのみ — フルインデックスは HTTP で提供され、注入されません。読む、skill id をコピーする、または外部エージェントにポインタを渡せます。",
-  "Payload/Injection Tools": "Payload/Injection ツール",
-  "Godmode preview, carrier composition, and the full 63-entry registry": "godmode プレビュー、carrier 合成、63 件の完全なレジストリ",
   "Payload transparency": null,
   "Outbound transparency": null,
   "Jailbreak payload": null,

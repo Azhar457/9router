@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Badge, Button, Card, Select } from "@/shared/components";
+import { useCallback, useEffect, useState } from "react";
+import { Badge, Button, Card } from "@/shared/components";
 import { cn } from "@/shared/utils/cn";
 import { useTabFlags } from "@/shared/hooks";
 import {
@@ -103,99 +103,21 @@ export default function PayloadTabClient() {
   }, []);
 
 
-  // RTK catalog
+  // RTK catalog — supplies `payloadCatalog` to GlobalInjectionClient, the
+  // single source of truth for what ships. The reference accordion that
+  // used to browse/preview/compose from this catalog was removed because
+  // the Global Injection card already exposes all three surfaces (level
+  // preview, carrier composition, and the full registry).
   const [catalog, setCatalog] = useState([]);
-  const [catalogLoading, setCatalogLoading] = useState(true);
-  const [catalogError, setCatalogError] = useState("");
   const [, setLocaleTick] = useState(0);
   useEffect(() => onLocaleChange(() => setLocaleTick((v) => v + 1)), []);
-  const [rtkFilter, setRtkFilter] = useState("all");
-  const [carrierIds, setCarrierIds] = useState([]);
 
   useEffect(() => {
     fetch("/api/developer/payload-catalog")
       .then((r) => r.json())
-      .then((d) => {
-        setCatalog(d.catalog || []);
-        setCarrierIds(d.carrierIds || []);
-      })
-      .catch((e) => setCatalogError(String(e)))
-      .finally(() => setCatalogLoading(false));
+      .then((d) => setCatalog(d.catalog || []))
+      .catch((e) => console.warn("payload-catalog fetch failed", e));
   }, []);
-
-  // Godmode level + preview
-  const [godmodeLevel, setGodmodeLevel] = useState("");
-  const [godmodePreview, setGodmodePreview] = useState("");
-  const [godmodePreviewLoading, setGodmodePreviewLoading] = useState(false);
-
-  const previewGodmode = useCallback(async () => {
-    if (!godmodeLevel.trim()) return;
-    setGodmodePreviewLoading(true);
-    setGodmodePreview("");
-    try {
-      const res = await fetch("/api/developer/godmode-preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ level: godmodeLevel.trim() }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
-      setGodmodePreview(data.text || "");
-    } catch (e) {
-      setGodmodePreview(`Error: ${e.message || String(e)}`);
-    } finally {
-      setGodmodePreviewLoading(false);
-    }
-  }, [godmodeLevel]);
-  // Composition (carrier + payload splice). Splices client-side via the
-  // carrier preview endpoint for built-in levels, or appends the payload
-  // text after the carrier when the carrier has no slot.
-  const [composition, setComposition] = useState({ carrier: "", payload: "" });
-  const [compositionResult, setCompositionResult] = useState("");
-  const [compositionLoading, setCompositionLoading] = useState(false);
-
-  const carrierOptions = useMemo(() => {
-    if (carrierIds.length) {
-      return carrierIds.map((id) => ({ value: id, label: id }));
-    }
-    return catalog
-      .filter((r) => r.isCarrier || r.hasBuiltInCarrier)
-      .map((r) => ({ value: r.id, label: r.label || r.id }));
-  }, [carrierIds, catalog]);
-
-  const payloadOptions = useMemo(() => {
-    const carrierSet = new Set(
-      carrierIds.length
-        ? carrierIds
-        : catalog.filter((r) => r.isCarrier || r.hasBuiltInCarrier).map((r) => r.id)
-    );
-    return catalog
-      .filter((r) => !carrierSet.has(r.id) && !r.isCarrier && !r.hasBuiltInCarrier)
-      .map((r) => ({ value: r.id, label: r.label || r.id }));
-  }, [carrierIds, catalog]);
-
-  const compose = useCallback(async () => {
-    const { carrier, payload } = composition;
-    if (!carrier || !payload) return;
-    setCompositionLoading(true);
-    setCompositionResult("");
-    try {
-      const payloadRow = catalog.find((r) => r.id === payload);
-      const level = payloadRow?.source === "builtin" ? payload : "classic";
-      const res = await fetch("/api/developer/carrier-preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ level, carrierLevel: carrier }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
-      setCompositionResult(data.text || "(empty)");
-    } catch (e) {
-      setCompositionResult(`Error: ${e.message || String(e)}`);
-    } finally {
-      setCompositionLoading(false);
-    }
-  }, [composition, catalog]);
 
   // Strix
   const [strixSelected, setStrixSelected] = useState("");
@@ -206,7 +128,6 @@ export default function PayloadTabClient() {
   // key object, not by calling setState inside the effect body.
   const [strixLoad, setStrixLoad] = useState({ key: null, preview: null, error: "" });
   const [strixNotice, setStrixNotice] = useState("");
-  const [isPreviewExpanded, setIsPreviewExpanded] = useState(false);
   const strixPreview = strixLoad.key === strixSelected ? strixLoad.preview : null;
   const strixError = strixLoad.key === strixSelected ? strixLoad.error : "";
   useEffect(() => {
@@ -250,21 +171,6 @@ export default function PayloadTabClient() {
     }
   }, []);
 
-  // Filtered catalog rows
-  const visibleCatalog = useMemo(() => {
-    if (!catalog.length) return [];
-    switch (rtkFilter) {
-      case "builtin":
-        return catalog.filter((r) => r.source === "builtin");
-      case "jailbreak":
-        return catalog.filter((r) => r.source === "file" && !r.isCarrier);
-      case "carriers":
-        return catalog.filter((r) => r.isCarrier || r.hasBuiltInCarrier);
-      default:
-        return catalog;
-    }
-  }, [catalog, rtkFilter]);
-
   // ── Disabled env state ─────────────────────────────────────────────────────
   if (flags.payload?.disabled) {
     return (
@@ -295,19 +201,12 @@ export default function PayloadTabClient() {
   }
 
   // ── Consent audit banner dates ─────────────────────────────────────────────
-  const fmt = (ms) => (ms ? new Date(ms).toLocaleDateString() : "—");
+  const fmt = (ms) => (ms ? new Date(ms).toLocaleDateString("en-US") : "—");
   const consentBannerDates = consented
     ? `${fmt(consent.consentAt)} · expires ${
         consent.expiresAt ? fmt(consent.expiresAt) : "90 days"
       }`
     : "";
-
-  const filterChips = [
-    { key: "all", label: "All" },
-    { key: "builtin", label: "Built-in" },
-    { key: "jailbreak", label: "Jailbreak Registry" },
-    { key: "carriers", label: "Carriers" },
-  ];
 
   return (
     <div className="flex flex-col gap-6">
@@ -363,214 +262,6 @@ export default function PayloadTabClient() {
       </div>
       {/* Global Injection (migrated from Developer tab) */}
       {consented && <GlobalInjectionClient payloadCatalog={catalog} />}
-      {/* Payload/Injection Tools — preview, composition, and the full
-          registry. Collapsed by default: the Global Injection card above
-          already states what actually ships, so these are reference
-          surfaces, not something you touch on every visit. */}
-      <div className="flex flex-col gap-4">
-        <button
-          type="button"
-          onClick={() => setIsPreviewExpanded((v) => !v)}
-          aria-expanded={isPreviewExpanded}
-          className={cn(
-            "flex w-full items-center justify-between rounded-lg border border-border-subtle",
-            "bg-surface px-4 py-3 text-left transition-colors hover:bg-surface-2"
-          )}
-        >
-          <span className="flex items-center gap-2.5">
-            <span className="material-symbols-outlined text-[20px] text-text-muted">
-              build
-            </span>
-            <span className="flex flex-col">
-              <span className="text-sm font-semibold text-text-main">
-                {translate("Payload/Injection Tools")}
-              </span>
-              <span className="text-[11px] text-text-muted">
-                {translate("Godmode preview, carrier composition, and the full 63-entry registry")}
-              </span>
-            </span>
-          </span>
-          <span
-            className={cn(
-              "material-symbols-outlined text-[20px] text-text-muted transition-transform",
-              isPreviewExpanded && "rotate-180"
-            )}
-          >
-            expand_more
-          </span>
-        </button>
-
-        {isPreviewExpanded && (
-          <div className="flex flex-col gap-4">
-        <Card
-          title="Godmode Level Preview"
-          subtitle="Fetch a godmode variant preview for a level (model left empty = default)"
-          icon="psychology"
-          elev
-        >
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                type="text"
-                value={godmodeLevel}
-                onChange={(e) => setGodmodeLevel(e.target.value)}
-                placeholder="level (e.g. 1, 2, 3…)"
-                className={cn(
-                  "w-48 rounded-[10px] border border-red-500/40 bg-surface-2 px-3 py-2 text-sm text-text-main",
-                  "focus:outline-none focus:ring-2 focus:ring-red-500/30"
-                )}
-              />
-              <Button
-                variant="danger"
-                size="sm"
-                icon="visibility"
-                onClick={previewGodmode}
-                loading={godmodePreviewLoading}
-                disabled={!godmodeLevel.trim()}
-              >
-                Preview
-              </Button>
-            </div>
-            {godmodePreview && (
-              <pre className="max-h-64 overflow-auto rounded-lg bg-surface-2 p-3 text-xs leading-relaxed text-text-main">
-                {godmodePreview}
-              </pre>
-            )}
-          </div>
-        </Card>
-
-        {/* Carrier + payload composition */}
-        <Card
-          title="Carrier + Payload Composition"
-          subtitle="Pick a carrier and a payload to preview the spliced result"
-          icon="join_inner"
-          elev
-        >
-          <div className="flex flex-col gap-3">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Select
-                label="Carrier"
-                placeholder="Select a carrier"
-                value={composition.carrier}
-                onChange={(v) =>
-                  setComposition((c) => ({ ...c, carrier: v }))
-                }
-                options={carrierOptions}
-              />
-              <Select
-                label="Payload"
-                placeholder="Select a payload"
-                value={composition.payload}
-                onChange={(v) =>
-                  setComposition((c) => ({ ...c, payload: v }))
-                }
-                options={payloadOptions}
-              />
-            </div>
-            <div>
-              <Button
-                variant="danger"
-                size="sm"
-                iconRight="send"
-                onClick={compose}
-                loading={compositionLoading}
-                disabled={!composition.carrier || !composition.payload}
-              >
-                Compose
-              </Button>
-            </div>
-            {compositionResult && (
-              <pre className="max-h-72 overflow-auto rounded-lg border border-red-500/20 bg-surface-2 p-3 text-xs leading-relaxed text-text-main">
-                {compositionResult}
-              </pre>
-            )}
-          </div>
-        </Card>
-
-        {/* RTK payload catalog */}
-        <Card
-          title="RTK Payload Catalog"
-          subtitle="Godmode variants, jailbreak registry, and carriers"
-          icon="inventory_2"
-          elev
-        >
-          <div className="flex flex-col gap-3">
-            {/* Filter chips */}
-            <div className="flex flex-wrap items-center gap-2">
-              {filterChips.map((chip) => (
-                <button
-                  key={chip.key}
-                  type="button"
-                  onClick={() => setRtkFilter(chip.key)}
-                  className={cn(
-                    "rounded-full border px-3 py-1 text-xs font-semibold transition-colors",
-                    rtkFilter === chip.key
-                      ? "border-red-500 bg-red-500/15 text-red-600 dark:text-red-400"
-                      : "border-border-subtle text-text-muted hover:bg-surface-2 hover:text-text-main"
-                  )}
-                >
-                  {chip.label}
-                </button>
-              ))}
-            </div>
-
-            {catalogLoading ? (
-              <p className="flex items-center gap-2 text-sm text-text-muted">
-                <span className="material-symbols-outlined animate-spin text-[18px]">
-                  progress_activity
-                </span>
-                Loading catalog…
-              </p>
-            ) : catalogError ? (
-              <p className="flex items-center gap-2 text-sm text-red-500">
-                <span className="material-symbols-outlined text-[18px]">error</span>
-                {catalogError}
-              </p>
-            ) : visibleCatalog.length === 0 ? (
-              <p className="text-sm text-text-muted">No rows match this filter.</p>
-            ) : (
-              <div className="flex flex-col">
-                {visibleCatalog.map((row) => {
-                  const carrier = row.isCarrier || row.hasBuiltInCarrier;
-                  return (
-                    <Card.ListItem
-                      key={row.id}
-                      className="gap-2"
-                    >
-                      <div className="flex min-w-0 flex-wrap items-center gap-2">
-                        <span className="truncate text-sm font-medium text-text-main">
-                          {row.label || row.id}
-                        </span>
-                        <Badge variant="info" size="sm">
-                          {row.cat || "uncategorized"}
-                        </Badge>
-                        <Badge
-                          variant={row.effectiveness === "legacy" ? "warning" : "success"}
-                          size="sm"
-                          dot
-                        >
-                          {row.effectiveness || "current"}
-                        </Badge>
-                        {carrier && <Badge variant="primary" size="sm">carrier</Badge>}
-                        <span className="text-xs text-text-muted">
-                          {row.estTokens ? `${row.estTokens} tok` : "—"}
-                        </span>
-                        <span className="text-xs text-text-muted">
-                          {Array.isArray(row.modelFamilies) && row.modelFamilies.length
-                            ? row.modelFamilies.join(", ")
-                            : "any"}
-                        </span>
-                      </div>
-                    </Card.ListItem>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </Card>
-          </div>
-        )}
-      </div>
 
       {/* Strix security payloads */}
       <Card
@@ -639,7 +330,7 @@ export default function PayloadTabClient() {
                 </Badge>
                 {strixPreview?.sizeChars ? (
                   <Badge variant="warning" size="sm">
-                    {strixPreview.sizeChars.toLocaleString()} {translate("chars")} · ≈{strixPreview.estTokens.toLocaleString()} {translate("tok")}
+                    {strixPreview.sizeChars.toLocaleString("en-US")} {translate("chars")} · ≈{strixPreview.estTokens.toLocaleString("en-US")} {translate("tok")}
                   </Badge>
                 ) : (
                   <Badge variant="warning" size="sm">

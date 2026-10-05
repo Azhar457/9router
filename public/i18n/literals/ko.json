@@ -261,8 +261,6 @@
   "Full text readable above · the agent fetches this on demand, never inlined": "전체 텍스트는 위에서 확인 가능 — 에이전트가 필요할 때 가져오며 인라인되지 않음",
   "ships the pointer.": "포인터를 전송합니다.",
   "Local preview only — the full index is served over HTTP, not injected. Read it, copy a skill id, or hand the pointer to an external agent.": "로컬 미리보기 전용 — 전체 인덱스는 HTTP로 제공되며 주입되지 않습니다. 읽거나, 스킬 id를 복사하거나, 외부 에이전트에 포인터를 전달하세요.",
-  "Payload/Injection Tools": null,
-  "Godmode preview, carrier composition, and the full 63-entry registry": null,
   "Payload transparency": null,
   "Outbound transparency": null,
   "Jailbreak payload": null,

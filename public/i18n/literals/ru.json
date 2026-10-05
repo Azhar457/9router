@@ -261,8 +261,6 @@
   "Full text readable above · the agent fetches this on demand, never inlined": "Полный текст выше — агент загружает его по требованию, никогда не встраивая",
   "ships the pointer.": "отправляет указатель.",
   "Local preview only — the full index is served over HTTP, not injected. Read it, copy a skill id, or hand the pointer to an external agent.": "Только локальный предпросмотр — полный индекс отдаётся по HTTP, не внедряется. Прочитайте, скопируйте id навыка или передайте указатель внешнему агенту.",
-  "Payload/Injection Tools": null,
-  "Godmode preview, carrier composition, and the full 63-entry registry": null,
   "Payload transparency": null,
   "Outbound transparency": null,
   "Jailbreak payload": null,

@@ -261,8 +261,6 @@
   "Full text readable above · the agent fetches this on demand, never inlined": "Texte complet ci-dessus — l'agent le récupère à la demande, jamais inliné",
   "ships the pointer.": "envoie le pointeur.",
   "Local preview only — the full index is served over HTTP, not injected. Read it, copy a skill id, or hand the pointer to an external agent.": "Aperçu local uniquement — l'index complet est servi en HTTP, non injecté. Lisez-le, copiez un id de skill ou donnez le pointeur à un agent externe.",
-  "Payload/Injection Tools": null,
-  "Godmode preview, carrier composition, and the full 63-entry registry": null,
   "Payload transparency": null,
   "Outbound transparency": null,
   "Jailbreak payload": null,

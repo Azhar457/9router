@@ -1459,8 +1459,6 @@
   "Full text readable above · the agent fetches this on demand, never inlined": "Teks lengkap dapat dibaca di atas — agent mengambilnya sesuai kebutuhan, tidak pernah di-inline",
   "ships the pointer.": "mengirim pointer.",
   "Local preview only — the full index is served over HTTP, not injected. Read it, copy a skill id, or hand the pointer to an external agent.": "Hanya pratinjau lokal — index lengkap disajikan lewat HTTP, tidak di-inject. Baca, salin skill id, atau berikan pointer ke agent eksternal.",
-  "Payload/Injection Tools": "Alat Payload/Injection",
-  "Godmode preview, carrier composition, and the full 63-entry registry": "Pratinjau godmode, komposisi carrier, dan registry 63 entri lengkap",
   "Payload transparency": "Transparansi payload",
   "Outbound transparency": "Transparansi outbound",
   "Jailbreak payload": "Payload jailbreak",

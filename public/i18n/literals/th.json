@@ -1457,8 +1457,6 @@
   "Full text readable above · the agent fetches this on demand, never inlined": "ข้อความเต็มด้านบน — เอเจนต์จะดึงตามต้องการ ไม่ฝัง",
   "ships the pointer.": "ส่งพอยน์เตอร์",
   "Local preview only — the full index is served over HTTP, not injected. Read it, copy a skill id, or hand the pointer to an external agent.": "เป็นเพียงตัวอย่างในเครื่อง — ดัชนีทั้งหมดให้บริการผ่าน HTTP ไม่ถูกแทรก อ่าน คัดลอก skill id หรือส่งพอยน์เตอร์ให้เอเจนต์ภายนอก",
-  "Payload/Injection Tools": null,
-  "Godmode preview, carrier composition, and the full 63-entry registry": null,
   "Payload transparency": null,
   "Outbound transparency": null,
   "Jailbreak payload": null,

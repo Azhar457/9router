@@ -261,8 +261,6 @@
   "Full text readable above · the agent fetches this on demand, never inlined": null,
   "ships the pointer.": null,
   "Local preview only — the full index is served over HTTP, not injected. Read it, copy a skill id, or hand the pointer to an external agent.": null,
-  "Payload/Injection Tools": null,
-  "Godmode preview, carrier composition, and the full 63-entry registry": null,
   "Payload transparency": null,
   "Outbound transparency": null,
   "Jailbreak payload": null,

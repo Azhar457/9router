@@ -1483,8 +1483,6 @@
   "Full text readable above · the agent fetches this on demand, never inlined": "完整文本见上方 —— agent 按需抓取，绝不内联",
   "ships the pointer.": "发送的是指针。",
   "Local preview only — the full index is served over HTTP, not injected. Read it, copy a skill id, or hand the pointer to an external agent.": "仅本地预览 —— 完整索引通过 HTTP 提供，不注入。可阅读、复制 skill id，或把指针交给外部 agent。",
-  "Payload/Injection Tools": "Payload/Injection 工具",
-  "Godmode preview, carrier composition, and the full 63-entry registry": "godmode 预览、carrier 组合，以及完整的 63 条注册表",
   "Payload transparency": "Payload 透明度",
   "Outbound transparency": "出站透明度",
   "Jailbreak payload": "越狱 payload",

@@ -175,24 +175,38 @@ export default function GlobalInjectionClient({ payloadCatalog }) {
   // Single source of truth for hydrating the injection card from settings —
   // used on mount and whenever another view (Transparency console) patches
   // the same keys, so the two surfaces can never drift apart.
+  //
+  // `localEditInFlight`: when the user is actively typing in one of the
+  // text editors (godmode / register / carrier / identity), the debounced
+  // write to /api/settings is still pending. A stale SETTINGS_CHANGED_EVENT
+  // or a late mount fetch landing in that window would otherwise overwrite
+  // the textarea with the pre-edit snapshot, making the edit "revert to
+  // empty". We skip syncing the keys the user is editing so local state stays
+  // authoritative until the write settles.
+  const localEditInFlight = useRef(null);
+  function setLocalEditKey(key) { localEditInFlight.current = key; }
+  function clearLocalEditKey() { localEditInFlight.current = null; }
+
   function syncInjectionFromSettings(settings) {
+    const editing = localEditInFlight.current;
     // Unified keys take precedence; fall back to legacy plinian*/godmode* keys.
-    setInjectEnabled(
+    if (editing !== "injectEnabled") setInjectEnabled(
       settings.injectionEnabled !== undefined
         ? !!settings.injectionEnabled
         : (!!settings.plinianEnabled || !!settings.godmodeEnabled)
     );
     const loadedLevel = settings.injectionRegisterLevel || settings.plinianLevel || "standard";
-    setInjectLevel(loadedLevel);
-    setRegisterLevel(loadedLevel);
-    setInjectIdentity(typeof settings.injectionIdentity === "string" ? settings.injectionIdentity : (settings.plinianIdentity || ""));
-    setRegisterCustom(typeof settings.injectionRegisterCustom === "string" ? settings.injectionRegisterCustom : "");
-    setGodmodeLevel(settings.injectionGodmodeLevel || settings.godmodeLevel || "classic");
-    setGodmodeCustom(typeof settings.injectionGodmodeCustom === "string" ? settings.injectionGodmodeCustom : (typeof settings.godmodeCustom === "string" ? settings.godmodeCustom : ""));
-    setCarrierEnabled(!!settings.injectionCarrierEnabled);
-    setCarrierLevel(typeof settings.injectionCarrierLevel === "string" ? settings.injectionCarrierLevel : "");
-    const loadedCarrierCustom = typeof settings.injectionCarrierCustom === "string" ? settings.injectionCarrierCustom : "";
-    setCarrierCustom(loadedCarrierCustom);
+    if (editing !== "registerLevel") { setInjectLevel(loadedLevel); setRegisterLevel(loadedLevel); }
+    if (editing !== "identity") setInjectIdentity(typeof settings.injectionIdentity === "string" ? settings.injectionIdentity : (settings.plinianIdentity || ""));
+    if (editing !== "registerCustom") setRegisterCustom(typeof settings.injectionRegisterCustom === "string" ? settings.injectionRegisterCustom : "");
+    if (editing !== "godmodeLevel") setGodmodeLevel(settings.injectionGodmodeLevel || settings.godmodeLevel || "classic");
+    if (editing !== "godmodeCustom") setGodmodeCustom(typeof settings.injectionGodmodeCustom === "string" ? settings.injectionGodmodeCustom : (typeof settings.godmodeCustom === "string" ? settings.godmodeCustom : ""));
+    if (editing !== "carrierEnabled") setCarrierEnabled(!!settings.injectionCarrierEnabled);
+    if (editing !== "carrierLevel") setCarrierLevel(typeof settings.injectionCarrierLevel === "string" ? settings.injectionCarrierLevel : "");
+    if (editing !== "carrierCustom") {
+      const loadedCarrierCustom = typeof settings.injectionCarrierCustom === "string" ? settings.injectionCarrierCustom : "";
+      setCarrierCustom(loadedCarrierCustom);
+    }
     // Skill-router slot (Penetration tab) — read-only visibility: when the
     // SKILL-ROUTER-STRIX index is active, it ships as an extra block after
     // the jailbreak payload. This card shows it in the outbound list but
@@ -343,6 +357,37 @@ export default function GlobalInjectionClient({ payloadCatalog }) {
     } catch {}
   }
 
+  // What the editor displays. In Custom mode that is the user's own
+  // persisted text; on a preset level it is the preset's resolved text from
+  // the preview, so the textarea is never blank while a real payload ships.
+  // Only the Custom branch is ever written back to settings, which keeps
+  // injectionGodmodeCustom meaning exactly "text the user authored" and stops
+  // a settings re-read from blanking the editor under a live preset.
+  const godmodeEditorText = godmodeLevel === "custom" ? godmodeCustom : godmodePreview.text;
+
+  // Fill the preview for the selected preset level so the editor and the
+  // char/token readout are transparent on first paint instead of showing an
+  // empty editor next to a live count. Deferred past the first render so the
+  // setState calls are not synchronous-within-effect.
+  useEffect(() => {
+    if (godmodeLevel === "custom") return;
+    let cancelled = false;
+    const t = setTimeout(() => {
+      fetch("/api/developer/godmode-preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ level: godmodeLevel }),
+      })
+        .then((r) => r.json())
+        .then((d) => {
+          if (cancelled || !d?.text) return;
+          setGodmodePreview({ chars: d.chars || d.text.length, estTokens: d.estTokens || 0, text: d.text });
+        })
+        .catch(() => {});
+    }, 0);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [godmodeLevel]);
+
   // Reorder payload variants by sort key using the catalog metadata.
   // "default" preserves the original optgroup order; the others sort by
   // metadata so carriers / current-gen / smallest surface first.
@@ -432,6 +477,7 @@ export default function GlobalInjectionClient({ payloadCatalog }) {
   const carrierSaveTimerRef = useRef(null);
   function handleCarrierCustomChange(event) {
     const value = event.target.value;
+    setLocalEditKey("carrierCustom");
     setCarrierCustom(value);
     // First manual edit to the carrier text flips it into "custom" mode —
     // any subsequent preset switch will prompt before clobbering it.
@@ -442,6 +488,7 @@ export default function GlobalInjectionClient({ payloadCatalog }) {
     setCarrierPreview((prev) => ({ ...prev, spliced: value.includes(CARRIER_SLOT_MARK) }));
     clearTimeout(carrierSaveTimerRef.current);
     carrierSaveTimerRef.current = setTimeout(() => {
+      if (localEditInFlight.current === "carrierCustom") clearLocalEditKey();
       patchSetting({ injectionCarrierCustom: value, injectionCarrierLevel: carrierLevel === "custom" ? "custom" : carrierLevel });
     }, 600);
   }
@@ -467,8 +514,12 @@ export default function GlobalInjectionClient({ payloadCatalog }) {
 
   function saveGmPreset() {
     const name = (gmPresetName.trim() || `Payload ${Object.keys(savedGodmodePresets).length + 1}`).slice(0, 40);
-    if (!godmodeCustom.trim()) return;
-    persistGodmodePresets({ ...savedGodmodePresets, [name]: godmodeCustom });
+    // Save what the editor actually shows, not just the Custom slot — on a
+    // preset level the text lives in the preview, so reading godmodeCustom
+    // here would refuse to save a real payload as an empty preset.
+    const text = godmodeEditorText;
+    if (!text.trim()) return;
+    persistGodmodePresets({ ...savedGodmodePresets, [name]: text });
     setGmPresetSource(`user:${name}`);
   }
 
@@ -485,6 +536,7 @@ export default function GlobalInjectionClient({ payloadCatalog }) {
   const godmodeSaveTimerRef = useRef(null);
   function handleGodmodeCustomChange(event) {
     const value = event.target.value;
+    setLocalEditKey("godmodeCustom");
     setGodmodeCustom(value);
     // Editing the payload must always ship the edited text: flip the selector
     // to Custom (preset levels ignore custom text — see getGodmodePrompt).
@@ -493,6 +545,7 @@ export default function GlobalInjectionClient({ payloadCatalog }) {
     if (godmodeLevel !== "custom") setGodmodeLevel("custom");
     clearTimeout(godmodeSaveTimerRef.current);
     godmodeSaveTimerRef.current = setTimeout(() => {
+      if (localEditInFlight.current === "godmodeCustom") clearLocalEditKey();
       patchSetting({ injectionGodmodeLevel: "custom", injectionGodmodeCustom: value });
     }, 600);
   }
@@ -542,9 +595,11 @@ export default function GlobalInjectionClient({ payloadCatalog }) {
   const registerSaveTimerRef = useRef(null);
   function handleRegisterCustomChange(event) {
     const value = event.target.value;
+    setLocalEditKey("registerCustom");
     setRegisterCustom(value);
     clearTimeout(registerSaveTimerRef.current);
     registerSaveTimerRef.current = setTimeout(() => {
+      if (localEditInFlight.current === "registerCustom") clearLocalEditKey();
       patchSetting({ injectionRegisterCustom: value });
     }, 600);
   }
@@ -606,9 +661,11 @@ export default function GlobalInjectionClient({ payloadCatalog }) {
   const identitySaveTimerRef = useRef(null);
   function handleInjectIdentityChange(event) {
     const value = event.target.value;
+    setLocalEditKey("identity");
     setInjectIdentity(value);
     clearTimeout(identitySaveTimerRef.current);
     identitySaveTimerRef.current = setTimeout(() => {
+      if (localEditInFlight.current === "identity") clearLocalEditKey();
       patchSetting({ injectionIdentity: value });
     }, 600);
   }
@@ -621,7 +678,7 @@ export default function GlobalInjectionClient({ payloadCatalog }) {
           <span className="text-sm font-medium text-text-main">Global Injection</span>
           <span className="text-xs text-text-muted">
             {injectEnabled
-              ? translate(`Active for all tabs & all clients — register ${injectLevel} + payload ${godmodeLevel === "custom" ? "Custom" : (GODMODE_VARIANTS.find((v) => v.id === godmodeLevel)?.label || godmodeLevel)} · ${(godmodePreview.chars || 0).toLocaleString()} chars`)
+              ? translate(`Active for all tabs & all clients — register ${injectLevel} + payload ${godmodeLevel === "custom" ? "Custom" : (GODMODE_VARIANTS.find((v) => v.id === godmodeLevel)?.label || godmodeLevel)} · ${(godmodePreview.chars || 0).toLocaleString("en-US")} chars`)
               : translate("OFF — no payload added to any request")}
           </span>
         </div>
@@ -809,7 +866,7 @@ export default function GlobalInjectionClient({ payloadCatalog }) {
                   <span className="text-[10px] text-text-muted">mengedit otomatis memindah selector ke Custom</span>
                 </header>
                 <textarea
-                  value={godmodeCustom}
+                  value={godmodeEditorText}
                   onChange={handleGodmodeCustomChange}
                   rows={6}
                   readOnly={!injectEnabled}
@@ -818,7 +875,7 @@ export default function GlobalInjectionClient({ payloadCatalog }) {
                 />
                 <p className="text-[10px] text-text-muted">
                   Effective payload: <span className="font-semibold text-text-main">{godmodeLevel === "custom" ? "Custom" : GODMODE_VARIANTS.find((v) => v.id === godmodeLevel)?.label || godmodeLevel}</span>{GODMODE_VARIANTS.find((v) => v.id === godmodeLevel)?.new && <span className="ml-1 text-primary">🆕 new</span>}
-                  {" · "}{godmodePreview.chars.toLocaleString()} chars{godmodePreview.estTokens ? ` · ≈${(godmodePreview.estTokens >= 1000 ? (godmodePreview.estTokens / 1000).toFixed(1) + "k" : godmodePreview.estTokens)} tok` : ""}
+                  {" · "}{godmodePreview.chars.toLocaleString("en-US")} chars{godmodePreview.estTokens ? ` · ≈${(godmodePreview.estTokens >= 1000 ? (godmodePreview.estTokens / 1000).toFixed(1) + "k" : godmodePreview.estTokens)} tok` : ""}
                 </p>
               </section>
 
@@ -931,10 +988,10 @@ export default function GlobalInjectionClient({ payloadCatalog }) {
                   </Button>
                    <span className="text-[10px] text-text-muted">
                      {registerCustom.trim()
-                       ? `${registerCustom.length.toLocaleString()} chars custom register — overrides ${injectLevel} preset`
+                       ? `${registerCustom.length.toLocaleString("en-US")} chars custom register — overrides ${injectLevel} preset`
                        : (injectLevel === "none"
                            ? "none — no register shaping"
-                           : `preset ${injectLevel} · ${(registerEffective.length || injectPreview.chars || 0).toLocaleString()} chars`)}
+                           : `preset ${injectLevel} · ${(registerEffective.length || injectPreview.chars || 0).toLocaleString("en-US")} chars`)}
                    </span>
                  </div>
                  <textarea
@@ -950,13 +1007,13 @@ export default function GlobalInjectionClient({ payloadCatalog }) {
               <div className="rounded-lg border border-border bg-surface-2/50 p-2">
                 <div className="mb-1 flex items-center justify-between text-[10px] text-text-muted">
                   <span className="font-semibold text-text-main">Outbound system (what ships, in order)</span>
-                  <span>register {(registerCustom.trim() ? registerCustom.length : (injectPreview.chars || 0)).toLocaleString()} + payload {(godmodePreview.chars || 0).toLocaleString()} chars · ≈{Math.round((registerCustom.trim() ? registerCustom.length : (injectPreview.chars || 0)) / 4 + (godmodePreview.chars || 0) / 4) >= 1000 ? `${(Math.round((registerCustom.trim() ? registerCustom.length : (injectPreview.chars || 0)) / 4 + (godmodePreview.chars || 0) / 4) / 1000).toFixed(1)}k` : Math.round((registerCustom.trim() ? registerCustom.length : (injectPreview.chars || 0)) / 4 + (godmodePreview.chars || 0) / 4)} tok (aggregate est)</span>
+                  <span>register {(registerCustom.trim() ? registerCustom.length : (injectPreview.chars || 0)).toLocaleString("en-US")} + payload {(godmodePreview.chars || 0).toLocaleString("en-US")} chars · ≈{Math.round((registerCustom.trim() ? registerCustom.length : (injectPreview.chars || 0)) / 4 + (godmodePreview.chars || 0) / 4) >= 1000 ? `${(Math.round((registerCustom.trim() ? registerCustom.length : (injectPreview.chars || 0)) / 4 + (godmodePreview.chars || 0) / 4) / 1000).toFixed(1)}k` : Math.round((registerCustom.trim() ? registerCustom.length : (injectPreview.chars || 0)) / 4 + (godmodePreview.chars || 0) / 4)} tok (aggregate est)</span>
                 </div>
                 <ol className="space-y-0.5 text-[10px] text-text-muted">
                   <li>
                     <span className="font-semibold text-text-main">1. Register</span> —{" "}
                     {registerCustom.trim()
-                      ? `custom (${registerCustom.length.toLocaleString()} chars, overrides ${injectLevel} preset)`
+                      ? `custom (${registerCustom.length.toLocaleString("en-US")} chars, overrides ${injectLevel} preset)`
                       : (injectLevel === "none" ? "none (no register shaping)" : `preset ${injectLevel}`)}
                     {injectIdentity.trim() ? " (+ persona identity)" : ""}
                   </li>
