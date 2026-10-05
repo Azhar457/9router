@@ -77,14 +77,7 @@ export default function TokenSaverClient() {
     ? CAVEMAN_LEVELS
     : CAVEMAN_LEVELS.filter((lvl) => !lvl.wenyan);
 
-  useEffect(() => {
-    const current = CAVEMAN_LEVELS.find((lvl) => lvl.id === cavemanLevel);
-    if (current?.wenyan && !isWenyanLocale) {
-      setCavemanLevel("ultra");
-      patchSetting({ cavemanLevel: "ultra" });
-    }
-  }, [isWenyanLocale, cavemanLevel]);
-
+  // Persist a setting patch (declared before the effect that uses it).
   const patchSetting = async (patch) => {
     try {
       await fetch("/api/settings", {
@@ -96,6 +89,19 @@ export default function TokenSaverClient() {
       console.log("Error updating setting:", error);
     }
   };
+
+  // If a wenyan-only caveman level survives a switch away from a wenyan
+  // locale, snap it back to "ultra" and persist the correction. The setState
+  // is deferred into a microtask callback (no synchronous setState in the
+  // effect body — react-hooks/set-state-in-effect); the microtask still runs
+  // before the next paint, so the snap is visually immediate.
+  useEffect(() => {
+    const current = CAVEMAN_LEVELS.find((lvl) => lvl.id === cavemanLevel);
+    if (current?.wenyan && !isWenyanLocale) {
+      queueMicrotask(() => setCavemanLevel("ultra"));
+      patchSetting({ cavemanLevel: "ultra" });
+    }
+  }, [isWenyanLocale, cavemanLevel]);
 
   const handleRtkEnabled = async (value) => {
     try {

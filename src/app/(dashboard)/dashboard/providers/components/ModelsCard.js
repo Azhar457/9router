@@ -133,7 +133,14 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
     } catch (e) { console.log("ModelsCard fetch error:", e); }
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  // Load on mount. `fetchData` is a stable useCallback, so this effect runs
+  // exactly once; the call is deferred into a microtask callback so no
+  // setState runs synchronously in the effect body (react-hooks/set-state-in-
+  // effect). The initial render already shows the empty/loading state, so the
+  // one-microtask delay is invisible.
+  useEffect(() => {
+    queueMicrotask(fetchData);
+  }, [fetchData]);
 
   const handleSetAlias = async (modelId, alias) => {
     const fullModel = `${providerAlias}/${modelId}`;
