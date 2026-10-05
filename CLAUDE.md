@@ -1,12 +1,15 @@
 # CLAUDE.md
 
-## Direction & current focus (2026-09)
+## Direction & current focus (2026-10)
 
 Read this first — it overrides default priorities:
 
+- **Dashboard transparency must be live, never decorative**: any status indicator (header Shield, model pickers, payload state) MUST read live state — fetch on mount AND on `SETTINGS_CHANGED_EVENT`, window focus, and tab visibility. An indicator that only shows its mount-time snapshot is a bug. `src/shared/lib/settingsSync.js` wraps `fetch` so every successful `/api/settings` PATCH broadcasts automatically; `src/shared/hooks/usePayloadStatus.js` is the reference hook. Don't hand-roll the dispatch at each call site.
+- **Three independent surfaces, never merged**: Jailbreak payloads (Payload tab), Strix skill-router (Penetration tab), and benchmarking (Developer tab). `injectionGodmodeCustom` (jailbreak) and `injectionSkillRouterCustom` (skill-router) are separate settings slots appended as separate blocks by `injectGlobal()` — one surface must never write the other's slot.
 - **Go migration**: the entry layer is already Go (`go/` reverse proxy owns the public port — client-IP stamping, TTFB log, RTK sidecar; `RTK_BACKEND=go`). App logic stays in Next.js for now. Direction: move more of the hot request path (v1 lane, executors, translators) into Go; keep the Next dashboard. New performance-sensitive work SHOULD land behind the Go proxy where it fits, not in new JS hot paths.
 - **Jailbreak payload curation**: active work — sorting `AI-Jailbreaks/` + `BlackFriday-GPTs-Prompts/` payloads by validity per model family (which payloads actually land on which model, model-aware routing in `open-sse/rtk/godmodePayloads.js` `MODEL_VARIANT_MAP`). Payload files are the asset being curated; treat payload effectiveness data as first-class when touching them.
-- **Token-cost visibility**: steering/jailbreak payloads are expensive (8KB–70KB). Estimates surface via `open-sse/rtk/tokenEstimate.js` (aggregate ≈ chars/4, marked "est" — tokenizers differ per model, so per-payload numbers are approximate). New payload/steering features MUST surface their token cost, not just char count.
+- **Token-cost visibility**: steering/jailbreak payloads are expensive (8KB–70KB). Estimates surface via `open-sse/rtk/tokenEstimate.js` (aggregate ≈ chars/4, marked "est" — tokenizers differ per model, so per-payload numbers are approximate). New payload/steering features MUST surface their token cost, not just char count. Anything that would ship a large blob on every request should instead ship a small pointer and let the consumer fetch the bulk on demand — see `buildStrixSkillRouterPointer()` in `open-sse/rtk/strixSkillRouter.js`.
+- **Routable-model correctness**: `/v1/models` must never advertise models a user can't reach. Switching a provider off (`isActive === false`) drops that provider's models AND any combo whose members are all unreachable. Dashboard model pickers derive from `/v1/models`, so this endpoint is the single source of truth for "which models exist right now".
 
 ## What this is
 
@@ -17,6 +20,20 @@ Two published artifacts live in this one repo:
 - The **CLI launcher** (`cli/`, published to npm as `9router`) — a separate package that installs/starts the server and manages the tray. It has its own `package.json`, version, and build.
 
 The code lives in `src/` (Next.js app + dashboard/compat APIs), `open-sse/` (the provider-agnostic routing/translation engine), `cli/` (the launcher package), and `tests/`.
+
+## Repo hygiene — local-only scaffolding (do not commit, do not ship)
+
+These folders are local development scaffolding: no `src/` or `open-sse/` file imports them, no GitHub workflow runs them, and the Docker build never copies them. All are ignored in `.gitignore`:
+
+| Folder | Contents | Keep? |
+|--------|----------|-------|
+| `benchmarks/` | perf baselines (api-latency, bundle-size, memory, lighthouse) + measure scripts | local only |
+| `uat/` | manual UAT protocol, scorecard, checklists | local only |
+| `payload-regression/` | payload composition regression reports + verdict JSON | local only |
+| `test/` | ad-hoc node self-check scripts (e.g. cline resolver narrowing) | local only |
+| `tests/` | the real vitest suite | **KEEP — regression gate** |
+
+If one of these is missing locally, it is disposable — regenerate or recreate as needed. Never wire any of them into `src/`, `open-sse/`, `.github/workflows/`, or the Dockerfile. `tests/node_modules/` (~40MB, hosts the vitest runner) is gitignored and restored with `cd tests && npm install`.
 
 ## Commands
 
@@ -44,14 +61,18 @@ cd tests && npm install                 # then tests' own deps (vitest) → test
 npx vitest run                          # all tests; auto-discovers tests/vitest.config.js
 npx vitest run unit/capabilities.test.js   # single file (path relative to tests/)
 ```
-> The committed `tests/package.json` `test` script hardcodes Unix paths (`NODE_PATH=/tmp/node_modules …`) — a shared-install workaround from upstream. On Windows (or anywhere), ignore it and use the `npx vitest` form above; `vitest.config.js` resolves the `open-sse`/`@/` aliases from the repo root regardless of where vitest lives.
->
-> **Suite is expected GREEN on a plain checkout** (as of the 0.5.60 fork sync, `tests/__baseline__/known-fails.txt` is empty — every upstream known-fail was either fixed or its test rewritten). Judge regressions with `tests/__baseline__/verify-no-regression.mjs`, not a raw run. Known expected-red, kept out of the gate:
-> - `unit/embeddings.cloud.test.js` imports `cloud/src/handlers/embeddings.js` — the `cloud/` worker dir is **not in this repo**, so it always fails here.
-> - `unit/xai-oauth-service.test.js` times out (5s) when the xAI endpoint-discovery fetch isn't reachable/mocked.
+> **Current baseline is NOT green**: ~100 tests fail on a clean checkout across
+> `translator/`, `unit/xai-oauth-service`, `unit/auth*`, and `unit/golden-url-header`
+> — these are pre-existing and unrelated to dashboard work. Judge regressions against
+> that baseline, not against zero.
+> - `unit/embeddings.cloud.test.js` imports `cloud/src/handlers/embeddings.js` — the
+>   `cloud/` worker dir is **not in this repo**, so it always fails here.
+> - `unit/xai-oauth-service.test.js` times out (5s) when the xAI endpoint-discovery
+>   fetch isn't reachable/mocked.
 > - `real/*.real.test.js` make live provider calls — need credentials, skip otherwise.
-- `*.real.test.js` under `tests/translator/real/` make live provider calls — skip unless credentials are set.
-- Regression baselines: `tests/__baseline__/verify-*.mjs` compare against committed snapshots (providers, aliases, OAuth URLs). Run these after touching provider registry / alias logic.
+> - Regression baselines: `tests/__baseline__/verify-*.mjs` compare against committed
+>   snapshots (providers, aliases, OAuth URLs). Run these after touching the provider
+>   registry or alias logic.
 
 ## Architecture
 

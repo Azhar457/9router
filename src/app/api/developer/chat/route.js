@@ -27,13 +27,32 @@ export async function POST(request) {
     return Response.json({ error: { message: "Invalid JSON body" } }, { status: 400 });
   }
 
-  // A/B mode flag: strip before forwarding; the header turns OFF router-side
-  // steering (caveman/ponytail/plinian) so arm differences reflect only the
-  // client-supplied style preset.
+  // A/B mode flags: strip before forwarding.
+  //   _noSteering  → header x-9router-token-saver: off (router-side token
+  //     savers off so arm differences reflect only the client-supplied style).
+  //   _noPayload   → header x-9router-inject: off (the global-inject
+  //     register + jailbreak payload is NOT appended to this arm — used by
+  //     the A/B "plain" control arm so it ships clean).
+  //   _injectPayload → body.__dashboardPayloadOverride, consumed by
+  //     src/sse/handlers/chat.js which overrides injectionGodmodeCustom
+  //     for THIS request only — the A/B "test" arm carries the jailbreak
+  //     payload without touching the global settings.
   let noSteering = false;
-  if (body && typeof body === "object" && body._noSteering) {
-    noSteering = true;
-    delete body._noSteering;
+  let noPayload = false;
+  let payloadOverride = "";
+  if (body && typeof body === "object") {
+    if (body._noSteering) {
+      noSteering = true;
+      delete body._noSteering;
+    }
+    if (body._noPayload) {
+      noPayload = true;
+      delete body._noPayload;
+    }
+    if (typeof body._injectPayload === "string") {
+      payloadOverride = body._injectPayload;
+      delete body._injectPayload;
+    }
   }
 
   const keys = await getApiKeys().catch(() => []);
@@ -49,6 +68,11 @@ export async function POST(request) {
   headers.set("content-type", "application/json");
   headers.set("authorization", `Bearer ${activeKey.key}`);
   if (noSteering) headers.set("x-9router-token-saver", "off");
+  if (noPayload) headers.set("x-9router-inject", "off");
+
+  if (payloadOverride) {
+    body.__dashboardPayloadOverride = payloadOverride;
+  }
 
   const url = new URL("/api/v1/chat/completions", request.url);
   const forwarded = new Request(url, {

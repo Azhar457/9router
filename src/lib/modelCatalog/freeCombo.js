@@ -284,3 +284,127 @@ export async function curateFreeCombo(opts = {}) {
 
   return { comboName, models, winners, skipped: failed, error: null };
 }
+
+/**
+ * Detect rate-limit / credit / quota failures from a ping result.
+ * True when the HTTP status is 402 or 429, or the error text (case-insensitive)
+ * mentions rate limit, credit, quota, or insufficient balance.
+ */
+function isRateLimitOrQuotaFailure(res) {
+  if (!res || res.ok) return false;
+  if (res.status === 402 || res.status === 429) return true;
+  const msg = String(res.error || "").toLowerCase();
+  return (
+    msg.includes("rate limit") ||
+    msg.includes("rate-limit") ||
+    msg.includes("credit") ||
+    msg.includes("quota") ||
+    msg.includes("insufficient")
+  );
+}
+
+/**
+ * High-level: "one free model per provider" curation.
+ * Collects all free models, pings them in a capped parallel pool (concurrency 8,
+ * 15s timeout each — matching pingModelByKind's built-in signal), skips
+ * rate-limit / credit / quota failures, and keeps exactly the lowest-latency
+ * survivor per provider.
+ * @param {{ comboName?: string, baseUrl?: string }} [opts]
+ * @returns {Promise<{ comboName: string, models: string[], winners: Array, skipped: Array, error: string|null }>}
+ */
+export async function curateFreeComboPerProvider(opts = {}) {
+  const comboName = opts.comboName || "unify";
+  const baseUrl = opts.baseUrl || `http://127.0.0.1:${process.env.PORT || UPDATER_CONFIG.appPort}`;
+
+  const all = await collectFreeModels();
+  if (all.length === 0) {
+    return { comboName, models: [], winners: [], skipped: [], error: "no free models found" };
+  }
+
+  // Group candidates by providerAlias; non-llm kinds don't fit a chat combo.
+  const byProvider = {};
+  for (const c of all) {
+    if ((c.type || "llm") !== "llm") continue;
+    (byProvider[c.providerAlias] ||= []).push(c);
+  }
+
+  const queue = [];
+  for (const cands of Object.values(byProvider)) {
+    for (const c of cands) queue.push(c);
+  }
+
+  // Capped parallel pool: ping every candidate, keep pongs with latency.
+  const results = new Map(); // full -> { candidate, res }
+  if (queue.length > 0) {
+    let cursor = 0;
+    const poolSize = Math.min(PING_CONCURRENCY, queue.length);
+    await new Promise((resolve) => {
+      const workers = Array.from({ length: poolSize }, async () => {
+        for (;;) {
+          const i = cursor++;
+          if (i >= queue.length) return;
+          const c = queue[i];
+          let res;
+          try {
+            res = await pingModelByKind(c.full, "llm", baseUrl);
+          } catch (err) {
+            res = { ok: false, error: err?.message || String(err), latencyMs: null, status: 0 };
+          }
+          results.set(c.full, { candidate: c, res });
+        }
+      });
+      Promise.all(workers).then(resolve);
+    });
+  }
+
+  const survivors = [];
+  const skipped = [];
+  for (const { candidate: c, res } of results.values()) {
+    if (!res.ok) {
+      if (isRateLimitOrQuotaFailure(res)) {
+        skipped.push({
+          ...c,
+          reason: res.status === 402 || res.status === 429
+            ? `HTTP ${res.status} rate-limit/quota`
+            : "rate-limit/credit/quota error",
+          error: res.error,
+        });
+      } else {
+        skipped.push({ ...c, reason: "ping failed", error: res.error });
+      }
+      continue;
+    }
+    survivors.push({ ...c, latencyMs: res.latencyMs });
+  }
+
+  // Lowest-latency survivor per provider. When a provider has zero survivors
+  // (e.g. every ping 401'd on a key-gate), fall back to that provider's first
+  // free llm candidate so the combo always holds exactly 1 free model per
+  // provider and is never empty as long as at least one free model exists.
+  const perProvider = {};
+  for (const s of survivors) {
+    const cur = perProvider[s.providerAlias];
+    if (!cur || s.latencyMs < cur.latencyMs) perProvider[s.providerAlias] = s;
+  }
+  for (const [alias, cands] of Object.entries(byProvider)) {
+    if (!perProvider[alias] && cands.length > 0) {
+      perProvider[alias] = { ...cands[0], latencyMs: null, fallback: true };
+    }
+  }
+  const winners = Object.values(perProvider).sort((a, b) => a.providerAlias.localeCompare(b.providerAlias));
+  const models = winners.map((w) => w.full);
+
+  // Upsert via the combo repo so the rotation cache is invalidated the same
+  // way the dashboard does it.
+  const { updateCombo, getComboByName, createCombo } = await import("@/lib/localDb");
+  const { resetComboRotation } = await import("open-sse/services/combo.js");
+  const existing = await getComboByName(comboName);
+  if (existing) {
+    await updateCombo(existing.id, { name: comboName, kind: existing.kind, models });
+    resetComboRotation(comboName);
+  } else {
+    await createCombo({ name: comboName, models, kind: null });
+  }
+
+  return { comboName, models, winners, skipped, error: null };
+}

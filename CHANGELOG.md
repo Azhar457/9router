@@ -1,3 +1,46 @@
+# v0.5.99 (2026-10-05)
+
+## Model visibility — you only see what you can actually route
+
+- **`/v1/models` now hides unreachable models.** Disabling a provider (`isActive === false`) already dropped its direct models, but **combos were pushed with no connection check at all** — so a combo wrapping a switched-off provider kept advertising it in `/v1/models`, the Combo tab, and every model picker, then failed at request time. Combos are now filtered against a live-alias set built from active connections; nested combos resolve recursively with cycle protection (combos can reference each other in a loop). When the DB is unavailable it falls back to exposing everything rather than hiding models you may legitimately use.
+- **Dashboard model lists refresh live.** `DeveloperPageClient` fetched `/v1/models` once per mount and never again, so a provider you toggled off stayed in the picker until a full reload. The fetch now re-runs on `SETTINGS_CHANGED_EVENT`, window focus, and tab visibility.
+
+## Developer tab — searchable model picker replaces clipped dropdowns
+
+- **New `ModelPicker` component.** The Race tab used one native `<select>` per provider: the OS popup clips long model ids mid-word, and with 60+ models you had to scroll a separate dropdown per provider. Replaced with a single combobox — live filtering on name *and* id, ranked so word-boundary matches beat mid-word ones, results grouped by provider with sticky headings and counts, providers with zero matches dropped entirely, selected models as removable chips, and full keyboard support (`↑`/`↓` navigate, `Enter` adds, `Esc` closes, `Backspace` removes last). Controlled component, so localStorage persistence is unchanged.
+
+## Dashboard transparency — live, not decorative
+
+- **Header Shield indicator** (`ShieldStatus`) sits next to the menu button. Compact by default: one shield glyph, red when a payload is armed, green when only passive savers run, grey when idle, with a status dot. Click it for the full panel: jailbreak payload (register level, identity, payload variant, chars, carrier), skill router, token savers, and penetration scope — each with its live state.
+- **The status was previously a decal.** `SETTINGS_CHANGED_EVENT` was exported and listened to but **never dispatched anywhere**, so indicators only ever showed their mount-time snapshot. `src/shared/lib/settingsSync.js` now wraps `globalThis.fetch` once so every successful `/api/settings` PATCH broadcasts automatically — no call site can forget, and future ones are covered for free. `usePayloadStatus` re-reads on that event, on window focus, and on tab visibility, so changes made in another window propagate too.
+- **Sidebar status strip removed** — it was a duplicate of the header Shield.
+
+## Strix skill-router — pointer mode (fetch-only)
+
+- **Strix skills are no longer inlined into every request.** The compact index cost ~618 tok per request whether the agent needed it or not, and the 8–24 KB skill markdown was the real weight. `injectGlobal()` now appends a **one-line `[STRIX-POINTER]`** (~108 tok) naming the two endpoints; the agent fetches the index and the 1–3 skills it actually needs. The full index stays as a local preview in the Penetration tab — readable, copyable, never injected.
+- **Penetration tab** writes to its own `injectionSkillRouterCustom` settings slot, fully independent of the jailbreak slot, and the card now hydrates its real ON state and char/token count from that slot on mount. New setting threaded through `settingsRepo` → `chat.js` → `chatCore.js` → `injectGlobal()`, with a separate `· ptr <tok>` line in the request log.
+- **"Use as custom payload" is now "Copy fetch URL"** — pasting the URL into your agent is the whole point of pointer mode.
+
+## Surface separation
+
+- **The Developer tab's duplicate Global Injection editor is gone** — a full second copy of persona/register/payload/carrier writing the same settings keys as the Jailbreaks card, which is how SKILL-ROUTER text kept landing in the jailbreak textbox. Replaced with a status notice + link to `/dashboard/payload`. The Jailbreaks card is the single owner.
+- **Global Injection textbox shows the jailbreak payload only**, and gains a read-only line in its outbound list when the skill router is also active.
+
+## Payload tab — collapsed by default
+
+- **Godmode Level Preview, Carrier + Payload Composition, and the RTK Payload Catalog** now sit behind one collapsed "Payload/Injection Tools" header. The Global Injection card above already states what actually ships; those three are reference surfaces, not something to wade through on every visit. Everything inside is fully functional, they just don't shout on arrival.
+
+## Repo hygiene
+
+- **Removed local-only scaffolding**: `benchmarks/`, `uat/`, `payload-regression/`, `test/`. No `src/` or `open-sse/` file imported them, no workflow ran them, and the Docker build never copied them. `tests/` is kept — it's the regression gate (its `node_modules/` is ~40MB and regenerable via `cd tests && npm install`).
+- **`.gitignore`** now explicitly ignores these plus `/benchmark/`, `/perf/`, `/perf-results/`, `*.lighthouse/`, `/tests/coverage/`, `/tests/.vite/`, and `Thumbs.db`; removed the duplicate `test/*` and `.DS_Store` entries.
+
+## Fixes
+
+- `abAbortRef is not defined` (Runtime ReferenceError in the Developer tab's A/B launcher) — the abort refs were referenced but only one was declared.
+- `useTabFlags` existed but wasn't re-exported from `src/shared/hooks/index.js`, breaking the build.
+- Hydration mismatch in `PayloadTabClient`, and several `react-hooks/set-state-in-effect` / `react-hooks/refs` violations in the A/B payload plumbing.
+
 # v0.5.98 (2026-10-01)
 
 ## GitHub-only updates

@@ -31,6 +31,8 @@ const navItems = [
   // { href: "/dashboard/pxpipe", label: "PXPIPE", icon: "image" },
   { href: "/dashboard/cli-tools", label: "CLI Tools", icon: "terminal" },
   { href: "/dashboard/developer", label: "Developer", icon: "developer_mode" },
+  { href: "/dashboard/penetration", label: "Penetration", icon: "scanner" },
+  { href: "/dashboard/payload", label: "Jailbreaks", icon: "gavel" },
 ];
 
 const debugItems = [
@@ -151,6 +153,7 @@ export default function Sidebar({ onClose }) {
              );
            })}
          </div>
+
 
         {/* Logo */}
         <div className="px-6 py-4 flex flex-col gap-2">

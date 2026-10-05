@@ -52,8 +52,6 @@ source/*
 docs/*
 !docs/ARCHITECTURE.md
 !docs/README-upstream-decolua.md
-test/*
-open-sse/test/*
 RM.vn.md
 RM.md
 cursor/*
@@ -91,12 +89,39 @@ graphify-out/*
 # fork build artifacts
 *.tgz
 cli/app/
-
+cli-beta/
 # Kiro local workspace state
 .kiro/
 
 # Machine-generated vitest JSON report (npm run test:ci) — rebuilt every run.
 tests/__baseline__/current.json
+
+# ── Dev-only scaffolding (kept locally, never part of the public artifact) ──
+# These hold benchmark baselines, UAT scorecards, payload regression reports
+# and ad-hoc self-check scripts. Nothing under src/ or open-sse/ imports them,
+# no workflow runs them, and the Docker build never copies them — so they are
+# pure local scaffolding. Tracked historically, no longer needed upstream.
+
+# Ad-hoc self-check scripts (gitignored already, kept explicit for clarity)
+/test/*
+/open-sse/test/*
+
+# Benchmark / performance baselines
+/benchmarks/
+/benchmark/
+/perf/
+/perf-results/
+/*.lighthouse/
+
+# UAT protocols + scorecards
+/uat/
+
+# Payload regression artifacts
+/payload-regression/
+
+# Local test-suite cache beyond the gitignore already in tests/.gitignore
+/tests/coverage/
+/tests/.vite/
 
 .remember/
 .vscode/

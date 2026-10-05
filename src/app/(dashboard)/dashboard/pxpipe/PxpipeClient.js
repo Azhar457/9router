@@ -86,8 +86,12 @@ export default function PxpipeClient() {
     }
   }, []);
 
+  // Load data on mount. `refresh` is a stable useCallback, so this effect runs
+  // exactly once. The call is deferred into a microtask callback so no setState
+  // runs synchronously in the effect body (react-hooks/set-state-in-effect);
+  // `loading` already starts true, so the one-microtask delay is invisible.
   useEffect(() => {
-    refresh();
+    queueMicrotask(refresh);
   }, [refresh]);
 
   const w = stats?.windows?.[windowId];

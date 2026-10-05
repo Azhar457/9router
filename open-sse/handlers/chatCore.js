@@ -64,7 +64,7 @@ export function stripContinuityFields(body) {
   return body;
 }
 
-export async function handleChatCore({ body, modelInfo, credentials, log, onCredentialsRefreshed, onRequestSuccess, onDisconnect, clientRawRequest, connectionId, userAgent, apiKey, ccFilterNaming, rtkEnabled, headroomEnabled, headroomUrl, headroomCompressUserMessages, headroomTimeoutMs, cavemanEnabled, cavemanLevel, ponytailEnabled, ponytailLevel, injectionEnabled, injectionRegisterLevel, injectionRegisterCustom, injectionIdentity, injectionGodmodeLevel, injectionGodmodeCustom, injectionCarrierEnabled, injectionCarrierLevel, injectionCarrierCustom, pxpipeEnabled, pxpipeMinChars, pxpipeTimeoutMs, pxpipeTransform, onPxpipeEvent, sourceFormatOverride, providerThinking }) {
+export async function handleChatCore({ body, modelInfo, credentials, log, onCredentialsRefreshed, onRequestSuccess, onDisconnect, clientRawRequest, connectionId, userAgent, apiKey, ccFilterNaming, rtkEnabled, headroomEnabled, headroomUrl, headroomCompressUserMessages, headroomTimeoutMs, cavemanEnabled, cavemanLevel, ponytailEnabled, ponytailLevel, injectionEnabled, injectionRegisterLevel, injectionRegisterCustom, injectionIdentity, injectionGodmodeLevel, injectionGodmodeCustom, injectionCarrierEnabled, injectionCarrierLevel, injectionCarrierCustom, injectionSkillRouterCustom, pxpipeEnabled, pxpipeMinChars, pxpipeTimeoutMs, pxpipeTransform, onPxpipeEvent, sourceFormatOverride, providerThinking }) {
   const { provider, model } = modelInfo;
   const requestStartTime = Date.now();
   // Stable per-session color so all lines of one CLI conversation share a tag
@@ -344,7 +344,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
   // that looks like "the injection didn't work".
   // x-9router-inject: off (internal probes) suppresses the payload entirely;
   // the token-saver opt-out above must NOT drop it — see the note on lines above.
-  const injectionActive = injectionEnabled && !injectionOptedOut && (injectionRegisterLevel || injectionRegisterCustom || injectionGodmodeLevel);
+  const injectionActive = injectionEnabled && !injectionOptedOut && (injectionRegisterLevel || injectionRegisterCustom || injectionGodmodeLevel || injectionSkillRouterCustom);
   if (injectionActive) {
     injectGlobal(translatedBody, finalFormat, {
       enabled: true,
@@ -357,6 +357,7 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
       carrierLevel: injectionCarrierLevel,
       carrierCustom: injectionCarrierCustom,
       model: upstreamModel,
+      skillRouterCustom: injectionSkillRouterCustom,
     });
     const est = estimateGlobalInjection({
       registerLevel: injectionRegisterLevel,
@@ -368,12 +369,16 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
       carrierLevel: injectionCarrierLevel,
       carrierCustom: injectionCarrierCustom,
       model: upstreamModel,
+      skillRouterCustom: injectionSkillRouterCustom,
     });
+    const skillTok = String(injectionSkillRouterCustom || "").trim()
+      ? Math.max(1, Math.round(String(injectionSkillRouterCustom).trim().length / 4))
+      : 0;
     xf.push(
       `GLOBAL:${injectionRegisterLevel || "none"}+` +
       `${est.effectiveLevel}` +
-      ` (est ≈${formatTok(est.total)}tok · reg ${formatTok(est.register)} + payload ${formatTok(est.payload)}` +
-      ` · car ${formatTok(est.carrier || 0)})`
+      ` (est ≈${formatTok(est.total + skillTok)}tok · reg ${formatTok(est.register)} + payload ${formatTok(est.payload)}` +
+      ` · car ${formatTok(est.carrier || 0)} · ptr ${formatTok(skillTok)})`
     );
   }
 

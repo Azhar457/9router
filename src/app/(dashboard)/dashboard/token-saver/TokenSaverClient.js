@@ -62,8 +62,13 @@ export default function TokenSaverClient() {
 
   const { copied, copy } = useCopyToClipboard();
 
+  // `locale` starts as "en" (SSR-safe) and syncs to the real cookie locale on
+  // mount; the subscription below keeps it in step on later switches. The
+  // initial setLocale is deferred into a microtask callback so no setState
+  // runs synchronously in the effect body (react-hooks/set-state-in-effect) —
+  // a microtask still resolves before the next paint, so no visible flash.
   useEffect(() => {
-    setLocale(getCurrentLocale());
+    queueMicrotask(() => setLocale(getCurrentLocale()));
     return onLocaleChange(() => setLocale(getCurrentLocale()));
   }, []);
 

@@ -329,14 +329,82 @@ export async function buildModelsList(kindFilter, options = {}) {
     }
   }
 
+  // ── Combo health ──────────────────────────────────────────────────────────
+  // A combo is just a stored list of model ids ("alias/modelId"). It has no
+  // connection of its own, so switching a provider off used to leave the combo
+  // advertising that provider's models anyway — they kept showing up in
+  // /v1/models, the Combo tab, and every model picker, then failed at request
+  // time. Build the set of aliases/providers that currently have a live
+  // connection, and drop any combo whose members are all unreachable.
+  //
+  // Nested combos (a combo referencing another combo) resolve recursively with
+  // cycle protection, since combos can reference each other in a loop.
+  const liveAliases = new Set();
+  for (const [providerId, conn] of activeConnectionByProvider.entries()) {
+    const outputAlias = (
+      conn?.providerSpecificData?.prefix ||
+      getProviderAlias(providerId) ||
+      PROVIDER_ID_TO_ALIAS[providerId] ||
+      providerId
+    ).trim();
+    liveAliases.add(outputAlias);
+    liveAliases.add(PROVIDER_ID_TO_ALIAS[providerId] || providerId);
+    liveAliases.add(providerId);
+  }
+
+  // A model id is "routable" when its alias/provider prefix is live. Web
+  // search/fetch pseudo-models ("alias/search", "alias/fetch") inherit the
+  // same liveness as their alias.
+  function modelAliasIsLive(modelId) {
+    const raw = String(modelId || "").trim();
+    if (!raw) return false;
+    const slash = raw.indexOf("/");
+    if (slash === -1) return false;
+    return liveAliases.has(raw.slice(0, slash));
+  }
+
+  // DB unavailable → we have no connection rows to judge liveness by, so fall
+  // back to the static catalog and expose everything rather than hiding models
+  // the operator may well be able to use.
+  const canJudgeComboHealth = connections.length > 0;
+
+  const comboByName = Object.fromEntries(combos.map((c) => [c.name, c.models]));
+  const comboAliveCache = new Map();
+
+  function comboIsAlive(name, visiting = new Set()) {
+    if (!canJudgeComboHealth) return true;
+    if (comboAliveCache.has(name)) return comboAliveCache.get(name);
+    if (!name || visiting.has(name)) return false;
+    visiting.add(name);
+    const members = comboByName[name];
+    let alive = false;
+    if (Array.isArray(members) && members.length) {
+      for (const member of members) {
+        const raw = typeof member === "string" ? member.trim() : "";
+        if (!raw) continue;
+        if (comboByName[raw]) {
+          if (comboIsAlive(raw, visiting)) { alive = true; break; }
+          continue;
+        }
+        if (modelAliasIsLive(raw)) { alive = true; break; }
+      }
+    }
+    visiting.delete(name);
+    comboAliveCache.set(name, alive);
+    return alive;
+  }
+
   const models = [];
 
   // Lookup map so aggregateComboCapabilities can recursively resolve nested combos
-  const comboByName = Object.fromEntries(combos.map((c) => [c.name, c.models]));
+  const comboByNameForCaps = comboByName;
 
-  // Combos first (filtered by kind). Web combos expose `kind` so AI knows search vs fetch.
+  // Combos first (filtered by kind, then by provider liveness). Web combos expose
+  // `kind` so AI knows search vs fetch.
   for (const combo of combos) {
     if (!comboMatchesKinds(combo, kindFilter)) continue;
+    // Skip a combo whose providers are all switched off — it can never route.
+    if (!comboIsAlive(combo.name)) continue;
     const entry = {
       id: combo.name,
       object: "model",
@@ -345,7 +413,7 @@ export async function buildModelsList(kindFilter, options = {}) {
     if (combo.kind === "webSearch" || combo.kind === "webFetch") {
       entry.kind = combo.kind;
     } else {
-      const comboCaps = aggregateComboCapabilities(combo.models, comboByName);
+      const comboCaps = aggregateComboCapabilities(combo.models, comboByNameForCaps);
       if (comboCaps) entry.capabilities = comboCaps;
     }
     models.push(entry);

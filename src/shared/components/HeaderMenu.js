@@ -3,9 +3,19 @@
 import { useState, useEffect, useRef } from "react";
 import PropTypes from "prop-types";
 import { useTheme } from "@/shared/hooks/useTheme";
+import { installSettingsSync } from "@/shared/lib/settingsSync";
 import ChangelogModal from "./ChangelogModal";
- import { ConfirmModal } from "./Modal";
- import ThemePalettePicker from "./ThemePalettePicker";
+import { ConfirmModal } from "./Modal";
+import ThemePalettePicker from "./ThemePalettePicker";
+import ShieldStatus from "./ShieldStatus";
+
+// Wrap the global fetch so every successful /api/settings PATCH broadcasts
+// SETTINGS_CHANGED_EVENT. HeaderMenu renders once per app mount, so this is
+// the natural home for the install — the Shield below then stays genuinely
+// live instead of being a stale mount-time snapshot.
+if (typeof window !== "undefined" && !globalThis.__9rSettingsSyncInstalled) {
+  installSettingsSync();
+}
 
 function MenuItem({ icon, label, onClick, trailing, danger }) {
   return (
@@ -69,6 +79,8 @@ export default function HeaderMenu({ onLogout }) {
 
   return (
     <>
+      <ShieldStatus />
+
       <div className="relative" ref={menuRef}>
         <button
           onClick={() => setIsOpen((v) => !v)}

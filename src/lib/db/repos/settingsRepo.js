@@ -67,6 +67,12 @@ const DEFAULT_SETTINGS = {
   injectionIdentity: "",
   injectionGodmodeLevel: "classic",
   injectionGodmodeCustom: "",
+  // Separate slot for the Penetration tab's SKILL-ROUTER-STRIX payload.
+  // Rides alongside the jailbreak payload (injectionGodmodeCustom) without
+  // clobbering it — jailbreak and skill-router stay fully independent.
+  // Appended to the system message as its own block when injectionEnabled
+  // is true and this field is non-empty.
+  injectionSkillRouterCustom: "",
   // Optional carrier wrapping — a second "carrier" payload that auto-wraps
   // the main payload into its slot when enabled. Off by default (wrapping is
   // not always more effective). The carrier text is customizable.

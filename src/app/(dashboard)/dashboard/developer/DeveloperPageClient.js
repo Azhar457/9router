@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Button } from "@/shared/components";
+import { Button, ModelPicker } from "@/shared/components";
 import {
   getPersonaTemplate,
   getStylePreset,
@@ -14,6 +14,9 @@ import {
 } from "@/shared/constants/developerPresets";
 import { countHedges, rankResults, scoreResponse } from "@/shared/lib/plinianScoring";
 import { suggestParams } from "@/shared/lib/autotuneLite";
+import { SETTINGS_CHANGED_EVENT } from "@/shared/lib/outboundManifest";
+import { translate } from "@/i18n/runtime";
+import { cn } from "@/shared/utils/cn";
 import ToolkitClient from "./ToolkitClient";
 import TransparencyClient from "./TransparencyClient";
 
@@ -28,6 +31,7 @@ const STORAGE_KEYS = {
   draft: "developer.draft",
   abPreset: "developer.abPreset",
   abTokenSaver: "developer.abTokenSaver",
+  abPayload: "developer.abPayload",
   autotune: "developer.autotune",
   personas: "developer.personas",
   godmodePresets: "developer.godmodePresets",
@@ -249,7 +253,17 @@ function errorHint(message) {
 }
 
 // One request through the dashboard relay. Shared by Single / Race / A-B.
-async function launchOne({ model, systemPromptText, query, temperature: temp, maxTokens: maxTok, signal, noSteering = false }) {
+async function launchOne({
+  model,
+  systemPromptText,
+  query,
+  temperature: temp,
+  maxTokens: maxTok,
+  signal,
+  noSteering = false,
+  payloadText = "",
+  noPayload = false,
+}) {
   const startedAt = performance.now();
   try {
     const response = await fetch("/api/developer/chat", {
@@ -262,6 +276,11 @@ async function launchOne({ model, systemPromptText, query, temperature: temp, ma
         temperature: temp,
         max_tokens: maxTok,
         ...(noSteering ? { _noSteering: true } : {}),
+        // Per-request global-inject override:
+        //   payloadText → "test" arm carries the jailbreak payload.
+        //   noPayload   → "plain" arm ships clean (strip injection).
+        ...(payloadText ? { _injectPayload: payloadText } : {}),
+        ...(noPayload ? { _noPayload: true } : {}),
       }),
       signal,
     });
@@ -296,6 +315,7 @@ export default function DeveloperPageClient() {
   const [providerGroups, setProviderGroups] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [settingsToken, setSettingsToken] = useState(0);
 
   const [mode, setMode] = useState(() => {
     const saved = readStoredString(STORAGE_KEYS.mode, "single");
@@ -400,6 +420,11 @@ export default function DeveloperPageClient() {
   const [abUseTokenSaver, setAbUseTokenSaver] = useState(
     () => readStoredString(STORAGE_KEYS.abTokenSaver, "off") === "on"
   );
+  const [abUsePayload, setAbUsePayload] = useState(
+    () => readStoredString(STORAGE_KEYS.abPayload, "off") === "on"
+  );
+  const [abPayloadText, setAbPayloadText] = useState("");
+  const [abPayloadSource, setAbPayloadSource] = useState("none");
 
   const singleAbortRef = useRef(null);
   const raceAbortRef = useRef(null);
@@ -496,11 +521,12 @@ export default function DeveloperPageClient() {
     return () => { cancelled = true; clearTimeout(t); };
   }, [injectEnabled, injectLevel, injectIdentity, registerCustom]);
 
-  // Load the preset's canonical register text so the editor shows it. Re-runs
-  // when the level changes (not when the user is mid-edit, so typing doesn't
-  // wipe the textarea).
+  // Load the preset's canonical register text so the editor shows it. The
+  // fetch effect is async-only (no synchronous setState in the body); the
+  // "none" level resets the derived register via a lazy initializer so the
+  // effect body never calls setState directly.
   useEffect(() => {
-    if (injectLevel === "none") { setRegisterEffective(""); return; }
+    if (injectLevel === "none") return;
     let cancelled = false;
     fetch("/api/developer/plinian-preview", {
       method: "POST",
@@ -512,6 +538,9 @@ export default function DeveloperPageClient() {
       .catch(() => {});
     return () => { cancelled = true; };
   }, [injectLevel]);
+
+  // "none" level → derived empty register (no synchronous set-in-effect).
+  const effectiveRegister = injectLevel === "none" ? "" : registerEffective;
 
   async function changeInjectLevel(level) {
     setInjectLevel(level);
@@ -893,6 +922,27 @@ export default function DeveloperPageClient() {
     return () => {
       cancelled = true;
     };
+    // Re-runs when any provider connection / combo / disabled-model setting
+    // changes. Without this the picker kept listing providers the operator had
+    // just switched off, because /v1/models was fetched exactly once per mount
+    // and never refreshed while the tab stayed open.
+  }, [settingsToken]);
+
+  // Any successful /api/settings PATCH (settingsSync wraps fetch) bumps this,
+  // as does returning to the tab — both paths change which providers are live.
+  useEffect(() => {
+    const bump = () => setSettingsToken((v) => v + 1);
+    globalThis.addEventListener?.(SETTINGS_CHANGED_EVENT, bump);
+    globalThis.addEventListener?.("focus", bump);
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") bump();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      globalThis.removeEventListener?.(SETTINGS_CHANGED_EVENT, bump);
+      globalThis.removeEventListener?.("focus", bump);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, []);
 
   const modelIndex = useMemo(() => {
@@ -937,6 +987,33 @@ export default function DeveloperPageClient() {
   useEffect(() => {
     globalThis.localStorage.setItem(STORAGE_KEYS.abTokenSaver, abUseTokenSaver ? "on" : "off");
   }, [abUseTokenSaver]);
+  useEffect(() => {
+    globalThis.localStorage.setItem(STORAGE_KEYS.abPayload, abUsePayload ? "on" : "off");
+  }, [abUsePayload]);
+  // When A/B payload mode is on, fetch the currently active global-inject
+  // custom payload so the "test" arm can ride it per-request without
+  // touching the global settings. setState only in async .then callbacks
+  // (the effect body itself stays setState-free, per the set-state rule).
+  useEffect(() => {
+    if (!abUsePayload) return;
+    let cancelled = false;
+    fetch("/api/settings", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((s) => {
+        if (cancelled || !s) return;
+        const custom = typeof s.injectionGodmodeCustom === "string" ? s.injectionGodmodeCustom : "";
+        if (custom.trim()) {
+          setAbPayloadText(custom);
+          setAbPayloadSource("injectionGodmodeCustom");
+        } else {
+          setAbPayloadSource("none");
+        }
+      })
+      .catch(() => !cancelled && setAbPayloadSource("none"));
+    return () => {
+      cancelled = true;
+    };
+  }, [abUsePayload]);
   useEffect(() => {
     globalThis.localStorage.setItem(STORAGE_KEYS.autotune, autotuneOn ? "on" : "off");
   }, [autotuneOn]);
@@ -1197,7 +1274,7 @@ export default function DeveloperPageClient() {
         entries.push({
           key: `${arm.id}:${model.id}`,
           arm: arm.id,
-          armLabel: arm.id === "plain" ? "Plain" : testPreset.label,
+          armLabel: arm.id === "plain" ? "Default" : testPreset.label,
           model,
           status: "pending",
           content: "",
@@ -1225,6 +1302,7 @@ export default function DeveloperPageClient() {
       }
 
       updateEntry(entry.key, { status: "running" });
+      const isPlain = entry.arm === "plain";
       const result = await launchOne({
         model: entry.model,
         systemPromptText: buildSystemFor(arms.find((a) => a.id === entry.arm).presetId),
@@ -1233,6 +1311,11 @@ export default function DeveloperPageClient() {
         maxTokens,
         signal: controller.signal,
         noSteering: !abUseTokenSaver,
+        // "plain" arm ships clean (no jailbreak payload) — the control.
+        // "test" arm optionally rides the global-inject payload so the
+        // delta measures payload effectiveness, not just style delta.
+        payloadText: !isPlain && abUsePayload ? abPayloadText : "",
+        noPayload: isPlain,
       });
 
       if (result.ok) {
@@ -1529,335 +1612,36 @@ export default function DeveloperPageClient() {
         </span>
       </div>
 
-      <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface/40 p-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <span className={`material-symbols-outlined text-[20px] ${injectEnabled ? "text-primary" : "text-text-muted"}`}>bolt</span>
-          <div className="flex min-w-[220px] flex-col">
-            <span className="text-sm font-medium text-text-main">Global Injection</span>
-            <span className="text-xs text-text-muted">
-              Appends register prompt + G0DM0D3 jailbreak payload to every proxied request — Hermes, CLI tools, all clients
-            </span>
-          </div>
-          <button
-            onClick={() => toggleInject(!injectEnabled)}
-            className={`h-8 rounded-lg px-4 text-xs font-semibold transition-colors ${
-              injectEnabled
-                ? "bg-green-600 text-white hover:bg-green-700"
-                : "bg-surface-2 border border-border text-text-muted hover:text-text-main"
-            }`}
-          >
-            {injectEnabled ? "ON" : "OFF"}
-          </button>
+      {/* ── Global Injection notice — the duplicate editor was removed; the
+          single source of truth is the Global Injection card in the
+          Jailbreaks tab (/dashboard/payload). This tab still hydrates the
+          same settings keys (read-only) so Transparency + A/B reflect the
+          live state, but no control here writes to them anymore. ──────── */}
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-surface/40 p-3">
+        <span
+          className={cn(
+            "material-symbols-outlined text-[20px]",
+            injectEnabled ? "text-primary" : "text-text-muted"
+          )}
+        >
+          bolt
+        </span>
+        <div className="flex min-w-[220px] flex-1 flex-col">
+          <span className="text-sm font-semibold text-text-main">Global Injection</span>
+          <span className="text-xs text-text-muted">
+            {injectEnabled
+              ? "ON — register + jailbreak payload ride every proxied request. Manage in the Jailbreaks tab."
+              : "OFF — no payload on any request. Manage in the Jailbreaks tab."}
+          </span>
         </div>
-
-        {injectEnabled && (
-          <div className="flex flex-col gap-4 w-full">
-            {/* ── 1. Persona preset ───────────────────────────── */}
-            <div className="flex flex-col gap-1.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="w-24 text-[11px] font-semibold uppercase tracking-wide text-text-muted">Persona</span>
-                <select
-                  value={personaSource}
-                  onChange={(event) => setPersonaSource(event.target.value)}
-                  className="h-8 min-w-[220px] rounded-lg border border-border bg-surface px-2 text-xs text-text-main"
-                >
-                  <option value="">Preset persona…</option>
-                  <optgroup label="Templates">
-                    {PERSONA_TEMPLATES.map((tpl) => (
-                      <option key={tpl.id} value={`tpl:${tpl.id}`}>
-                        {tpl.label}
-                      </option>
-                    ))}
-                  </optgroup>
-                  {Object.keys(savedPersonas).length > 0 && (
-                    <optgroup label="My presets">
-                      {Object.keys(savedPersonas).map((name) => (
-                        <option key={name} value={`user:${name}`}>
-                          {name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                </select>
-                <Button variant="secondary" size="sm" icon="download" onClick={applyPersonaSource} disabled={!personaSource}>
-                  Apply
-                </Button>
-                <input
-                  value={personaName}
-                  onChange={(event) => setPersonaName(event.target.value)}
-                  placeholder="Preset 1…"
-                  className="h-8 w-32 rounded-lg border border-border bg-surface px-2 text-xs text-text-main"
-                />
-                <Button variant="secondary" size="sm" icon="save" onClick={savePersona} disabled={!injectIdentity.trim()}>
-                  Save
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  icon="delete"
-                  onClick={deletePersona}
-                  disabled={!personaSource.startsWith("user:")}
-                >
-                  Delete
-                </Button>
-              </div>
-              <textarea
-                value={injectIdentity}
-                onChange={handleInjectIdentityChange}
-                rows={2}
-                placeholder="Optional identity override, prepended first — e.g. &quot;You are 9Router-Plinian, the local AI routing gateway. If asked who you are, answer: I'm 9Router-Plinian — local gateway. Ready.&quot;"
-                className="w-full resize-y rounded-lg border border-border bg-surface px-3 py-2 font-mono text-xs text-text-main outline-none focus:border-primary/50"
-              />
-            </div>
-
-            {/* ── 2. Payload preset ───────────────────────────── */}
-            <div className="flex flex-col gap-1.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="w-24 text-[11px] font-semibold uppercase tracking-wide text-text-muted">Payload</span>
-                <select
-                  value={payloadSort}
-                  onChange={(event) => setPayloadSort(event.target.value)}
-                  title="Reorder payload list by catalog metadata"
-                  className="h-8 rounded-lg border border-border bg-surface px-2 text-xs text-text-main"
-                >
-                  {SORT_KEYS.map((key) => (
-                    <option key={key.id} value={key.id}>{key.label}</option>
-                  ))}
-                </select>
-                <select
-                  value={godmodeLevel}
-                  onChange={(event) => changeGodmodeVariant(event.target.value)}
-                  className="h-8 min-w-[280px] rounded-lg border border-border bg-surface px-2 text-xs text-text-main"
-                >
-                  {PAYLOAD_CATEGORIES_UI.map((cat) => {
-                    const items = sortVariants(GODMODE_VARIANTS.filter((v) => v.cat === cat.key));
-                    if (!items.length) return null;
-                    return (
-                      <optgroup key={cat.key} label={cat.label}>
-                        {items.map((variant) => (
-                          <option key={variant.id} value={variant.id}>
-                            {variant.label}{variant.new ? " 🆕 new" : ""}{variant.builtInCarrier ? " (already wraps)" : ""}
-                          </option>
-                        ))}
-                      </optgroup>
-                    );
-                  })}
-                </select>
-                <select
-                  value={gmPresetSource}
-                  onChange={(event) => setGmPresetSource(event.target.value)}
-                  className="h-8 min-w-[200px] rounded-lg border border-border bg-surface px-2 text-xs text-text-main"
-                >
-                  <option value="">Saved payload preset…</option>
-                  {Object.keys(savedGodmodePresets).length > 0 && (
-                    <optgroup label="My payloads">
-                      {Object.keys(savedGodmodePresets).map((name) => (
-                        <option key={name} value={`user:${name}`}>
-                          {name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                </select>
-                <Button variant="secondary" size="sm" icon="download" onClick={applyGmPresetSource} disabled={!gmPresetSource}>
-                  Apply
-                </Button>
-                <input
-                  value={gmPresetName}
-                  onChange={(event) => setGmPresetName(event.target.value)}
-                  placeholder="Payload 1…"
-                  className="h-8 w-32 rounded-lg border border-border bg-surface px-2 text-xs text-text-main"
-                />
-                <Button variant="secondary" size="sm" icon="save" onClick={saveGmPreset} disabled={!godmodeCustom.trim()}>
-                  Save
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  icon="delete"
-                  onClick={deleteGmPreset}
-                  disabled={!gmPresetSource.startsWith("user:")}
-                >
-                  Delete
-                </Button>
-              </div>
-              <textarea
-                value={godmodeCustom}
-                onChange={handleGodmodeCustomChange}
-                rows={6}
-                placeholder="Effective jailbreak payload — editing switches the payload selector to Custom mode."
-                className="w-full resize-y rounded-lg border border-border bg-surface px-3 py-2 font-mono text-xs text-text-main outline-none focus:border-primary/50"
-              />
-              <p className="text-[10px] text-text-muted">
-                Effective payload: <span className="font-semibold text-text-main">{godmodeLevel === "custom" ? "Custom" : GODMODE_VARIANTS.find((v) => v.id === godmodeLevel)?.label || godmodeLevel}</span>{GODMODE_VARIANTS.find((v) => v.id === godmodeLevel)?.new && <span className="ml-1 text-primary">🆕 new</span>}
-                {" · "}{godmodePreview.chars.toLocaleString()} chars{godmodePreview.estTokens ? ` · ≈${(godmodePreview.estTokens >= 1000 ? (godmodePreview.estTokens / 1000).toFixed(1) + "k" : godmodePreview.estTokens)} tok` : ""}
-              </p>
-
-              {/* ── 2b. Carrier (optional column) ───────────────────────── */}
-              <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-surface-2/40 p-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <label className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-                    <input
-                      type="checkbox"
-                      checked={carrierEnabled}
-                      onChange={(event) => toggleCarrierEnabled(event.target.checked)}
-                      className="h-4 w-4 accent-primary"
-                    />
-                    Carrier wrap <span className="normal-case text-text-muted">(optional — not always more effective)</span>
-                  </label>
-                  {carrierEnabled && (
-                    <>
-                      <select
-                        value={carrierLevel}
-                        onChange={(event) => changeCarrierVariant(event.target.value)}
-                        className="h-8 min-w-[240px] rounded-lg border border-border bg-surface px-2 text-xs text-text-main"
-                      >
-                        {CARRIER_VARIANTS.map((variant) => (
-                          <option key={variant.id || "off"} value={variant.id}>
-                            {variant.label}{variant.carrier ? " (auto-wrap)" : ""}
-                          </option>
-                        ))}
-                      </select>
-                      <span className="text-[10px] text-text-muted">
-                        {carrierPreview.spliced
-                          ? "📦 splices payload into [YOUR JAILBREAK HERE]"
-                          : (carrierLevel ? "appends payload after carrier (no slot)" : "")}
-                      </span>
-                    </>
-                  )}
-                </div>
-                {carrierEnabled && (
-                  <textarea
-                    value={carrierCustom}
-                    onChange={handleCarrierCustomChange}
-                    rows={3}
-                    placeholder="Effective carrier text — edit to customize the wrap (e.g. tweak the [YOUR JAILBREAK HERE] slot or add framing)."
-                    className="w-full resize-y rounded-lg border border-border bg-surface px-3 py-2 font-mono text-xs text-text-main outline-none focus:border-primary/50"
-                  />
-                )}
-              </div>
-            </div>
-
-            {/* ── 3. Plinian (register) preset ────────────────── */}
-            <div className="flex flex-col gap-1.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="w-24 text-[11px] font-semibold uppercase tracking-wide text-text-muted">Register</span>
-                <select
-                  value={registerPresetSource}
-                  onChange={(event) => setRegisterPresetSource(event.target.value)}
-                  className="h-8 min-w-[220px] rounded-lg border border-border bg-surface px-2 text-xs text-text-main"
-                >
-                  <option value="">Preset register…</option>
-                  <optgroup label="Plinian presets">
-                    {INJECT_LEVELS.map((level) => (
-                      <option key={level.id} value={`lvl:${level.id}`}>
-                        {level.label}
-                      </option>
-                    ))}
-                  </optgroup>
-                  {Object.keys(savedRegisterPresets).length > 0 && (
-                    <optgroup label="My register presets">
-                      {Object.keys(savedRegisterPresets).map((name) => (
-                        <option key={name} value={`user:${name}`}>
-                          {name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                </select>
-                <Button variant="secondary" size="sm" icon="download" onClick={applyRegisterPreset} disabled={!registerPresetSource}>
-                  Apply
-                </Button>
-                <input
-                  value={registerPresetName}
-                  onChange={(event) => setRegisterPresetName(event.target.value)}
-                  placeholder="Custom 1…"
-                  className="h-8 w-28 rounded-lg border border-border bg-surface px-2 text-xs text-text-main"
-                />
-                <Button variant="secondary" size="sm" icon="save" onClick={saveRegisterPreset} disabled={!registerCustom.trim()}>
-                  Save
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  icon="delete"
-                  onClick={deleteRegisterPreset}
-                  disabled={!registerPresetSource.startsWith("user:")}
-                >
-                  Delete
-                </Button>
-                 <span className="text-[10px] text-text-muted">
-                   {registerCustom.trim()
-                     ? `${registerCustom.length.toLocaleString()} chars custom register — overrides ${injectLevel} preset`
-                     : (injectLevel === "none"
-                         ? "none — no register shaping"
-                         : `preset ${injectLevel} · ${(registerEffective.length || injectPreview.chars || 0).toLocaleString()} chars`)}
-                 </span>
-               </div>
-               <textarea
-                 value={registerCustom.trim() ? registerCustom : registerEffective}
-                 onChange={handleRegisterCustomChange}
-                 rows={4}
-                 disabled={injectLevel === "none"}
-                 placeholder={injectLevel === "none" ? "Register disabled (none)" : "Edit the register text — editing flips to Custom; save an empty value to fall back to the preset"}
-                 className="w-full resize-y rounded-lg border border-border bg-surface px-3 py-2 font-mono text-xs text-text-main outline-none focus:border-primary/50 disabled:opacity-40 disabled:cursor-not-allowed"
-               />
-            </div>
-
-            <div className="rounded-lg border border-border bg-surface-2/50 p-2">
-              <div className="mb-1 flex items-center justify-between text-[10px] text-text-muted">
-                <span className="font-semibold text-text-main">Outbound system (what ships, in order)</span>
-                <span>register {(registerCustom.trim() ? registerCustom.length : (injectPreview.chars || 0)).toLocaleString()} + payload {(godmodePreview.chars || 0).toLocaleString()} chars · ≈{Math.round((registerCustom.trim() ? registerCustom.length : (injectPreview.chars || 0)) / 4 + (godmodePreview.chars || 0) / 4) >= 1000 ? `${(Math.round((registerCustom.trim() ? registerCustom.length : (injectPreview.chars || 0)) / 4 + (godmodePreview.chars || 0) / 4) / 1000).toFixed(1)}k` : Math.round((registerCustom.trim() ? registerCustom.length : (injectPreview.chars || 0)) / 4 + (godmodePreview.chars || 0) / 4)} tok (aggregate est)</span>
-              </div>
-              <ol className="space-y-0.5 text-[10px] text-text-muted">
-                <li>
-                  <span className="font-semibold text-text-main">1. Register</span> —{" "}
-                  {registerCustom.trim()
-                    ? `custom (${registerCustom.length.toLocaleString()} chars, overrides ${injectLevel} preset)`
-                    : (injectLevel === "none" ? "none (no register shaping)" : `preset ${injectLevel}`)}
-                  {injectIdentity.trim() ? " (+ persona identity)" : ""}
-                </li>
-                <li>
-                  <span className="font-semibold text-text-main">2. Jailbreak payload</span> —{" "}
-                  {godmodeLevel === "custom" ? "Custom" : GODMODE_VARIANTS.find((v) => v.id === godmodeLevel)?.label || godmodeLevel}
-                  {GODMODE_VARIANTS.find((v) => v.id === godmodeLevel)?.new && <span className="ml-1 text-primary">🆕 new</span>}
-                </li>
-                {carrierEnabled && (
-                  <li>
-                    <span className="font-semibold text-text-main">3. Carrier wrap</span> —{" "}
-                    {carrierLevel ? (CARRIER_VARIANTS.find((v) => (v.id || "off") === carrierLevel)?.label || carrierLevel) : "Custom carrier"}
-                    {carrierPreview.spliced ? " (auto-wraps payload)" : " (appends payload)"}
-                  </li>
-                )}
-              </ol>
-              <p className="mt-1 text-[10px] text-text-muted">
-                While ON, both are appended to every proxied request — Hermes, CLI tools, all clients.
-              </p>
-            </div>
-            {carrierEnabled && (
-              <p className="text-[10px] text-text-muted">
-                With carrier ON, the payload rides inside the carrier frame on every proxied request — toggle off if wrapping hurts land-rate for your target model.
-              </p>
-            )}
-          </div>
-        )}
+        <a
+          href="/dashboard/payload"
+          className="h-8 rounded-lg border border-border bg-surface-2 px-4 py-1.5 text-xs font-semibold text-text-main transition-colors hover:bg-surface"
+        >
+          Open Jailbreaks tab →
+        </a>
       </div>
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-3">
-        <label className="flex flex-col gap-1 text-xs text-text-muted">
-          Style preset
-          <select
-            value={styleId}
-            onChange={(event) => setStyleId(event.target.value)}
-            className="h-9 rounded-lg border border-border bg-surface px-2 text-sm text-text-main"
-          >
-            {STYLE_PRESETS.map((preset) => (
-              <option key={preset.id} value={preset.id}>
-                {preset.label} — {preset.description}
-              </option>
-            ))}
-          </select>
-        </label>
-
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
         <label className="flex flex-col gap-1 text-xs text-text-muted">
           Temperature
           <input
@@ -1882,6 +1666,21 @@ export default function DeveloperPageClient() {
             onChange={(event) => setMaxTokens(parseInt(event.target.value, 10) || 4096)}
             className="h-9 rounded-lg border border-border bg-surface px-2 text-sm text-text-main"
           />
+        </label>
+
+        <label className="flex flex-col gap-1 text-xs text-text-muted">
+          Style preset
+          <select
+            value={styleId}
+            onChange={(event) => setStyleId(event.target.value)}
+            className="h-9 rounded-lg border border-border bg-surface px-2 text-sm text-text-main"
+          >
+            {STYLE_PRESETS.map((preset) => (
+              <option key={preset.id} value={preset.id}>
+                {preset.label} — {preset.description}
+              </option>
+            ))}
+          </select>
         </label>
       </div>
 
@@ -2008,29 +1807,24 @@ export default function DeveloperPageClient() {
               )}
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              {providerGroups.map((group) => (
-                <select
-                  key={group.providerId}
-                  defaultValue=""
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    if (v) {
-                      toggleRaceModel(v);
-                      e.currentTarget.value = "";
-                    }
-                  }}
-                  className="h-9 max-w-[220px] rounded-lg border border-border bg-surface px-2 text-sm text-text-main outline-none focus:border-primary/50"
-                >
-                  <option value="">{group.providerName}…</option>
-                  {group.models.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
-                  ))}
-                </select>
-              ))}
-            </div>
+            <ModelPicker
+              groups={providerGroups}
+              selected={raceIds}
+              onToggle={toggleRaceModel}
+              onClear={() => {
+                setRaceIds([]);
+                setJudgeVerdict(null);
+              }}
+              placeholder={translate("Search models to race…")}
+            />
+            {loadingData && (
+              <p className="flex items-center gap-2 text-xs text-text-muted">
+                <span className="material-symbols-outlined animate-spin text-[16px]">
+                  progress_activity
+                </span>
+                {translate("Refreshing live models…")}
+              </p>
+            )}
             {raceIds.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
                 {raceIds.map((id) => {
@@ -2094,7 +1888,7 @@ export default function DeveloperPageClient() {
               )}
               {mode === "ab" && !abBusy && raceIds.length > 0 && (
                 <span className="text-xs text-text-muted">
-                  sequential · {raceIds.length * 2} calls · Plain vs {getStylePreset(abPresetId).label}
+                  sequential · {raceIds.length * 2} calls · A = {getStylePreset(abPresetId).label}{abUsePayload ? " + payload" : ""} vs B = default
                 </span>
               )}
               {mode === "race" && raceNotice && <span className="text-sm text-amber-500">{raceNotice}</span>}
@@ -2143,6 +1937,31 @@ export default function DeveloperPageClient() {
                   {abUseTokenSaver
                     ? "Caveman/Ponytail + global Plinian ride along in BOTH arms"
                     : "router steering bypassed — arms differ only by the presets above"}
+                </span>
+              </div>
+            )}
+
+            {mode === "ab" && (
+              <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface-2/60 p-2.5">
+                <span className="text-xs font-semibold text-text-main">
+                  Jailbreak Payload
+                </span>
+                <button
+                  onClick={() => setAbUsePayload(!abUsePayload)}
+                  disabled={abBusy || (!abPayloadText && abUsePayload)}
+                  title="Test arm rides the global-inject payload per-request; plain arm ships clean"
+                  className={`rounded-md px-2 py-1 text-xs font-semibold transition-colors ${
+                    abUsePayload ? "bg-red-500 text-white" : "bg-surface border border-border text-text-muted"
+                  }`}
+                >
+                  {abUsePayload ? "ON" : "OFF"}
+                </button>
+                <span className="text-xs text-text-muted">
+                  {abUsePayload
+                    ? abPayloadText
+                      ? `test arm rides ${abPayloadText.length.toLocaleString()} chars · ≈${Math.max(1, Math.round(abPayloadText.length / 4))} tok — plain arm stays clean`
+                      : "no custom payload in settings — set one in the Payload tab or Penetration tab first"
+                    : "measure style-preset delta only (no payload)"}
                 </span>
               </div>
             )}
@@ -2252,13 +2071,13 @@ export default function DeveloperPageClient() {
                 <div className="rounded-xl border border-border bg-surface/40 p-3 text-sm">
                   <span className="font-medium text-text-main">A/B verdict</span>
                   <span className="ml-2 text-text-muted">
-                    mean {abAggregate.meanPlain} → {abAggregate.meanTest}
+                    B·default {abAggregate.meanPlain} → A·test {abAggregate.meanTest}
                     {" · "}
                     Δ <span className={abAggregate.meanDelta >= 0 ? "text-green-500 font-semibold" : "text-red-500 font-semibold"}>
                       {abAggregate.meanDelta >= 0 ? "+" : ""}{abAggregate.meanDelta}
                     </span>
                     {" · hedges "}
-                    {abAggregate.hedgePlain} → {abAggregate.hedgeTest}
+                    {abAggregate.hedgeTest} → {abAggregate.hedgePlain}
                     {" · "}
                     {abAggregate.pairs} pair(s)
                   </span>
@@ -2287,11 +2106,11 @@ export default function DeveloperPageClient() {
                   </div>
 
                   <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {[row.plain, row.test].map((side, sideIndex) => (
+                    {[row.test, row.plain].map((side, sideIndex) => (
                       <div key={sideIndex} className="rounded-lg bg-surface-2 p-2">
                         <div className="flex items-center gap-2 text-xs">
-                          <span className={`rounded px-1.5 py-0.5 font-semibold ${sideIndex === 0 ? "bg-surface text-text-muted" : "bg-primary text-white"}`}>
-                            {sideIndex === 0 ? "A · Plain" : `B · ${row.test?.armLabel || "Preset"}`}
+                          <span className={`rounded px-1.5 py-0.5 font-semibold ${sideIndex === 0 ? "bg-red-500/80 text-white" : "bg-surface text-text-muted"}`}>
+                            {sideIndex === 0 ? `A · ${row.test?.armLabel || "Payload"}` : "B · Default"}
                           </span>
                           {side?.status === "running" && (
                             <span className="material-symbols-outlined animate-spin text-[14px] text-primary">progress_activity</span>

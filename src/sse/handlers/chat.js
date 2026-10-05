@@ -67,6 +67,21 @@ export async function handleChat(request, clientRawRequest = null) {
     log.debug("AUTH", "No API key provided (local mode)");
   }
 
+  // Per-request payload override (dashboard A/B test "test" arm). The
+  // developer relay (src/app/api/developer/chat/route.js) stashes it here;
+  // it must NOT reach the upstream provider, so strip it after capture.
+  // Captured here and forwarded to handleSingleModelChat as an explicit
+  // argument. It cannot be a closure variable: handleSingleModelChat is a
+  // separate top-level function with no access to locals from this scope.
+  // Reading it there hit an undeclared identifier and threw
+  // "dashboardPayloadOverride is not defined" on every /v1/chat/completions
+  // call, failing every model in a combo.
+  const dashboardPayloadOverride =
+    typeof body.__dashboardPayloadOverride === "string"
+      ? body.__dashboardPayloadOverride
+      : "";
+  delete body.__dashboardPayloadOverride;
+
   // Enforce API key if enabled in settings
   const settings = await getSettings();
   if (settings.requireApiKey) {
@@ -114,7 +129,7 @@ export async function handleChat(request, clientRawRequest = null) {
             const { tools, tool_choice, ...cleanBody } = clientRawRequest.body || {};
             cleanRawReq = { ...clientRawRequest, body: cleanBody };
           }
-          return handleSingleModelChat(b, m, cleanRawReq, request, apiKey);
+          return handleSingleModelChat(b, m, cleanRawReq, request, apiKey, dashboardPayloadOverride);
         },
         log,
         comboName: modelStr,
@@ -129,7 +144,7 @@ export async function handleChat(request, clientRawRequest = null) {
       body,
       models: augmentedModels,
       handleSingleModel: withCapacityAdapterStripping(
-        (b, m) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey),
+        (b, m) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey, dashboardPayloadOverride),
         adapterAdded
       ),
       log,
@@ -149,7 +164,7 @@ export async function handleChat(request, clientRawRequest = null) {
       body,
       models: soloAugmented,
       handleSingleModel: withCapacityAdapterStripping(
-        (b, m) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey),
+        (b, m) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey, dashboardPayloadOverride),
         adapterAdded
       ),
       log,
@@ -158,13 +173,20 @@ export async function handleChat(request, clientRawRequest = null) {
     });
   }
 
-  return handleSingleModelChat(body, modelStr, clientRawRequest, request, apiKey);
+  return handleSingleModelChat(body, modelStr, clientRawRequest, request, apiKey, dashboardPayloadOverride);
 }
 
 /**
  * Handle single model chat request
  */
-async function handleSingleModelChat(body, modelStr, clientRawRequest = null, request = null, apiKey = null) {
+async function handleSingleModelChat(
+  body,
+  modelStr,
+  clientRawRequest = null,
+  request = null,
+  apiKey = null,
+  dashboardPayloadOverride = ""
+) {
   const modelInfo = await getModelInfo(modelStr);
 
   // If provider is null, this might be a combo name - check and handle
@@ -191,7 +213,7 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
               const { tools, tool_choice, ...cleanBody } = clientRawRequest.body || {};
               cleanRawReq = { ...clientRawRequest, body: cleanBody };
             }
-            return handleSingleModelChat(b, m, cleanRawReq, request, apiKey);
+            return handleSingleModelChat(b, m, cleanRawReq, request, apiKey, dashboardPayloadOverride);
           },
           log,
           comboName: modelStr,
@@ -206,7 +228,7 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
         body,
         models: augmentedModels,
         handleSingleModel: withCapacityAdapterStripping(
-          (b, m) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey),
+          (b, m) => handleSingleModelChat(b, m, clientRawRequest, request, apiKey, dashboardPayloadOverride),
           adapterAdded
         ),
         log,
@@ -291,9 +313,11 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       // Backward-compat: if the new key is unset but the old
       // plinian*/godmode* keys are present, inherit their values so
       // existing persisted settings still work.
-      injectionEnabled: chatSettings.injectionEnabled !== undefined
-        ? !!chatSettings.injectionEnabled
-        : (!!chatSettings.plinianEnabled || !!chatSettings.godmodeEnabled),
+      injectionEnabled: dashboardPayloadOverride
+        ? true
+        : chatSettings.injectionEnabled !== undefined
+          ? !!chatSettings.injectionEnabled
+          : (!!chatSettings.plinianEnabled || !!chatSettings.godmodeEnabled),
       injectionRegisterLevel: chatSettings.injectionRegisterLevel
         || chatSettings.plinianLevel
         || "standard",
@@ -303,18 +327,28 @@ async function handleSingleModelChat(body, modelStr, clientRawRequest = null, re
       injectionRegisterCustom: typeof chatSettings.injectionRegisterCustom === "string"
         ? chatSettings.injectionRegisterCustom
         : "",
-      injectionGodmodeLevel: chatSettings.injectionGodmodeLevel
-        || chatSettings.godmodeLevel
-        || "classic",
-      injectionGodmodeCustom: typeof chatSettings.injectionGodmodeCustom === "string"
-        ? chatSettings.injectionGodmodeCustom
-        : (typeof chatSettings.godmodeCustom === "string" ? chatSettings.godmodeCustom : ""),
+      // A dashboard A/B payload override (developer relay's _injectPayload)
+      // rides regardless of the global injectionEnabled flag — the user
+      // explicitly asked for this payload in the A/B test. The override
+      // force-selects level "custom" so godmodeCustom is what ships.
+      injectionGodmodeLevel: dashboardPayloadOverride
+        ? "custom"
+        : chatSettings.injectionGodmodeLevel ||
+          chatSettings.godmodeLevel ||
+          "classic",
+      injectionGodmodeCustom: dashboardPayloadOverride
+        ? dashboardPayloadOverride
+        : typeof chatSettings.injectionGodmodeCustom === "string"
+          ? chatSettings.injectionGodmodeCustom
+          : (typeof chatSettings.godmodeCustom === "string" ? chatSettings.godmodeCustom : ""),
       injectionCarrierEnabled: !!chatSettings.injectionCarrierEnabled,
       injectionCarrierLevel:
         (typeof chatSettings.injectionCarrierLevel === "string" && chatSettings.injectionCarrierLevel) ||
         (chatSettings.injectionCarrierEnabled ? (chatSettings.injectionCarrierLevel || "") : ""),
       injectionCarrierCustom:
         typeof chatSettings.injectionCarrierCustom === "string" ? chatSettings.injectionCarrierCustom : "",
+      injectionSkillRouterCustom:
+        typeof chatSettings.injectionSkillRouterCustom === "string" ? chatSettings.injectionSkillRouterCustom : "",
       pxpipeEnabled: !!chatSettings.pxpipeEnabled,
       pxpipeMinChars: chatSettings.pxpipeMinChars,
       pxpipeTimeoutMs: chatSettings.pxpipeTimeoutMs,
