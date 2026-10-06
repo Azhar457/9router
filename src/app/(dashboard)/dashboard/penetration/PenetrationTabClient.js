@@ -402,6 +402,7 @@ export default function PenetrationTabClient() {
                 : "bg-surface-2 border border-border text-text-muted hover:text-text-main"
             )}
             disabled={sending || !acknowledged}
+            aria-label={translate("Toggle SKILL-ROUTER-STRIX injection")}
           >
             {injectOn ? translate("ON") : translate("OFF")}
           </button>
@@ -409,6 +410,7 @@ export default function PenetrationTabClient() {
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
             className="h-8 rounded-lg border border-border bg-surface-2 px-3 text-xs font-semibold text-text-main transition-colors hover:bg-surface"
+            disabled={!injectOn}
           >
             <span className="material-symbols-outlined text-[16px] align-middle">
               {open ? "expand_less" : "expand_more"}
@@ -422,9 +424,9 @@ export default function PenetrationTabClient() {
             <div
               className={cn(
                 "flex flex-col gap-4 w-full",
-                !acknowledged && "pointer-events-none select-none opacity-40"
+                (!acknowledged || !injectOn) && "pointer-events-none select-none opacity-40"
               )}
-              aria-disabled={!acknowledged}
+              aria-disabled={!acknowledged || !injectOn}
             >
               {/* ① Skill selection */}
               <section className="flex flex-col gap-1.5 rounded-lg border border-border bg-surface-2/30 p-2.5">
@@ -780,11 +782,13 @@ export default function PenetrationTabClient() {
               )}
             </div>
 
-            {!acknowledged && (
+            {(!acknowledged || !injectOn) && (
               <p className="text-[11px] font-medium text-amber-500">
                 🔒{" "}
                 {translate(
-                  "Locked — acknowledge the scope banner above to unlock the SKILL-ROUTER controls."
+                  !acknowledged
+                    ? "Locked — acknowledge the scope banner above to unlock the SKILL-ROUTER controls."
+                    : "Locked — turn on Global Injection to edit the SKILL-ROUTER controls."
                 )}
               </p>
             )}

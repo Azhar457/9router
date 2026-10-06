@@ -135,6 +135,20 @@ const getPageInfo = (pathname, customNodeNames = {}) => {
       icon: "developer_mode",
       breadcrumbs: [],
     };
+  if (pathname.includes("/penetration"))
+    return {
+      title: "Penetration",
+      description: "Strix skill-router + payload index — managed separately from the jailbreak payload",
+      icon: "scanner",
+      breadcrumbs: [],
+    };
+  if (pathname.includes("/payload"))
+    return {
+      title: "Jailbreaks",
+      description: "Global Injection — register prompt, persona (carrier warp) + G0DM0D3 payload steering",
+      icon: "gavel",
+      breadcrumbs: [],
+    };
   if (pathname.includes("/proxy-pools"))
     return {
       title: "Proxy Pools",
