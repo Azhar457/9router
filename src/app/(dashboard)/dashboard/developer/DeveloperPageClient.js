@@ -1461,6 +1461,12 @@ export default function DeveloperPageClient() {
         >
           Open Jailbreaks tab →
         </a>
+        <a
+          href="/dashboard/penetration"
+          className="h-8 rounded-lg border border-border bg-surface-2 px-4 py-1.5 text-xs font-semibold text-text-main transition-colors hover:bg-surface"
+        >
+          Open Penetration tab →
+        </a>
       </div>
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
         <label className="flex flex-col gap-1 text-xs text-text-muted">

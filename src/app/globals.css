@@ -3,9 +3,20 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Hide icon ligature text until font is ready */
-.material-symbols-outlined { opacity: 0; }
-.fonts-loaded .material-symbols-outlined { opacity: 1; transition: opacity .12s ease-out; }
+/* Hide the icon ligature text until the Material Symbols webfont is truly
+   painted. Without this, a slow/failed webfont falls back to a sans font
+   and the literal glyph name ("revert", "scan", …) shows as text next to
+   the button label — the "REVERT Revoke" ghost. opacity is scoped to this
+   class only so it never hides the button label itself. */
+.material-symbols-outlined {
+  opacity: 0;
+  font-size: 0;
+}
+.fonts-loaded .material-symbols-outlined {
+  opacity: 1;
+  font-size: inherit;
+  transition: opacity .12s ease-out;
+}
 
 /* ============================================================
    9Router-Plinian palette — Aurora Violet theme (UI-Playground-beta #15)
