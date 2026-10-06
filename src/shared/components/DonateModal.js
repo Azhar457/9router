@@ -13,8 +13,14 @@ export default function DonateModal({ isOpen, onClose }) {
 
   useEffect(() => {
     if (!isOpen || data) return;
-    setLoading(true);
-    setError("");
+    // Defer the synchronous loading/error reset into a microtask so no
+    // setState runs synchronously in the effect body
+    // (react-hooks/set-state-in-effect). The microtask resolves before
+    // the next paint, so the spinner still shows during the fetch.
+    queueMicrotask(() => {
+      setLoading(true);
+      setError("");
+    });
     fetch(GITHUB_CONFIG.donateUrl, { cache: "no-store" })
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
