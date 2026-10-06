@@ -71,7 +71,7 @@ export default function Sidebar({ onClose }) {
     const timer = setTimeout(() => {
       fetch("/api/version")
         .then(res => res.json())
-        .then(data => { if (data.hasUpdate) setUpdateInfo(data); })
+        .then(data => { setUpdateInfo(data); })
         .catch(() => {});
     }, 2500);
     return () => clearTimeout(timer);
@@ -91,9 +91,10 @@ export default function Sidebar({ onClose }) {
   };
 
   // Triggered by Copy button inside ManualUpdatePanel: copy + countdown + shutdown
-  const handleCopyAndShutdown = async () => {
-    try { await navigator.clipboard.writeText(INSTALL_CMD); } catch { /* clipboard blocked */ }
-    copy(INSTALL_CMD);
+  const handleCopyAndShutdown = async (cmd) => {
+    const target = cmd || INSTALL_CMD;
+    try { await navigator.clipboard.writeText(target); } catch { /* clipboard blocked */ }
+    copy(target);
     let remaining = UPDATER_CONFIG.shutdownCountdownSec;
     setShutdownCountdown(remaining);
     const timer = setInterval(() => {
@@ -168,7 +169,10 @@ export default function Sidebar({ onClose }) {
               <span className="text-xs text-text-muted">v{APP_CONFIG.version}</span>
             </div>
           </Link>
-          {updateInfo && (
+          {/* Update status — always visible when the check has resolved:
+              a banner for old builds pointing at the latest release, or a
+              subtle "up to date" line on current installs. */}
+          {updateInfo && (updateInfo.hasUpdate ? (
             <div className="flex flex-col gap-1.5 rounded p-1 -m-1">
               <span className="text-xs font-semibold text-green-600 dark:text-amber-500">
                 ↑ New version available: v{updateInfo.latestVersion}
@@ -191,7 +195,13 @@ export default function Sidebar({ onClose }) {
                 </button>
               </div>
             </div>
-          )}
+          ) : (
+            <div className="rounded p-1 -m-1">
+              <span className="text-[11px] text-text-muted/70">
+                ✓ v{updateInfo.currentVersion} — up to date
+              </span>
+            </div>
+          ))}
         </div>
 
         {/* Navigation */}
@@ -485,7 +495,7 @@ function ManualUpdatePanel({ latestVersion, installCmd, copied, onCopyAndShutdow
           <Button variant="secondary" onClick={onCancel} disabled={isCountingDown}>
             Cancel
           </Button>
-          <Button variant="primary" fullWidth onClick={onCopyAndShutdown} disabled={isCountingDown}>
+          <Button variant="primary" fullWidth onClick={() => onCopyAndShutdown(installCmd)} disabled={isCountingDown}>
             {copied ? "✓ Copied — shutting down..." : isCountingDown ? `Shutting down in ${countdown}s` : "Copy & Shutdown"}
           </Button>
         </div>
