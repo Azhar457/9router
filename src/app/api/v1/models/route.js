@@ -19,6 +19,36 @@ import { updateProviderCredentials } from "@/sse/services/tokenRefresh";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 import { capabilitiesFromServiceKind, getCapabilitiesForModel, aggregateComboCapabilities } from "open-sse/providers/capabilities.js";
 
+// ── noAuth free providers (no DB connection row, but exposed in /v1/models) ──
+// These providers ship their catalog via a static fetch endpoint + a filter,
+// not through a user-supplied API key. They are always "active" when the
+// matching kind is requested. `skipDynamicFetch` short-circuits the remote
+// call so cross-instance recursive /models fetches fall back to the static
+// PROVIDER_MODELS list.
+const NOAUTH_RESOLVERS = {
+  opencode: async () => {
+    try {
+      const res = await fetch("https://opencode.ai/zen/v1/models", {
+        headers: { "Accept": "application/json" },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      const rawModels = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+      // Mirror the dashboard "opencode-free" filter: -free suffix or KNOWN list,
+      // minus dead ids.
+      const KNOWN_FREE = ["big-pickle"];
+      const DEAD = new Set(["deepseek-v4-flash-free"]);
+      const free = rawModels
+        .filter((m) => (m?.id?.endsWith("-free") || KNOWN_FREE.includes(m?.id)) && !DEAD.has(m?.id))
+        .map((m) => ({ id: m.id, name: m.id }));
+      return free.length ? { models: free } : null;
+    } catch {
+      return null;
+    }
+  },
+};
+
 // Qoder shares one live resolver across intl (qoder) and CN (qoder-cn); the
 // credentials carry the provider id so qoderModels picks the right region's
 // catalog endpoint.
@@ -651,6 +681,84 @@ export async function buildModelsList(kindFilter, options = {}) {
           kind: "webFetch",
           owned_by: outputAlias,
         });
+      }
+    }
+
+    // ── noAuth free providers ──────────────────────────────────────────────
+    // Providers with `noAuth: true` in the registry (opencode "oc", mimo-free,
+    // edge-tts, …) have no DB connection row, so the active-connections loop
+    // above never lists them. When the DB is available we would otherwise drop
+    // their entire catalog from /v1/models even though the chat routes accept
+    // them. List their static PROVIDER_MODELS entries (optionally overridden
+    // by a live catalog resolver) under the same kind filter as the rest.
+    const seenAliases = new Set(
+      [...activeConnectionByProvider.entries()].map(
+        ([providerId, conn]) => {
+          const staticAlias = PROVIDER_ID_TO_ALIAS[providerId] || providerId;
+          const outputAlias = (
+            conn?.providerSpecificData?.prefix
+            || getProviderAlias(providerId)
+            || staticAlias
+          ).trim();
+          return [providerId, staticAlias, outputAlias];
+        }
+      )
+    );
+    for (const [providerId, info] of Object.entries(AI_PROVIDERS)) {
+      if (!info?.noAuth) continue;
+      if (!providerMatchesKinds(providerId, kindFilter, customNodeKinds)) continue;
+      if (seenAliases.has(providerId)) continue; // a real connection already covers it
+      const staticAlias = PROVIDER_ID_TO_ALIAS[providerId] || providerId;
+      const outputAlias = getProviderAlias(providerId) || staticAlias;
+      const providerModels = PROVIDER_MODELS[staticAlias] || [];
+      const staticModelKindById = new Map(providerModels.map((m) => [m.id, modelKind(m)]));
+      let rawModelIds = providerModels.map((m) => m.id);
+      let liveModelKindById = new Map();
+      let liveCapabilitiesById = new Map();
+      if (!skipDynamicFetch) {
+        const noAuthResolver = NOAUTH_RESOLVERS[providerId];
+        if (noAuthResolver) {
+          try {
+            const live = await noAuthResolver();
+            if (live?.models?.length) {
+              rawModelIds = live.models.map((m) => m.id);
+              liveModelKindById = new Map(
+                live.models.filter((m) => m?.id).map((m) => [m.id, modelKind(m)])
+              );
+            }
+          } catch (err) {
+            console.log(`noAuth live fetch failed for ${providerId}: ${err?.message || err}`);
+          }
+        }
+      }
+      for (const modelId of new Set(rawModelIds)) {
+        const kind =
+          liveModelKindById.get(modelId)
+          || staticModelKindById.get(modelId)
+          || inferKindFromUnknownModelId(modelId);
+        if (!kindFilter.includes(kind)) continue;
+        if (isDisabled(outputAlias, modelId) || isDisabled(staticAlias, modelId)) continue;
+        const model = {
+          id: `${outputAlias}/${modelId}`,
+          object: "model",
+          owned_by: outputAlias,
+        };
+        const caps =
+          liveCapabilitiesById.get(modelId)
+          || (kind === LLM_KIND ? getCapabilitiesForModel(providerId, modelId) : null);
+        if (caps) model.capabilities = caps;
+        if (kind === LLM_KIND) {
+          let contextWindow = caps?.contextWindow;
+          let maxOutput = caps?.maxOutput;
+          if (!Number.isFinite(contextWindow) || !Number.isFinite(maxOutput)) {
+            const fallback = getCapabilitiesForModel(providerId, modelId);
+            if (!Number.isFinite(contextWindow)) contextWindow = fallback.contextWindow;
+            if (!Number.isFinite(maxOutput)) maxOutput = fallback.maxOutput;
+          }
+          if (Number.isFinite(contextWindow)) model.context_length = contextWindow;
+          if (Number.isFinite(maxOutput)) model.max_completion_tokens = maxOutput;
+        }
+        models.push(model);
       }
     }
   }
