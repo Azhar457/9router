@@ -91,6 +91,12 @@ graphify-out/*
 package/
 cli/app/
 cli-beta/
+
+# Ad-hoc throwaway scripts + self-check outputs — local scaffolding only
+tmp_*.*
+zz_*.*
+combo_check_result.txt
+*_check_result.txt
 # Kiro local workspace state
 .kiro/
 
