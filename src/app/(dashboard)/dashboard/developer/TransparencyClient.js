@@ -263,7 +263,7 @@ export default function TransparencyClient({
       </div>
 
       <div className={card}>
-        <div className={stageTitle}>5 · Model's Thinking</div>
+        <div className={stageTitle}>5 · Model&apos;s Thinking</div>
         {thinking ? <pre className={pre}>{thinking}</pre> : <p className={muted}>tidak tersedia (model tidak mengembalikan reasoning)</p>}
       </div>
 

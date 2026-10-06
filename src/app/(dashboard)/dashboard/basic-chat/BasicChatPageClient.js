@@ -207,7 +207,7 @@ export default function BasicChatPageClient() {
   const historyMenuRef = useRef(null);
 
   useEffect(() => {
-    setIsHydrated(true);
+    queueMicrotask(() => setIsHydrated(true));
   }, []);
 
   useEffect(() => {
@@ -390,9 +390,9 @@ export default function BasicChatPageClient() {
         ? modelIndex.get(session.modelId)
         : savedModel;
       initializedRef.current = true;
-      setActiveSessionId(session.id);
-      setActiveProviderId(sessionModel?.providerId || savedProvider.providerId);
-      setActiveModelId(sessionModel?.id || savedModel.id);
+      queueMicrotask(() => setActiveSessionId(session.id));
+      queueMicrotask(() => setActiveProviderId(sessionModel?.providerId || savedProvider.providerId));
+      queueMicrotask(() => setActiveModelId(sessionModel?.id || savedModel.id));
       return;
     }
 
@@ -409,10 +409,10 @@ export default function BasicChatPageClient() {
     };
 
     initializedRef.current = true;
-    setSessions([session]);
-    setActiveSessionId(session.id);
-    setActiveProviderId(savedProvider.providerId);
-    setActiveModelId(savedModel.id);
+    queueMicrotask(() => setSessions([session]));
+    queueMicrotask(() => setActiveSessionId(session.id));
+    queueMicrotask(() => setActiveProviderId(savedProvider.providerId));
+    queueMicrotask(() => setActiveModelId(savedModel.id));
   }, [isHydrated, loadingData, providerGroups, modelIndex, sessions, activeSessionId, activeProviderId, activeModelId]);
 
   const updateSession = (sessionId, updater) => {

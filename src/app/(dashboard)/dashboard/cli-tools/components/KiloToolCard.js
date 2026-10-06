@@ -23,11 +23,11 @@ export default function KiloToolCard({ tool, isExpanded, onToggle, baseUrl, apiK
   const [customBaseUrl, setCustomBaseUrl] = useState("");
 
   useEffect(() => {
-    if (apiKeys?.length > 0 && !selectedApiKey) setSelectedApiKey(apiKeys[0].key);
+    if (apiKeys?.length > 0 && !selectedApiKey) queueMicrotask(() => setSelectedApiKey(apiKeys[0].key));
   }, [apiKeys, selectedApiKey]);
 
   useEffect(() => {
-    if (initialStatus) setStatus(initialStatus);
+    if (initialStatus) queueMicrotask(() => setStatus(initialStatus));
   }, [initialStatus]);
 
   useEffect(() => {
@@ -37,109 +37,135 @@ export default function KiloToolCard({ tool, isExpanded, onToggle, baseUrl, apiK
     }
   }, [isExpanded]);
 
-  const fetchModelAliases = async () => {
-    try {
-      const res = await fetch("/api/models/alias");
-      const data = await res.json();
-      if (res.ok) setModelAliases(data.aliases || {});
-    } catch (error) {
-      console.log("Error fetching model aliases:", error);
-    }
-  };
+  async function fetchModelAliases() {
+  try {
+    const res = await fetch("/api/models/alias");
+    const data = await res.json();
+    if (res.ok) setModelAliases(data.aliases || {});
+  } catch (error) {
+    console.log("Error fetching model aliases:", error);
+  }
+}
 
-  const getConfigStatus = () => {
-    if (!status?.installed) return null;
-    return status.has9Router ? "configured" : "not_configured";
-  };
+  function getConfigStatus() {
+  if (!status?.installed) return null;
+  return status.has9Router ? "configured" : "not_configured";
+}
 
   const configStatus = getConfigStatus();
 
-  const getEffectiveBaseUrl = () => {
-    const url = customBaseUrl || `${baseUrl}/v1`;
-    return url.endsWith("/v1") ? url : `${url}/v1`;
-  };
+  function getEffectiveBaseUrl() {
+  const url = customBaseUrl || `${baseUrl}/v1`;
+  return url.endsWith("/v1") ? url : `${url}/v1`;
+}
 
   const getDisplayUrl = () => customBaseUrl || `${baseUrl}/v1`;
 
-  const checkStatus = async () => {
-    setChecking(true);
-    try {
-      const res = await fetch("/api/cli-tools/kilo-settings");
-      const data = await res.json();
-      setStatus(data);
-    } catch (error) {
-      setStatus({ installed: false, error: error.message });
-    } finally {
-      setChecking(false);
-    }
-  };
+  async function checkStatus() {
+  setChecking(true);
+  try {
+    const res = await fetch("/api/cli-tools/kilo-settings");
+    const data = await res.json();
+    setStatus(data);
+  } catch (error) {
+    setStatus({
+      installed: false,
+      error: error.message
+    });
+  } finally {
+    setChecking(false);
+  }
+}
 
-  const handleApply = async () => {
-    setApplying(true);
-    setMessage(null);
-    try {
-      const keyToUse = (selectedApiKey && selectedApiKey.trim())
-        ? selectedApiKey
-        : (!cloudEnabled ? "sk_9router" : selectedApiKey);
-
-      const res = await fetch("/api/cli-tools/kilo-settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ baseUrl: getEffectiveBaseUrl(), apiKey: keyToUse, model: selectedModel }),
+  async function handleApply() {
+  setApplying(true);
+  setMessage(null);
+  try {
+    const keyToUse = selectedApiKey && selectedApiKey.trim() ? selectedApiKey : !cloudEnabled ? "sk_9router" : selectedApiKey;
+    const res = await fetch("/api/cli-tools/kilo-settings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        baseUrl: getEffectiveBaseUrl(),
+        apiKey: keyToUse,
+        model: selectedModel
+      })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      // Remember the endpoint so it stays selectable next time
+      rememberEndpoint(getEffectiveBaseUrl(), {
+        tunnelPublicUrl,
+        tailscaleUrl
       });
-      const data = await res.json();
-      if (res.ok) {
-        // Remember the endpoint so it stays selectable next time
-        rememberEndpoint(getEffectiveBaseUrl(), { tunnelPublicUrl, tailscaleUrl });
-        setMessage({ type: "success", text: "Settings applied successfully!" });
-        checkStatus();
-      } else {
-        setMessage({ type: "error", text: data.error || "Failed to apply settings" });
-      }
-    } catch (error) {
-      setMessage({ type: "error", text: error.message });
-    } finally {
-      setApplying(false);
+      setMessage({
+        type: "success",
+        text: "Settings applied successfully!"
+      });
+      checkStatus();
+    } else {
+      setMessage({
+        type: "error",
+        text: data.error || "Failed to apply settings"
+      });
     }
-  };
+  } catch (error) {
+    setMessage({
+      type: "error",
+      text: error.message
+    });
+  } finally {
+    setApplying(false);
+  }
+}
 
-  const handleReset = async () => {
-    setRestoring(true);
-    setMessage(null);
-    try {
-      const res = await fetch("/api/cli-tools/kilo-settings", { method: "DELETE" });
-      const data = await res.json();
-      if (res.ok) {
-        setMessage({ type: "success", text: "Settings reset successfully!" });
-        setSelectedModel("");
-        checkStatus();
-      } else {
-        setMessage({ type: "error", text: data.error || "Failed to reset settings" });
-      }
-    } catch (error) {
-      setMessage({ type: "error", text: error.message });
-    } finally {
-      setRestoring(false);
+  async function handleReset() {
+  setRestoring(true);
+  setMessage(null);
+  try {
+    const res = await fetch("/api/cli-tools/kilo-settings", {
+      method: "DELETE"
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setMessage({
+        type: "success",
+        text: "Settings reset successfully!"
+      });
+      setSelectedModel("");
+      checkStatus();
+    } else {
+      setMessage({
+        type: "error",
+        text: data.error || "Failed to reset settings"
+      });
     }
-  };
+  } catch (error) {
+    setMessage({
+      type: "error",
+      text: error.message
+    });
+  } finally {
+    setRestoring(false);
+  }
+}
 
-  const getManualConfigs = () => {
-    const keyToUse = (selectedApiKey && selectedApiKey.trim())
-      ? selectedApiKey
-      : (!cloudEnabled ? "sk_9router" : "<API_KEY_FROM_DASHBOARD>");
-
-    return [{
-      filename: "~/.local/share/kilo/auth.json",
-      content: JSON.stringify({
-        "openai-compatible": {
-          type: "api-key",
-          apiKey: keyToUse,
-          baseUrl: getEffectiveBaseUrl(),
-          model: selectedModel || "provider/model-id",
-        },
-      }, null, 2),
-    }];
-  };
+  function getManualConfigs() {
+  const keyToUse = selectedApiKey && selectedApiKey.trim() ? selectedApiKey : !cloudEnabled ? "sk_9router" : "<API_KEY_FROM_DASHBOARD>";
+  return [{
+    filename: "~/.local/share/kilo/auth.json",
+    content: JSON.stringify({
+      "openai-compatible": {
+        type: "api-key",
+        apiKey: keyToUse,
+        baseUrl: getEffectiveBaseUrl(),
+        model: selectedModel || "provider/model-id"
+      }
+    }, null, 2)
+  }];
+}
 
   return (
     <Card padding="xs" className="overflow-hidden">

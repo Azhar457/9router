@@ -28,12 +28,12 @@ export default function CopilotToolCard({ tool, isExpanded, onToggle, baseUrl, a
 
   useEffect(() => {
     if (apiKeys?.length > 0 && !selectedApiKey) {
-      setSelectedApiKey(apiKeys[0].key);
+      queueMicrotask(() => setSelectedApiKey(apiKeys[0].key));
     }
   }, [apiKeys, selectedApiKey]);
 
   useEffect(() => {
-    if (initialStatus) setStatus(initialStatus);
+    if (initialStatus) queueMicrotask(() => setStatus(initialStatus));
   }, [initialStatus]);
 
   useEffect(() => {
@@ -48,140 +48,175 @@ export default function CopilotToolCard({ tool, isExpanded, onToggle, baseUrl, a
     if (status?.config && Array.isArray(status.config) && selectedModels.length === 0) {
       const entry = status.config.find((e) => e.name === "9Router-Plinian");
       if (entry?.models?.length > 0) {
-        setSelectedModels(entry.models.map((m) => m.id));
+        queueMicrotask(() => setSelectedModels(entry.models.map((m) => m.id)));
       }
     }
   }, [status]);
 
-  const fetchModelAliases = async () => {
-    try {
-      const res = await fetch("/api/models/alias");
-      const data = await res.json();
-      if (res.ok) setModelAliases(data.aliases || {});
-    } catch (error) {
-      console.log("Error fetching model aliases:", error);
-    }
-  };
+  async function fetchModelAliases() {
+  try {
+    const res = await fetch("/api/models/alias");
+    const data = await res.json();
+    if (res.ok) setModelAliases(data.aliases || {});
+  } catch (error) {
+    console.log("Error fetching model aliases:", error);
+  }
+}
 
-  const saveModels = async (models) => {
-    try {
-      const keyToUse = (selectedApiKey && selectedApiKey.trim())
-        ? selectedApiKey
-        : (!cloudEnabled ? "sk_9router" : selectedApiKey);
-      await fetch("/api/cli-tools/copilot-settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ baseUrl: getEffectiveBaseUrl(), apiKey: keyToUse, models }),
-      });
-    } catch (error) {
-      console.log("Error saving models:", error);
-    }
-  };
+  async function saveModels(models) {
+  try {
+    const keyToUse = selectedApiKey && selectedApiKey.trim() ? selectedApiKey : !cloudEnabled ? "sk_9router" : selectedApiKey;
+    await fetch("/api/cli-tools/copilot-settings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        baseUrl: getEffectiveBaseUrl(),
+        apiKey: keyToUse,
+        models
+      })
+    });
+  } catch (error) {
+    console.log("Error saving models:", error);
+  }
+}
 
   const currentBaseUrl = status?.currentUrl || "";
 
-  const getConfigStatus = () => {
-    if (!status) return null;
-    if (!status.has9Router) return "not_configured";
-    const url = status.currentUrl || "";
-    return matchKnownEndpoint(url, { tunnelPublicUrl, tailscaleUrl }) ? "configured" : "other";
-  };
+  function getConfigStatus() {
+  if (!status) return null;
+  if (!status.has9Router) return "not_configured";
+  const url = status.currentUrl || "";
+  return matchKnownEndpoint(url, {
+    tunnelPublicUrl,
+    tailscaleUrl
+  }) ? "configured" : "other";
+}
 
   const configStatus = getConfigStatus();
 
-  const getEffectiveBaseUrl = () => {
-    const url = customBaseUrl || baseUrl;
-    return url.endsWith("/v1") ? url : `${url}/v1`;
-  };
+  function getEffectiveBaseUrl() {
+  const url = customBaseUrl || baseUrl;
+  return url.endsWith("/v1") ? url : `${url}/v1`;
+}
 
   const getDisplayUrl = () => customBaseUrl || `${baseUrl}/v1`;
 
   const removeModel = (id) => setSelectedModels((prev) => prev.filter((m) => m !== id));
 
-  const checkStatus = async () => {
-    setChecking(true);
-    try {
-      const res = await fetch("/api/cli-tools/copilot-settings");
-      const data = await res.json();
-      setStatus(data);
-    } catch (error) {
-      setStatus({ error: error.message });
-    } finally {
-      setChecking(false);
-    }
-  };
+  async function checkStatus() {
+  setChecking(true);
+  try {
+    const res = await fetch("/api/cli-tools/copilot-settings");
+    const data = await res.json();
+    setStatus(data);
+  } catch (error) {
+    setStatus({
+      error: error.message
+    });
+  } finally {
+    setChecking(false);
+  }
+}
 
-  const handleApply = async () => {
-    setApplying(true);
-    setMessage(null);
-    try {
-      const keyToUse = (selectedApiKey && selectedApiKey.trim())
-        ? selectedApiKey
-        : (!cloudEnabled ? "sk_9router" : selectedApiKey);
-
-      const res = await fetch("/api/cli-tools/copilot-settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ baseUrl: getEffectiveBaseUrl(), apiKey: keyToUse, models: selectedModels }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        // Remember the endpoint so it stays selectable next time
-        rememberEndpoint(getEffectiveBaseUrl(), { tunnelPublicUrl, tailscaleUrl });
-        setMessage({ type: "success", text: data.message || "Settings applied! Reload VS Code." });
-        checkStatus();
-      } else {
-        setMessage({ type: "error", text: data.error || "Failed to apply settings" });
-      }
-    } catch (error) {
-      setMessage({ type: "error", text: error.message });
-    } finally {
-      setApplying(false);
-    }
-  };
-
-  const handleReset = async () => {
-    setRestoring(true);
-    setMessage(null);
-    try {
-      const res = await fetch("/api/cli-tools/copilot-settings", { method: "DELETE" });
-      const data = await res.json();
-      if (res.ok) {
-        setMessage({ type: "success", text: "Settings reset successfully!" });
-        setSelectedModels([]);
-        checkStatus();
-      } else {
-        setMessage({ type: "error", text: data.error || "Failed to reset settings" });
-      }
-    } catch (error) {
-      setMessage({ type: "error", text: error.message });
-    } finally {
-      setRestoring(false);
-    }
-  };
-
-  const getManualConfigs = () => {
-    const keyToUse = (selectedApiKey && selectedApiKey.trim())
-      ? selectedApiKey
-      : (!cloudEnabled ? "sk_9router" : "<API_KEY_FROM_DASHBOARD>");
-    const effectiveBaseUrl = getEffectiveBaseUrl();
-    const modelsToShow = selectedModels.length > 0 ? selectedModels : ["provider/model-id"];
-
-    return [{
-      filename: "~/Library/Application Support/Code/User/chatLanguageModels.json",
-      content: JSON.stringify([{
-        name: "9Router-Plinian",
-        vendor: "azure",
+  async function handleApply() {
+  setApplying(true);
+  setMessage(null);
+  try {
+    const keyToUse = selectedApiKey && selectedApiKey.trim() ? selectedApiKey : !cloudEnabled ? "sk_9router" : selectedApiKey;
+    const res = await fetch("/api/cli-tools/copilot-settings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        baseUrl: getEffectiveBaseUrl(),
         apiKey: keyToUse,
-        models: modelsToShow.map((id) => ({
-          id, name: id,
-          url: `${effectiveBaseUrl}/chat/completions#models.ai.azure.com`,
-          toolCalling: true, vision: false,
-          maxInputTokens: 128000, maxOutputTokens: 16000,
-        })),
-      }], null, 2),
-    }];
-  };
+        models: selectedModels
+      })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      // Remember the endpoint so it stays selectable next time
+      rememberEndpoint(getEffectiveBaseUrl(), {
+        tunnelPublicUrl,
+        tailscaleUrl
+      });
+      setMessage({
+        type: "success",
+        text: data.message || "Settings applied! Reload VS Code."
+      });
+      checkStatus();
+    } else {
+      setMessage({
+        type: "error",
+        text: data.error || "Failed to apply settings"
+      });
+    }
+  } catch (error) {
+    setMessage({
+      type: "error",
+      text: error.message
+    });
+  } finally {
+    setApplying(false);
+  }
+}
+
+  async function handleReset() {
+  setRestoring(true);
+  setMessage(null);
+  try {
+    const res = await fetch("/api/cli-tools/copilot-settings", {
+      method: "DELETE"
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setMessage({
+        type: "success",
+        text: "Settings reset successfully!"
+      });
+      setSelectedModels([]);
+      checkStatus();
+    } else {
+      setMessage({
+        type: "error",
+        text: data.error || "Failed to reset settings"
+      });
+    }
+  } catch (error) {
+    setMessage({
+      type: "error",
+      text: error.message
+    });
+  } finally {
+    setRestoring(false);
+  }
+}
+
+  function getManualConfigs() {
+  const keyToUse = selectedApiKey && selectedApiKey.trim() ? selectedApiKey : !cloudEnabled ? "sk_9router" : "<API_KEY_FROM_DASHBOARD>";
+  const effectiveBaseUrl = getEffectiveBaseUrl();
+  const modelsToShow = selectedModels.length > 0 ? selectedModels : ["provider/model-id"];
+  return [{
+    filename: "~/Library/Application Support/Code/User/chatLanguageModels.json",
+    content: JSON.stringify([{
+      name: "9Router-Plinian",
+      vendor: "azure",
+      apiKey: keyToUse,
+      models: modelsToShow.map(id => ({
+        id,
+        name: id,
+        url: `${effectiveBaseUrl}/chat/completions#models.ai.azure.com`,
+        toolCalling: true,
+        vision: false,
+        maxInputTokens: 128000,
+        maxOutputTokens: 16000
+      }))
+    }], null, 2)
+  }];
+}
 
   return (
     <Card padding="xs" className="overflow-hidden">

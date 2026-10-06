@@ -39,12 +39,12 @@ export default function CodexToolCard({ tool, isExpanded, onToggle, baseUrl, api
 
   useEffect(() => {
     if (apiKeys?.length > 0 && !selectedApiKey && !codexStatus?.config) {
-      setSelectedApiKey(apiKeys[0].key);
+      queueMicrotask(() => setSelectedApiKey(apiKeys[0].key));
     }
   }, [apiKeys, selectedApiKey, codexStatus?.config]);
 
   useEffect(() => {
-    if (initialStatus) setCodexStatus(initialStatus);
+    if (initialStatus) queueMicrotask(() => setCodexStatus(initialStatus));
   }, [initialStatus]);
 
   useEffect(() => {
@@ -55,214 +55,250 @@ export default function CodexToolCard({ tool, isExpanded, onToggle, baseUrl, api
     }
   }, [isExpanded]);
 
-  const fetchModelAliases = async () => {
-    try {
-      const res = await fetch("/api/models/alias");
-      const data = await res.json();
-      if (res.ok) setModelAliases(data.aliases || {});
-    } catch (error) {
-      console.log("Error fetching model aliases:", error);
-    }
-  };
+  async function fetchModelAliases() {
+  try {
+    const res = await fetch("/api/models/alias");
+    const data = await res.json();
+    if (res.ok) setModelAliases(data.aliases || {});
+  } catch (error) {
+    console.log("Error fetching model aliases:", error);
+  }
+}
 
-  const fetchProfiles = async () => {
-    try {
-      const res = await fetch("/api/cli-tools/codex-profiles");
-      const data = await res.json();
-      if (res.ok) setProfiles(data.profiles || []);
-    } catch (error) {
-      console.log("Error fetching codex profiles:", error);
-    }
-  };
+  async function fetchProfiles() {
+  try {
+    const res = await fetch("/api/cli-tools/codex-profiles");
+    const data = await res.json();
+    if (res.ok) setProfiles(data.profiles || []);
+  } catch (error) {
+    console.log("Error fetching codex profiles:", error);
+  }
+}
 
-  const handleModelSelectForAlias = (model) => {
-    setProfileModalOpen(false);
-    const selectedModelId = model?.value || model?.id;
-    if (!selectedModelId) return;
+  function handleModelSelectForAlias(model) {
+  setProfileModalOpen(false);
+  const selectedModelId = model?.value || model?.id;
+  if (!selectedModelId) return;
+  setModelInput(selectedModelId);
+  const providerName = model?.provider || (selectedModelId.includes("/") ? selectedModelId.split("/")[0] : selectedModelId);
+  const existingNames = profiles.map(p => p.name);
+  setAliasInput(deriveProfileNameFromModel(providerName, existingNames));
+}
 
-    setModelInput(selectedModelId);
-    const providerName = model?.provider || (selectedModelId.includes("/") ? selectedModelId.split("/")[0] : selectedModelId);
-    const existingNames = profiles.map((p) => p.name);
-    setAliasInput(deriveProfileNameFromModel(providerName, existingNames));
-  };
-
-  const handleAddProfileWithAlias = async () => {
-    const cleanAlias = aliasInput.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
-    const cleanModel = modelInput.trim();
-    if (!cleanAlias || !cleanModel) return;
-
-    setCreatingProfile(true);
-    try {
-      const res = await fetch("/api/cli-tools/codex-profiles", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: cleanAlias,
-          model: cleanModel,
-        }),
+  async function handleAddProfileWithAlias() {
+  const cleanAlias = aliasInput.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
+  const cleanModel = modelInput.trim();
+  if (!cleanAlias || !cleanModel) return;
+  setCreatingProfile(true);
+  try {
+    const res = await fetch("/api/cli-tools/codex-profiles", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        name: cleanAlias,
+        model: cleanModel
+      })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setAliasInput("");
+      setModelInput("");
+      fetchProfiles();
+    } else {
+      setMessage({
+        type: "error",
+        text: data.error || "Failed to add model"
       });
-      const data = await res.json();
-      if (res.ok) {
-        setAliasInput("");
-        setModelInput("");
-        fetchProfiles();
-      } else {
-        setMessage({ type: "error", text: data.error || "Failed to add model" });
-      }
-    } catch (error) {
-      setMessage({ type: "error", text: error.message });
-    } finally {
-      setCreatingProfile(false);
     }
-  };
+  } catch (error) {
+    setMessage({
+      type: "error",
+      text: error.message
+    });
+  } finally {
+    setCreatingProfile(false);
+  }
+}
 
-  const handleDeleteProfile = async (name) => {
-    setDeletingProfile(name);
-    try {
-      const res = await fetch("/api/cli-tools/codex-profiles", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
-      });
-      if (res.ok) fetchProfiles();
-    } catch (error) {
-      console.log("Error deleting codex profile:", error);
-    } finally {
-      setDeletingProfile(null);
-    }
-  };
+  async function handleDeleteProfile(name) {
+  setDeletingProfile(name);
+  try {
+    const res = await fetch("/api/cli-tools/codex-profiles", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        name
+      })
+    });
+    if (res.ok) fetchProfiles();
+  } catch (error) {
+    console.log("Error deleting codex profile:", error);
+  } finally {
+    setDeletingProfile(null);
+  }
+}
 
-  const handleCopyCommand = async (cmd) => {
-    try {
-      await navigator.clipboard.writeText(cmd);
-      setCopiedCommand(cmd);
-      setTimeout(() => setCopiedCommand(""), 2000);
-    } catch (e) {
-      console.log("Copy failed", e);
-    }
-  };
+  async function handleCopyCommand(cmd) {
+  try {
+    await navigator.clipboard.writeText(cmd);
+    setCopiedCommand(cmd);
+    setTimeout(() => setCopiedCommand(""), 2000);
+  } catch (e) {
+    console.log("Copy failed", e);
+  }
+}
 
   // Sync only when config content changes so local form edits are retained.
   useEffect(() => {
     const config = codexStatus?.config;
     if (config) {
       const { baseUrl, apiKey } = getCurrentCodexProviderSettings(config);
-      setCustomBaseUrl(baseUrl);
-      setSelectedApiKey(apiKey);
+      queueMicrotask(() => setCustomBaseUrl(baseUrl));
+      queueMicrotask(() => setSelectedApiKey(apiKey));
 
       const modelMatch = config.match(/^model\s*=\s*"([^"]+)"/m);
-      if (modelMatch) setSelectedModel(modelMatch[1]);
+      if (modelMatch) queueMicrotask(() => setSelectedModel(modelMatch[1]));
 
       // Parse subagent settings
       const subagentModelMatch = config.match(/^default_subagent_model\s*=\s*"([^"]+)"/m);
-      if (subagentModelMatch) setSubagentModel(subagentModelMatch[1]);
+      if (subagentModelMatch) queueMicrotask(() => setSubagentModel(subagentModelMatch[1]));
     }
   }, [codexStatus?.config]);
 
   const currentBaseUrl = getCurrentCodexProviderSettings(codexStatus?.config).baseUrl;
 
-  const getConfigStatus = () => {
-    if (!codexStatus?.installed) return null;
-    if (!codexStatus.config) return "not_configured";
-    return matchKnownEndpoint(currentBaseUrl, { tunnelPublicUrl, tailscaleUrl }) ? "configured" : "other";
-  };
+  function getConfigStatus() {
+  if (!codexStatus?.installed) return null;
+  if (!codexStatus.config) return "not_configured";
+  return matchKnownEndpoint(currentBaseUrl, {
+    tunnelPublicUrl,
+    tailscaleUrl
+  }) ? "configured" : "other";
+}
 
   const configStatus = getConfigStatus();
 
-  const getEffectiveBaseUrl = () => {
-    const url = (customBaseUrl || `${baseUrl}/v1`).replace(/\/+$/, "");
-    // Ensure URL ends with /v1
-    return url.endsWith("/v1") ? url : `${url}/v1`;
-  };
+  function getEffectiveBaseUrl() {
+  const url = (customBaseUrl || `${baseUrl}/v1`).replace(/\/+$/, "");
+  // Ensure URL ends with /v1
+  return url.endsWith("/v1") ? url : `${url}/v1`;
+}
 
   const getDisplayUrl = () => customBaseUrl || `${baseUrl}/v1`;
 
-  const checkCodexStatus = async () => {
-    setCheckingCodex(true);
-    try {
-      const res = await fetch("/api/cli-tools/codex-settings", { cache: "no-store" });
-      const data = await res.json();
-      setCodexStatus(data);
-    } catch (error) {
-      setCodexStatus({ installed: false, error: error.message });
-    } finally {
-      setCheckingCodex(false);
-    }
-  };
+  async function checkCodexStatus() {
+  setCheckingCodex(true);
+  try {
+    const res = await fetch("/api/cli-tools/codex-settings", {
+      cache: "no-store"
+    });
+    const data = await res.json();
+    setCodexStatus(data);
+  } catch (error) {
+    setCodexStatus({
+      installed: false,
+      error: error.message
+    });
+  } finally {
+    setCheckingCodex(false);
+  }
+}
 
-  const handleApplySettings = async () => {
-    setApplying(true);
-    setMessage(null);
-    try {
-      // Use sk_9router for localhost if no key, otherwise use selected key
-      const keyToUse = (selectedApiKey && selectedApiKey.trim())
-        ? selectedApiKey
-        : (!cloudEnabled ? "sk_9router" : selectedApiKey);
-
-      const res = await fetch("/api/cli-tools/codex-settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          baseUrl: getEffectiveBaseUrl(),
-          apiKey: keyToUse,
-          model: selectedModel,
-          subagentModel: subagentModel || selectedModel
-        }),
+  async function handleApplySettings() {
+  setApplying(true);
+  setMessage(null);
+  try {
+    // Use sk_9router for localhost if no key, otherwise use selected key
+    const keyToUse = selectedApiKey && selectedApiKey.trim() ? selectedApiKey : !cloudEnabled ? "sk_9router" : selectedApiKey;
+    const res = await fetch("/api/cli-tools/codex-settings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        baseUrl: getEffectiveBaseUrl(),
+        apiKey: keyToUse,
+        model: selectedModel,
+        subagentModel: subagentModel || selectedModel
+      })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      // Remember the endpoint so it stays selectable next time
+      rememberEndpoint(getEffectiveBaseUrl(), {
+        tunnelPublicUrl,
+        tailscaleUrl
       });
-      const data = await res.json();
-      if (res.ok) {
-        // Remember the endpoint so it stays selectable next time
-        rememberEndpoint(getEffectiveBaseUrl(), { tunnelPublicUrl, tailscaleUrl });
-        setMessage({ type: "success", text: "Settings applied successfully!" });
-        checkCodexStatus();
-      } else {
-        setMessage({ type: "error", text: data.error || "Failed to apply settings" });
-      }
-    } catch (error) {
-      setMessage({ type: "error", text: error.message });
-    } finally {
-      setApplying(false);
+      setMessage({
+        type: "success",
+        text: "Settings applied successfully!"
+      });
+      checkCodexStatus();
+    } else {
+      setMessage({
+        type: "error",
+        text: data.error || "Failed to apply settings"
+      });
     }
-  };
+  } catch (error) {
+    setMessage({
+      type: "error",
+      text: error.message
+    });
+  } finally {
+    setApplying(false);
+  }
+}
 
-  const handleResetSettings = async () => {
-    setRestoring(true);
-    setMessage(null);
-    try {
-      const res = await fetch("/api/cli-tools/codex-settings", { method: "DELETE" });
-      const data = await res.json();
-      if (res.ok) {
-        setMessage({ type: "success", text: "Settings reset successfully!" });
-        setSelectedModel("");
-        setSubagentModel("");
-        checkCodexStatus();
-      } else {
-        setMessage({ type: "error", text: data.error || "Failed to reset settings" });
-      }
-    } catch (error) {
-      setMessage({ type: "error", text: error.message });
-    } finally {
-      setRestoring(false);
+  async function handleResetSettings() {
+  setRestoring(true);
+  setMessage(null);
+  try {
+    const res = await fetch("/api/cli-tools/codex-settings", {
+      method: "DELETE"
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setMessage({
+        type: "success",
+        text: "Settings reset successfully!"
+      });
+      setSelectedModel("");
+      setSubagentModel("");
+      checkCodexStatus();
+    } else {
+      setMessage({
+        type: "error",
+        text: data.error || "Failed to reset settings"
+      });
     }
-  };
+  } catch (error) {
+    setMessage({
+      type: "error",
+      text: error.message
+    });
+  } finally {
+    setRestoring(false);
+  }
+}
 
-  const handleModelSelect = (model) => {
-    setSelectedModel(model.value);
-    // Auto-set subagent model if not set
-    if (!subagentModel) {
-      setSubagentModel(model.value);
-    }
-    setModalOpen(false);
-  };
+  function handleModelSelect(model) {
+  setSelectedModel(model.value);
+  // Auto-set subagent model if not set
+  if (!subagentModel) {
+    setSubagentModel(model.value);
+  }
+  setModalOpen(false);
+}
 
-  const getManualConfigs = () => {
-    const keyToUse = (selectedApiKey && selectedApiKey.trim())
-      ? selectedApiKey
-      : (!cloudEnabled ? "sk_9router" : "<API_KEY_FROM_DASHBOARD>");
-
-    const effectiveSubagentModel = subagentModel || selectedModel;
-
-    const configContent = `# 9Router-Plinian Configuration for Codex CLI
+  function getManualConfigs() {
+  const keyToUse = selectedApiKey && selectedApiKey.trim() ? selectedApiKey : !cloudEnabled ? "sk_9router" : "<API_KEY_FROM_DASHBOARD>";
+  const effectiveSubagentModel = subagentModel || selectedModel;
+  const configContent = `# 9Router-Plinian Configuration for Codex CLI
 model = "${selectedModel}"
 model_provider = "9router"
 
@@ -277,14 +313,11 @@ Authorization = "Bearer ${keyToUse}"
 [agents]
 default_subagent_model = "${effectiveSubagentModel}"
 `;
-
-    return [
-      {
-        filename: "~/.codex/config.toml",
-        content: configContent,
-      },
-    ];
-  };
+  return [{
+    filename: "~/.codex/config.toml",
+    content: configContent
+  }];
+}
 
   return (
     <Card padding="xs" className="overflow-hidden">

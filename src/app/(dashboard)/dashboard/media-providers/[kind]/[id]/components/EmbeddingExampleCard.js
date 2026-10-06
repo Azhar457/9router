@@ -37,7 +37,7 @@ export function EmbeddingExampleCard({ providerId, customAlias }) {
   const { copied: copiedRes, copy: copyRes } = useCopyToClipboard();
 
   useEffect(() => {
-    setLocalEndpoint(window.location.origin);
+    queueMicrotask(() => setLocalEndpoint(window.location.origin));
     fetch("/api/keys")
       .then((r) => r.json())
       .then((d) => { setApiKey((d.keys || []).find((k) => k.isActive !== false)?.key || ""); })

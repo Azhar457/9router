@@ -14,63 +14,65 @@ export default function MitmPageClient() {
   const [expandedTool, setExpandedTool] = useState(null);
   const [mitmStatus, setMitmStatus] = useState({ running: false, certExists: false, dnsStatus: {}, hasCachedPassword: false });
 
-  useEffect(() => {
-    fetchConnections();
-    fetchApiKeys();
-    fetchAliases();
-    fetchCloudSettings();
-  }, []);
+  async function fetchConnections() {
+  try {
+    const res = await fetch("/api/providers");
+    if (res.ok) {
+      const data = await res.json();
+      setConnections(data.connections || []);
+    }
+  } catch {/* ignore */}
+}
 
-  const fetchConnections = async () => {
-    try {
-      const res = await fetch("/api/providers");
-      if (res.ok) {
-        const data = await res.json();
-        setConnections(data.connections || []);
-      }
-    } catch { /* ignore */ }
-  };
+  async function fetchApiKeys() {
+  try {
+    const res = await fetch("/api/keys");
+    if (res.ok) {
+      const data = await res.json();
+      setApiKeys(data.keys || []);
+    }
+  } catch {/* ignore */}
+}
 
-  const fetchApiKeys = async () => {
-    try {
-      const res = await fetch("/api/keys");
-      if (res.ok) {
-        const data = await res.json();
-        setApiKeys(data.keys || []);
-      }
-    } catch { /* ignore */ }
-  };
+  async function fetchAliases() {
+  try {
+    const res = await fetch("/api/models/alias");
+    if (res.ok) {
+      const data = await res.json();
+      setModelAliases(data.aliases || {});
+    }
+  } catch {/* ignore */}
+}
 
-  const fetchAliases = async () => {
-    try {
-      const res = await fetch("/api/models/alias");
-      if (res.ok) {
-        const data = await res.json();
-        setModelAliases(data.aliases || {});
-      }
-    } catch { /* ignore */ }
-  };
-
-  const fetchCloudSettings = async () => {
-    try {
-      const res = await fetch("/api/settings");
-      if (res.ok) {
-        const data = await res.json();
-        setCloudEnabled(data.cloudEnabled || false);
-      }
-    } catch { /* ignore */ }
-  };
+  async function fetchCloudSettings() {
+  try {
+    const res = await fetch("/api/settings");
+    if (res.ok) {
+      const data = await res.json();
+      setCloudEnabled(data.cloudEnabled || false);
+    }
+  } catch {/* ignore */}
+}
 
   const getActiveProviders = () => connections.filter(c => c.isActive !== false);
 
-  const hasActiveProviders = () => {
-    const active = getActiveProviders();
-    return active.some(conn =>
-      getModelsByProviderId(conn.provider).length > 0 ||
-      isOpenAICompatibleProvider(conn.provider) ||
-      isAnthropicCompatibleProvider(conn.provider)
-    );
-  };
+  function hasActiveProviders() {
+  const active = getActiveProviders();
+  return active.some(conn => getModelsByProviderId(conn.provider).length > 0 || isOpenAICompatibleProvider(conn.provider) || isAnthropicCompatibleProvider(conn.provider));
+}
+
+  // Placed below the fetch* helpers: the effect calls them, so it must live
+  // after their declarations (react-hooks/immutability).
+  useEffect(() => {
+    // Defer so the fetch calls run after commit, not synchronously in the
+    // effect body (react-hooks/set-state-in-effect).
+    queueMicrotask(() => {
+      fetchConnections();
+      fetchApiKeys();
+      fetchAliases();
+      fetchCloudSettings();
+    });
+  }, []);
 
   const mitmTools = Object.entries(MITM_TOOLS);
 

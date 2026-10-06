@@ -29,12 +29,12 @@ export default function AntigravityToolCard({
 
   useEffect(() => {
     if (apiKeys?.length > 0 && !selectedApiKey) {
-      setSelectedApiKey(apiKeys[0].key);
+      queueMicrotask(() => setSelectedApiKey(apiKeys[0].key));
     }
   }, [apiKeys, selectedApiKey]);
 
   useEffect(() => {
-    if (initialStatus) setStatus(initialStatus);
+    if (initialStatus) queueMicrotask(() => setStatus(initialStatus));
   }, [initialStatus]);
 
   useEffect(() => {
@@ -44,184 +44,218 @@ export default function AntigravityToolCard({
     fetchModelAliases();
   }, [isExpanded]);
 
-  const loadSavedMappings = async () => {
-    try {
-      const res = await fetch("/api/cli-tools/antigravity-mitm/alias?tool=antigravity");
-      if (res.ok) {
-        const data = await res.json();
-        const aliases = data.aliases || {};
-
-        if (Object.keys(aliases).length > 0) {
-          setModelMappings(aliases);
-        }
-      }
-    } catch (error) {
-      console.log("Error loading saved mappings:", error);
-    }
-  };
-
-  const fetchModelAliases = async () => {
-    try {
-      const res = await fetch("/api/models/alias");
+  async function loadSavedMappings() {
+  try {
+    const res = await fetch("/api/cli-tools/antigravity-mitm/alias?tool=antigravity");
+    if (res.ok) {
       const data = await res.json();
-      if (res.ok) setModelAliases(data.aliases || {});
-    } catch (error) {
-      console.log("Error fetching model aliases:", error);
-    }
-  };
-
-  const fetchStatus = async () => {
-    try {
-      const res = await fetch("/api/cli-tools/antigravity-mitm");
-      if (res.ok) {
-        const data = await res.json();
-        setStatus(data);
+      const aliases = data.aliases || {};
+      if (Object.keys(aliases).length > 0) {
+        setModelMappings(aliases);
       }
-    } catch (error) {
-      console.log("Error fetching status:", error);
-      setStatus({ running: false });
     }
-  };
+  } catch (error) {
+    console.log("Error loading saved mappings:", error);
+  }
+}
+
+  async function fetchModelAliases() {
+  try {
+    const res = await fetch("/api/models/alias");
+    const data = await res.json();
+    if (res.ok) setModelAliases(data.aliases || {});
+  } catch (error) {
+    console.log("Error fetching model aliases:", error);
+  }
+}
+
+  async function fetchStatus() {
+  try {
+    const res = await fetch("/api/cli-tools/antigravity-mitm");
+    if (res.ok) {
+      const data = await res.json();
+      setStatus(data);
+    }
+  } catch (error) {
+    console.log("Error fetching status:", error);
+    setStatus({
+      running: false
+    });
+  }
+}
 
   // MITM elevation is decided by the server OS, not by this browser's OS.
   const serverIsWindows = status?.isWin === true;
   const canRunWithoutPassword = serverIsWindows || status?.hasCachedPassword || status?.needsSudoPassword === false;
 
-  const handleStart = () => {
-    if (canRunWithoutPassword) {
-      doStart("");
-    } else {
-      setShowPasswordModal(true);
-      setMessage(null);
-    }
-  };
-
-  const handleStop = () => {
-    if (canRunWithoutPassword) {
-      doStop("");
-    } else {
-      setShowPasswordModal(true);
-      setMessage(null);
-    }
-  };
-
-  const doStart = async (password) => {
-    setLoading(true);
+  function handleStart() {
+  if (canRunWithoutPassword) {
+    doStart("");
+  } else {
+    setShowPasswordModal(true);
     setMessage(null);
-    // Show steps progressing in order
-    setStartingStep("cert");
-    try {
-      const keyToUse = selectedApiKey?.trim()
-        || (apiKeys?.length > 0 ? apiKeys[0].key : null)
-        || (!cloudEnabled ? "sk_9router" : null);
+  }
+}
 
-      const res = await fetch("/api/cli-tools/antigravity-mitm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey: keyToUse, sudoPassword: password }),
-      });
+  function handleStop() {
+  if (canRunWithoutPassword) {
+    doStop("");
+  } else {
+    setShowPasswordModal(true);
+    setMessage(null);
+  }
+}
 
-      const data = await res.json();
-      if (res.ok) {
-        setStartingStep(null);
-        setMessage({ type: "success", text: "MITM started" });
-        setShowPasswordModal(false);
-        setSudoPassword("");
-        fetchStatus();
-      } else {
-        setStartingStep(null);
-        setMessage({ type: "error", text: data.error || "Failed to start" });
-      }
-    } catch (error) {
+  async function doStart(password) {
+  setLoading(true);
+  setMessage(null);
+  // Show steps progressing in order
+  setStartingStep("cert");
+  try {
+    const keyToUse = selectedApiKey?.trim() || (apiKeys?.length > 0 ? apiKeys[0].key : null) || (!cloudEnabled ? "sk_9router" : null);
+    const res = await fetch("/api/cli-tools/antigravity-mitm", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        apiKey: keyToUse,
+        sudoPassword: password
+      })
+    });
+    const data = await res.json();
+    if (res.ok) {
       setStartingStep(null);
-      setMessage({ type: "error", text: error.message });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const doStop = async (password) => {
-    setLoading(true);
-    setMessage(null);
-    try {
-      const res = await fetch("/api/cli-tools/antigravity-mitm", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sudoPassword: password }),
+      setMessage({
+        type: "success",
+        text: "MITM started"
       });
-
-      const data = await res.json();
-      if (res.ok) {
-        setMessage({ type: "success", text: "MITM stopped" });
-        setShowPasswordModal(false);
-        setSudoPassword("");
-        fetchStatus();
-      } else {
-        setMessage({ type: "error", text: data.error || "Failed to stop" });
-      }
-    } catch (error) {
-      setMessage({ type: "error", text: error.message });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleConfirmPassword = () => {
-    if (!sudoPassword.trim()) {
-      setMessage({ type: "error", text: "Sudo password is required" });
-      return;
-    }
-    if (status?.running) {
-      doStop(sudoPassword);
+      setShowPasswordModal(false);
+      setSudoPassword("");
+      fetchStatus();
     } else {
-      doStart(sudoPassword);
+      setStartingStep(null);
+      setMessage({
+        type: "error",
+        text: data.error || "Failed to start"
+      });
     }
-  };
+  } catch (error) {
+    setStartingStep(null);
+    setMessage({
+      type: "error",
+      text: error.message
+    });
+  } finally {
+    setLoading(false);
+  }
+}
 
-  const openModelSelector = (alias) => {
-    setCurrentEditingAlias(alias);
-    setModalOpen(true);
-  };
-
-  const handleModelSelect = (model) => {
-    if (currentEditingAlias) {
-      setModelMappings(prev => ({
-        ...prev,
-        [currentEditingAlias]: model.value,
-      }));
+  async function doStop(password) {
+  setLoading(true);
+  setMessage(null);
+  try {
+    const res = await fetch("/api/cli-tools/antigravity-mitm", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        sudoPassword: password
+      })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setMessage({
+        type: "success",
+        text: "MITM stopped"
+      });
+      setShowPasswordModal(false);
+      setSudoPassword("");
+      fetchStatus();
+    } else {
+      setMessage({
+        type: "error",
+        text: data.error || "Failed to stop"
+      });
     }
-  };
+  } catch (error) {
+    setMessage({
+      type: "error",
+      text: error.message
+    });
+  } finally {
+    setLoading(false);
+  }
+}
 
-  const handleModelMappingChange = (alias, value) => {
+  function handleConfirmPassword() {
+  if (!sudoPassword.trim()) {
+    setMessage({
+      type: "error",
+      text: "Sudo password is required"
+    });
+    return;
+  }
+  if (status?.running) {
+    doStop(sudoPassword);
+  } else {
+    doStart(sudoPassword);
+  }
+}
+
+  function openModelSelector(alias) {
+  setCurrentEditingAlias(alias);
+  setModalOpen(true);
+}
+
+  function handleModelSelect(model) {
+  if (currentEditingAlias) {
     setModelMappings(prev => ({
       ...prev,
-      [alias]: value,
+      [currentEditingAlias]: model.value
     }));
-  };
+  }
+}
 
-  const handleSaveMappings = async () => {
-    setLoading(true);
-    setMessage(null);
+  function handleModelMappingChange(alias, value) {
+  setModelMappings(prev => ({
+    ...prev,
+    [alias]: value
+  }));
+}
 
-    try {
-      const res = await fetch("/api/cli-tools/antigravity-mitm/alias", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tool: "antigravity", mappings: modelMappings }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to save mappings");
-      }
-
-      setMessage({ type: "success", text: "Mappings saved!" });
-    } catch (error) {
-      setMessage({ type: "error", text: error.message });
-    } finally {
-      setLoading(false);
+  async function handleSaveMappings() {
+  setLoading(true);
+  setMessage(null);
+  try {
+    const res = await fetch("/api/cli-tools/antigravity-mitm/alias", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        tool: "antigravity",
+        mappings: modelMappings
+      })
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || "Failed to save mappings");
     }
-  };
+    setMessage({
+      type: "success",
+      text: "Mappings saved!"
+    });
+  } catch (error) {
+    setMessage({
+      type: "error",
+      text: error.message
+    });
+  } finally {
+    setLoading(false);
+  }
+}
 
   const isRunning = status?.running;
 

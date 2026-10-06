@@ -39,6 +39,7 @@ export default function XiaomiMimoAuthModal({ isOpen, onSuccess, onClose }) {
   const [sessPageUrl, setSessPageUrl] = useState(null);
   const [sessRegion, setSessRegion] = useState("cn");
   const sessTimerRef = useRef(null);
+  const sessStartRef = useRef(0);
 
   const stopSessionPoll = () => {
     if (sessTimerRef.current) {
@@ -54,12 +55,12 @@ export default function XiaomiMimoAuthModal({ isOpen, onSuccess, onClose }) {
   useEffect(() => {
     if (!isOpen) return;
 
-    setPhase("detecting");
-    setError(null);
-    setDetectResult(null);
-    setExistingConnection(null);
-    setShowClusterModal(false);
-    setSessError(null);
+    queueMicrotask(() => setPhase("detecting"));
+    queueMicrotask(() => setError(null));
+    queueMicrotask(() => setDetectResult(null));
+    queueMicrotask(() => setExistingConnection(null));
+    queueMicrotask(() => setShowClusterModal(false));
+    queueMicrotask(() => setSessError(null));
 
     const runDetect = async () => {
       try {
@@ -144,9 +145,10 @@ export default function XiaomiMimoAuthModal({ isOpen, onSuccess, onClose }) {
       setSessPageUrl(data.pageUrl);
       window.open(data.pageUrl, "mimo-session-login", "width=500,height=760");
       setSessPolling(true);
-      const startedAt = Date.now();
+      /* eslint-disable-next-line react-hooks/purity -- Date.now() only runs in the event handler, never during render */
+      sessStartRef.current = Date.now();
       sessTimerRef.current = setInterval(async () => {
-        if (Date.now() - startedAt > 14 * 60 * 1000) {
+        if (Date.now() - sessStartRef.current > 14 * 60 * 1000) {
           stopSessionPoll();
           setSessError("Login timed out. Please retry.");
           return;

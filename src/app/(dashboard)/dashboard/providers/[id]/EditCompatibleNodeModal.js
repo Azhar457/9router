@@ -20,13 +20,13 @@ export default function EditCompatibleNodeModal({ isOpen, node, onSave, onClose,
 
   useEffect(() => {
     if (node) {
-      setFormData({
+      queueMicrotask(() => setFormData({
         name: node.name || "",
         prefix: node.prefix || "",
         apiType: node.apiType || "chat",
         baseUrl: node.baseUrl || (isAnthropic ? "https://api.anthropic.com/v1" : "https://api.openai.com/v1"),
         imageEnabled: (node.serviceKinds || []).includes("image"),
-      });
+      }));
     }
   }, [node, isAnthropic]);
 

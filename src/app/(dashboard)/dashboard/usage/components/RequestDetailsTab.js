@@ -155,11 +155,11 @@ export default function RequestDetailsTab() {
   }, [pagination.page, pagination.pageSize, filters]);
 
   useEffect(() => {
-    fetchProviders();
+    queueMicrotask(() => fetchProviders());
   }, [fetchProviders]);
 
   useEffect(() => {
-    fetchDetails();
+    queueMicrotask(() => fetchDetails());
   }, [fetchDetails]);
 
   const handleViewDetail = (detail) => {

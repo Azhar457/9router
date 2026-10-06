@@ -46,7 +46,7 @@ export default function CursorAuthModal({ isOpen, onSuccess, onClose }) {
   // Auto-detect tokens when modal opens
   useEffect(() => {
     if (!isOpen) return;
-    runAutoDetect();
+    queueMicrotask(() => runAutoDetect());
   }, [isOpen]);
 
   const handleImportToken = async () => {

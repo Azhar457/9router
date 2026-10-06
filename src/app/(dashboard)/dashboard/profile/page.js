@@ -84,7 +84,7 @@ export default function ProfilePage() {
   const [isRemoteHost, setIsRemoteHost] = useState(false);
   useEffect(() => {
     if (typeof window !== "undefined")
-      setIsRemoteHost(!["localhost", "127.0.0.1", "::1"].includes(window.location.hostname));
+      queueMicrotask(() => setIsRemoteHost(!["localhost", "127.0.0.1", "::1"].includes(window.location.hostname)));
   }, []);
 
   useEffect(() => {

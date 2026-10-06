@@ -8,84 +8,87 @@ export default function PricingModal({ isOpen, onClose, onSave }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  async function loadPricing() {
+  setLoading(true);
+  try {
+    const response = await fetch("/api/pricing");
+    if (response.ok) {
+      const data = await response.json();
+      setPricingData(data);
+    } else {
+      // Fallback to defaults
+      const defaults = getDefaultPricing();
+      setPricingData(defaults);
+    }
+  } catch (error) {
+    console.error("Failed to load pricing:", error);
+    const defaults = getDefaultPricing();
+    setPricingData(defaults);
+  } finally {
+    setLoading(false);
+  }
+}
+
   useEffect(() => {
     if (isOpen) {
-      loadPricing();
+      queueMicrotask(() => loadPricing());
     }
   }, [isOpen]);
 
-  const loadPricing = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch("/api/pricing");
-      if (response.ok) {
-        const data = await response.json();
-        setPricingData(data);
-      } else {
-        // Fallback to defaults
-        const defaults = getDefaultPricing();
-        setPricingData(defaults);
-      }
-    } catch (error) {
-      console.error("Failed to load pricing:", error);
+  function handlePricingChange(provider, model, field, value) {
+  const numValue = parseFloat(value);
+  if (isNaN(numValue) || numValue < 0) return;
+  setPricingData(prev => {
+    const newData = {
+      ...prev
+    };
+    if (!newData[provider]) newData[provider] = {};
+    if (!newData[provider][model]) newData[provider][model] = {};
+    newData[provider][model][field] = numValue;
+    return newData;
+  });
+}
+
+  async function handleSave() {
+  setSaving(true);
+  try {
+    const response = await fetch("/api/pricing", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(pricingData)
+    });
+    if (response.ok) {
+      onSave?.();
+      onClose();
+    } else {
+      const error = await response.json();
+      alert(`Failed to save pricing: ${error.error}`);
+    }
+  } catch (error) {
+    console.error("Failed to save pricing:", error);
+    alert("Failed to save pricing");
+  } finally {
+    setSaving(false);
+  }
+}
+
+  async function handleReset() {
+  if (!confirm("Reset all pricing to defaults? This cannot be undone.")) return;
+  try {
+    const response = await fetch("/api/pricing", {
+      method: "DELETE"
+    });
+    if (response.ok) {
       const defaults = getDefaultPricing();
       setPricingData(defaults);
-    } finally {
-      setLoading(false);
     }
-  };
-
-  const handlePricingChange = (provider, model, field, value) => {
-    const numValue = parseFloat(value);
-    if (isNaN(numValue) || numValue < 0) return;
-
-    setPricingData(prev => {
-      const newData = { ...prev };
-      if (!newData[provider]) newData[provider] = {};
-      if (!newData[provider][model]) newData[provider][model] = {};
-      newData[provider][model][field] = numValue;
-      return newData;
-    });
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const response = await fetch("/api/pricing", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(pricingData)
-      });
-
-      if (response.ok) {
-        onSave?.();
-        onClose();
-      } else {
-        const error = await response.json();
-        alert(`Failed to save pricing: ${error.error}`);
-      }
-    } catch (error) {
-      console.error("Failed to save pricing:", error);
-      alert("Failed to save pricing");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleReset = async () => {
-    if (!confirm("Reset all pricing to defaults? This cannot be undone.")) return;
-
-    try {
-      const response = await fetch("/api/pricing", { method: "DELETE" });
-      if (response.ok) {
-        const defaults = getDefaultPricing();
-        setPricingData(defaults);
-      }
-    } catch (error) {
-      console.error("Failed to reset pricing:", error);
-      alert("Failed to reset pricing");
-    }
-  };
+  } catch (error) {
+    console.error("Failed to reset pricing:", error);
+    alert("Failed to reset pricing");
+  }
+}
 
   if (!isOpen) return null;
 

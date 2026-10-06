@@ -8,8 +8,23 @@ export default function RequestLogger() {
   const [loading, setLoading] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
 
+  async function fetchLogs(showLoading = true) {
+  if (showLoading) setLoading(true);
+  try {
+    const res = await fetch("/api/usage/request-logs");
+    if (res.ok) {
+      const data = await res.json();
+      setLogs(data);
+    }
+  } catch (error) {
+    console.error("Failed to fetch logs:", error);
+  } finally {
+    if (showLoading) setLoading(false);
+  }
+}
+
   useEffect(() => {
-    fetchLogs();
+    queueMicrotask(() => fetchLogs());
   }, []);
 
   useEffect(() => {
@@ -21,21 +36,6 @@ export default function RequestLogger() {
     }
     return () => clearInterval(interval);
   }, [autoRefresh]);
-
-  const fetchLogs = async (showLoading = true) => {
-    if (showLoading) setLoading(true);
-    try {
-      const res = await fetch("/api/usage/request-logs");
-      if (res.ok) {
-        const data = await res.json();
-        setLogs(data);
-      }
-    } catch (error) {
-      console.error("Failed to fetch logs:", error);
-    } finally {
-      if (showLoading) setLoading(false);
-    }
-  };
 
   return (
     <div className="flex flex-col gap-4">

@@ -44,15 +44,15 @@ export default function MitmToolCard({
     if (isExpanded) loadSavedMappings();
   }, [isExpanded]);
 
-  const loadSavedMappings = async () => {
-    try {
-      const res = await fetch(`/api/cli-tools/antigravity-mitm/alias?tool=${tool.id}`);
-      if (res.ok) {
-        const data = await res.json();
-        if (Object.keys(data.aliases || {}).length > 0) setModelMappings(data.aliases);
-      }
-    } catch { /* ignore */ }
-  };
+  async function loadSavedMappings() {
+  try {
+    const res = await fetch(`/api/cli-tools/antigravity-mitm/alias?tool=${tool.id}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (Object.keys(data.aliases || {}).length > 0) setModelMappings(data.aliases);
+    }
+  } catch {/* ignore */}
+}
 
   const saveMappings = useCallback(async (mappings) => {
     try {
@@ -64,70 +64,83 @@ export default function MitmToolCard({
     } catch { /* ignore */ }
   }, [tool.id]);
 
-  const handleMappingBlur = (alias, value) => {
-    saveMappings({ ...modelMappings, [alias]: value });
-  };
+  function handleMappingBlur(alias, value) {
+  saveMappings({
+    ...modelMappings,
+    [alias]: value
+  });
+}
 
-  const handleModelMappingChange = (alias, value) => {
-    setModelMappings(prev => ({ ...prev, [alias]: value }));
-  };
+  function handleModelMappingChange(alias, value) {
+  setModelMappings(prev => ({
+    ...prev,
+    [alias]: value
+  }));
+}
 
-  const openModelSelector = (alias) => {
-    setCurrentEditingAlias(alias);
-    setModalOpen(true);
-  };
+  function openModelSelector(alias) {
+  setCurrentEditingAlias(alias);
+  setModalOpen(true);
+}
 
-  const handleModelSelect = (model) => {
-    if (!currentEditingAlias || model.isPlaceholder) return;
-    const updated = { ...modelMappings, [currentEditingAlias]: model.value };
-    setModelMappings(updated);
-    saveMappings(updated);
+  function handleModelSelect(model) {
+  if (!currentEditingAlias || model.isPlaceholder) return;
+  const updated = {
+    ...modelMappings,
+    [currentEditingAlias]: model.value
   };
+  setModelMappings(updated);
+  saveMappings(updated);
+}
 
-  const handleDnsToggle = () => {
-    if (!serverRunning) return;
-    const action = dnsActive ? "disable" : "enable";
-    if (canRunWithoutPassword) {
-      doDnsAction(action, "");
-    } else {
-      setPendingDnsAction(action);
-      setShowPasswordModal(true);
-      setModalError(null);
+  function handleDnsToggle() {
+  if (!serverRunning) return;
+  const action = dnsActive ? "disable" : "enable";
+  if (canRunWithoutPassword) {
+    doDnsAction(action, "");
+  } else {
+    setPendingDnsAction(action);
+    setShowPasswordModal(true);
+    setModalError(null);
+  }
+}
+
+  async function doDnsAction(action, password) {
+  setLoading(true);
+  setWarning(null);
+  try {
+    const res = await fetch("/api/cli-tools/antigravity-mitm", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        tool: tool.id,
+        action,
+        sudoPassword: password
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to toggle DNS");
+    if (action === "enable") {
+      setWarning(`Restart ${tool.name} to apply changes`);
     }
-  };
+    setShowPasswordModal(false);
+    setSudoPassword("");
+    onDnsChange?.(data);
+  } catch {/* ignore */} finally {
+    setLoading(false);
+    setPendingDnsAction(null);
+  }
+}
 
-  const doDnsAction = async (action, password) => {
-    setLoading(true);
-    setWarning(null);
-    try {
-      const res = await fetch("/api/cli-tools/antigravity-mitm", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tool: tool.id, action, sudoPassword: password }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to toggle DNS");
-
-      if (action === "enable") {
-        setWarning(`Restart ${tool.name} to apply changes`);
-      }
-
-      setShowPasswordModal(false);
-      setSudoPassword("");
-      onDnsChange?.(data);
-    } catch { /* ignore */ } finally {
-      setLoading(false);
-      setPendingDnsAction(null);
-    }
-  };
-
-  const handleConfirmPassword = () => {
-    if (!sudoPassword.trim()) {
-      setModalError("Sudo password is required");
-      return;
-    }
-    doDnsAction(pendingDnsAction, sudoPassword);
-  };
+  function handleConfirmPassword() {
+  if (!sudoPassword.trim()) {
+    setModalError("Sudo password is required");
+    return;
+  }
+  doDnsAction(pendingDnsAction, sudoPassword);
+}
 
   return (
     <>

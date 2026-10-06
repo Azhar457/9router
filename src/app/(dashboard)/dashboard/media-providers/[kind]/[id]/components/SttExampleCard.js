@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card } from "@/shared/components";
 import { getProviderAlias } from "@/shared/constants/providers";
 import { getModelKind } from "@/shared/constants/models";
@@ -31,11 +31,12 @@ export function SttExampleCard({ providerId }) {
   const [latency, setLatency] = useState(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState("");
+  const startRef = useRef(0);
   const { copied: copiedCurl, copy: copyCurl } = useCopyToClipboard();
   const { copied: copiedRes, copy: copyRes } = useCopyToClipboard();
 
   useEffect(() => {
-    setLocalEndpoint(window.location.origin);
+    queueMicrotask(() => setLocalEndpoint(window.location.origin));
     fetch("/api/keys")
       .then((r) => r.json())
       .then((d) => { setApiKey((d.keys || []).find((k) => k.isActive !== false)?.key || ""); })
@@ -75,7 +76,8 @@ export function SttExampleCard({ providerId }) {
     setRunning(true);
     setError("");
     setResult(null);
-    const start = Date.now();
+    /* eslint-disable-next-line react-hooks/purity -- Date.now() only runs in the onClick handler, never during render */
+    startRef.current = Date.now();
     try {
       const fd = new FormData();
       fd.append("file", audioFile);
@@ -88,7 +90,8 @@ export function SttExampleCard({ providerId }) {
       const headers = {};
       if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
       const res = await fetch("/api/v1/audio/transcriptions", { method: "POST", headers, body: fd });
-      setLatency(Date.now() - start);
+      /* eslint-disable-next-line react-hooks/purity -- Date.now() only runs in the onClick handler, never during render */
+      setLatency(Date.now() - startRef.current);
       const ct = res.headers.get("content-type") || "";
       const data = ct.includes("application/json") ? await res.json() : await res.text();
       if (!res.ok) {

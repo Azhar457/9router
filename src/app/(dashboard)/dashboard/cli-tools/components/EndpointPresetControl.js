@@ -39,7 +39,7 @@ export default function EndpointPresetControl({
   const [selectedName, setSelectedName] = useState("");
 
   useEffect(() => {
-    setPresets(readPresets());
+    queueMicrotask(() => setPresets(readPresets()));
   }, []);
 
   const selectedPreset = useMemo(

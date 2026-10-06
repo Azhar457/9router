@@ -78,11 +78,27 @@ function ConsentModal({ onConsent, onDismiss }) {
 export default function PayloadTabClient() {
   const flags = useTabFlags();
 
-  // Hydration-safe lazy init: read the consent store on the first client
-  // render; getConsentState() returns null off-client, so SSR and the first
-  // client render agree. The gate re-prompts when missing or expired.
-  const [consent, setConsent] = useState(() => getConsentState());
+  // Hydration-safe initial state: SSR and the first client render must agree.
+  // getConsentState() reads localStorage, which is unavailable on the server,
+  // so calling it during render produces different HTML for SSR vs client
+  // (consented:false vs consented:true) → hydration mismatch. We therefore
+  // start from the empty shape and sync the real consent state in an effect
+  // after mount, when localStorage is available.
+  const [consent, setConsent] = useState(() => ({
+    consented: false,
+    consentAt: null,
+    expiresAt: null,
+    audit: [],
+  }));
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [consentHydrated, setConsentHydrated] = useState(false);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      setConsent(getConsentState());
+      setConsentHydrated(true);
+    });
+  }, []);
 
   const consented = Boolean(consent?.consented);
   // The consent modal is visible when there's no valid consent and the user
@@ -210,8 +226,10 @@ export default function PayloadTabClient() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Consent modal (first access or expired) */}
-      {showConsentModal && (
+      {/* Consent modal (first access or expired). Gated on
+          consentHydrated so the SSR placeholder and the first client
+          render agree, then the real gate appears after mount. */}
+      {consentHydrated && showConsentModal && (
         <ConsentModal
           onConsent={acceptConsent}
           onDismiss={() => setBannerDismissed(true)}
@@ -219,7 +237,7 @@ export default function PayloadTabClient() {
       )}
 
       {/* Post-consent audit banner — small, dismissible */}
-      {consented && !bannerDismissed && (
+      {consentHydrated && consented && !bannerDismissed && (
         <div
           className={cn(
             "flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-500/40",

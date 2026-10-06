@@ -10,6 +10,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // CLI / standalone build output — generated, not source.
+    ".next-cli-build/**",
+    "cli/app/.next-cli-build/**",
+    "dist/**",
   ]),
 ]);
 

@@ -44,24 +44,27 @@ export default function HermesToolCard({
 
   const currentBaseUrl = hermesStatus?.settings?.model?.base_url || "";
 
-  const getConfigStatus = () => {
-    if (!hermesStatus?.installed) return null;
-    const cfg = hermesStatus.settings?.model;
-    if (!cfg?.base_url) return "not_configured";
-    if (matchKnownEndpoint(cfg.base_url, { tunnelPublicUrl, tailscaleUrl })) return "configured";
-    return "other";
-  };
+  function getConfigStatus() {
+  if (!hermesStatus?.installed) return null;
+  const cfg = hermesStatus.settings?.model;
+  if (!cfg?.base_url) return "not_configured";
+  if (matchKnownEndpoint(cfg.base_url, {
+    tunnelPublicUrl,
+    tailscaleUrl
+  })) return "configured";
+  return "other";
+}
 
   const configStatus = getConfigStatus();
 
   useEffect(() => {
     if (apiKeys?.length > 0 && !selectedApiKey) {
-      setSelectedApiKey(apiKeys[0].key);
+      queueMicrotask(() => setSelectedApiKey(apiKeys[0].key));
     }
   }, [apiKeys, selectedApiKey]);
 
   useEffect(() => {
-    if (initialStatus) setHermesStatus(initialStatus);
+    if (initialStatus) queueMicrotask(() => setHermesStatus(initialStatus));
   }, [initialStatus]);
 
   useEffect(() => {
@@ -71,153 +74,179 @@ export default function HermesToolCard({
     }
   }, [isExpanded]);
 
-  const fetchModelAliases = async () => {
-    try {
-      const res = await fetch("/api/models/alias");
-      const data = await res.json();
-      if (res.ok) setModelAliases(data.aliases || {});
-    } catch (error) {
-      console.log("Error fetching model aliases:", error);
-    }
-  };
+  async function fetchModelAliases() {
+  try {
+    const res = await fetch("/api/models/alias");
+    const data = await res.json();
+    if (res.ok) setModelAliases(data.aliases || {});
+  } catch (error) {
+    console.log("Error fetching model aliases:", error);
+  }
+}
 
   useEffect(() => {
     if (hermesStatus?.installed && !hasInitializedModel.current) {
       hasInitializedModel.current = true;
       const cfg = hermesStatus.settings?.model;
-      if (cfg?.default) setSelectedModel(cfg.default);
+      if (cfg?.default) queueMicrotask(() => setSelectedModel(cfg.default));
       const initial = {};
       if (hermesStatus.settings?.delegation?.model) initial.delegation = hermesStatus.settings.delegation.model;
       for (const [role, rcfg] of Object.entries(hermesStatus.settings?.auxiliary || {})) {
         if (rcfg?.model) initial[role] = rcfg.model;
       }
-      setRoleModels(initial);
+      queueMicrotask(() => setRoleModels(initial));
     }
   }, [hermesStatus]);
 
-  const checkStatus = async () => {
-    setChecking(true);
-    try {
-      const res = await fetch(ENDPOINT);
-      const data = await res.json();
-      setHermesStatus(data);
-    } catch (error) {
-      setHermesStatus({ installed: false, error: error.message });
-    } finally {
-      setChecking(false);
-    }
-  };
+  async function checkStatus() {
+  setChecking(true);
+  try {
+    const res = await fetch(ENDPOINT);
+    const data = await res.json();
+    setHermesStatus(data);
+  } catch (error) {
+    setHermesStatus({
+      installed: false,
+      error: error.message
+    });
+  } finally {
+    setChecking(false);
+  }
+}
 
   const normalizeLocalhost = (url) => url.replace("://localhost", "://127.0.0.1");
 
-  const getLocalBaseUrl = () => {
-    if (typeof window !== "undefined") {
-      return normalizeLocalhost(window.location.origin);
-    }
-    return "http://127.0.0.1:20128";
-  };
+  function getLocalBaseUrl() {
+  if (typeof window !== "undefined") {
+    return normalizeLocalhost(window.location.origin);
+  }
+  return "http://127.0.0.1:20128";
+}
 
-  const getEffectiveBaseUrl = () => {
-    const url = customBaseUrl || getLocalBaseUrl();
-    return url.endsWith("/v1") ? url : `${url}/v1`;
-  };
+  function getEffectiveBaseUrl() {
+  const url = customBaseUrl || getLocalBaseUrl();
+  return url.endsWith("/v1") ? url : `${url}/v1`;
+}
 
-  const handleApply = async () => {
-    setApplying(true);
-    setMessage(null);
-    try {
-      const keyToUse = selectedApiKey?.trim()
-        || (apiKeys?.length > 0 ? apiKeys[0].key : null)
-        || (!cloudEnabled ? "sk_9router" : null);
-
-      const res = await fetch(ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          baseUrl: getEffectiveBaseUrl(),
-          apiKey: keyToUse,
-          selections: [
-            { role: "default", model: selectedModel },
-            ...Object.entries(roleModels)
-              .filter(([, model]) => model?.trim())
-              .map(([role, model]) => ({ role, model: model.trim() })),
-          ],
-        }),
+  async function handleApply() {
+  setApplying(true);
+  setMessage(null);
+  try {
+    const keyToUse = selectedApiKey?.trim() || (apiKeys?.length > 0 ? apiKeys[0].key : null) || (!cloudEnabled ? "sk_9router" : null);
+    const res = await fetch(ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        baseUrl: getEffectiveBaseUrl(),
+        apiKey: keyToUse,
+        selections: [{
+          role: "default",
+          model: selectedModel
+        }, ...Object.entries(roleModels).filter(([, model]) => model?.trim()).map(([role, model]) => ({
+          role,
+          model: model.trim()
+        }))]
+      })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      // Remember the endpoint so it stays selectable next time
+      rememberEndpoint(getEffectiveBaseUrl(), {
+        tunnelPublicUrl,
+        tailscaleUrl
       });
-      const data = await res.json();
-      if (res.ok) {
-        // Remember the endpoint so it stays selectable next time
-        rememberEndpoint(getEffectiveBaseUrl(), { tunnelPublicUrl, tailscaleUrl });
-        setMessage({ type: "success", text: "Settings applied successfully!" });
-        checkStatus();
-      } else {
-        setMessage({ type: "error", text: data.error || "Failed to apply settings" });
-      }
-    } catch (error) {
-      setMessage({ type: "error", text: error.message });
-    } finally {
-      setApplying(false);
-    }
-  };
-
-  const handleReset = async () => {
-    setRestoring(true);
-    setMessage(null);
-    try {
-      const res = await fetch(ENDPOINT, { method: "DELETE" });
-      const data = await res.json();
-      if (res.ok) {
-        setMessage({ type: "success", text: "Settings reset successfully!" });
-        setSelectedModel("");
-        setRoleModels({});
-        checkStatus();
-      } else {
-        setMessage({ type: "error", text: data.error || "Failed to reset settings" });
-      }
-    } catch (error) {
-      setMessage({ type: "error", text: error.message });
-    } finally {
-      setRestoring(false);
-    }
-  };
-
-  const handleModelSelect = (model) => {
-    if (modalTarget === "default") {
-      setSelectedModel(model.value);
+      setMessage({
+        type: "success",
+        text: "Settings applied successfully!"
+      });
+      checkStatus();
     } else {
-      setRoleModels((prev) => ({ ...prev, [modalTarget]: model.value }));
+      setMessage({
+        type: "error",
+        text: data.error || "Failed to apply settings"
+      });
     }
-    setModalOpen(false);
-  };
+  } catch (error) {
+    setMessage({
+      type: "error",
+      text: error.message
+    });
+  } finally {
+    setApplying(false);
+  }
+}
 
-  const openModelModal = (target) => {
-    setModalTarget(target);
-    setModalOpen(true);
-  };
-
-  const getManualConfigs = () => {
-    const keyToUse = (selectedApiKey && selectedApiKey.trim())
-      ? selectedApiKey
-      : (!cloudEnabled ? "sk_9router" : "<API_KEY_FROM_DASHBOARD>");
-
-    const base = getEffectiveBaseUrl();
-    let yamlContent = `model:\n  default: "${selectedModel || "provider/model-id"}"\n  provider: "custom"\n  base_url: "${base}"\n  api_key: \${OPENAI_API_KEY}\n`;
-    if (roleModels.delegation?.trim()) {
-      yamlContent += `delegation:\n  model: "${roleModels.delegation.trim()}"\n  provider: "custom"\n  base_url: "${base}"\n  api_key: \${OPENAI_API_KEY}\n`;
+  async function handleReset() {
+  setRestoring(true);
+  setMessage(null);
+  try {
+    const res = await fetch(ENDPOINT, {
+      method: "DELETE"
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setMessage({
+        type: "success",
+        text: "Settings reset successfully!"
+      });
+      setSelectedModel("");
+      setRoleModels({});
+      checkStatus();
+    } else {
+      setMessage({
+        type: "error",
+        text: data.error || "Failed to reset settings"
+      });
     }
-    const auxRoles = Object.entries(roleModels).filter(([role, model]) => role !== "delegation" && model?.trim());
-    if (auxRoles.length > 0) {
-      yamlContent += `auxiliary:\n${auxRoles.map(([role, model]) =>
-        `  ${role}:\n    provider: "custom"\n    model: "${model.trim()}"\n    base_url: "${base}"\n    api_key: \${OPENAI_API_KEY}\n`
-      ).join("")}`;
-    }
-    const envContent = `OPENAI_API_KEY=${keyToUse}\n`;
+  } catch (error) {
+    setMessage({
+      type: "error",
+      text: error.message
+    });
+  } finally {
+    setRestoring(false);
+  }
+}
 
-    return [
-      { filename: "~/.hermes/config.yaml", content: yamlContent },
-      { filename: "~/.hermes/.env", content: envContent },
-    ];
-  };
+  function handleModelSelect(model) {
+  if (modalTarget === "default") {
+    setSelectedModel(model.value);
+  } else {
+    setRoleModels(prev => ({
+      ...prev,
+      [modalTarget]: model.value
+    }));
+  }
+  setModalOpen(false);
+}
+
+  function openModelModal(target) {
+  setModalTarget(target);
+  setModalOpen(true);
+}
+
+  function getManualConfigs() {
+  const keyToUse = selectedApiKey && selectedApiKey.trim() ? selectedApiKey : !cloudEnabled ? "sk_9router" : "<API_KEY_FROM_DASHBOARD>";
+  const base = getEffectiveBaseUrl();
+  let yamlContent = `model:\n  default: "${selectedModel || "provider/model-id"}"\n  provider: "custom"\n  base_url: "${base}"\n  api_key: \${OPENAI_API_KEY}\n`;
+  if (roleModels.delegation?.trim()) {
+    yamlContent += `delegation:\n  model: "${roleModels.delegation.trim()}"\n  provider: "custom"\n  base_url: "${base}"\n  api_key: \${OPENAI_API_KEY}\n`;
+  }
+  const auxRoles = Object.entries(roleModels).filter(([role, model]) => role !== "delegation" && model?.trim());
+  if (auxRoles.length > 0) {
+    yamlContent += `auxiliary:\n${auxRoles.map(([role, model]) => `  ${role}:\n    provider: "custom"\n    model: "${model.trim()}"\n    base_url: "${base}"\n    api_key: \${OPENAI_API_KEY}\n`).join("")}`;
+  }
+  const envContent = `OPENAI_API_KEY=${keyToUse}\n`;
+  return [{
+    filename: "~/.hermes/config.yaml",
+    content: yamlContent
+  }, {
+    filename: "~/.hermes/.env",
+    content: envContent
+  }];
+}
 
   return (
     <Card padding="xs" className="overflow-hidden">

@@ -33,12 +33,12 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
 
   useEffect(() => {
     if (apiKeys?.length > 0 && !selectedApiKey) {
-      setSelectedApiKey(apiKeys[0].key);
+      queueMicrotask(() => setSelectedApiKey(apiKeys[0].key));
     }
   }, [apiKeys, selectedApiKey]);
 
   useEffect(() => {
-    if (initialStatus) setStatus(initialStatus);
+    if (initialStatus) queueMicrotask(() => setStatus(initialStatus));
   }, [initialStatus]);
 
   useEffect(() => {
@@ -51,175 +51,207 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
   // Sync models from existing config
   useEffect(() => {
     if (status?.opencode?.models) {
-      setSelectedModels(status.opencode.models);
+      queueMicrotask(() => setSelectedModels(status.opencode.models));
     }
     if (status?.opencode?.activeModel) {
-      setActiveModel(status.opencode.activeModel);
+      queueMicrotask(() => setActiveModel(status.opencode.activeModel));
     }
 
     // Parse subagent settings from agent.explorer if exists
     if (status?.config?.agent?.explorer?.model?.startsWith("9router/")) {
-      setSubagentModel(status.config.agent.explorer.model.replace("9router/", ""));
+      queueMicrotask(() => setSubagentModel(status.config.agent.explorer.model.replace("9router/", "")));
     }
   }, [status]);
 
-  const fetchModelAliases = async () => {
-    try {
-      const res = await fetch("/api/models/alias");
-      const data = await res.json();
-      if (res.ok) setModelAliases(data.aliases || {});
-    } catch (error) {
-      console.log("Error fetching model aliases:", error);
-    }
-  };
+  async function fetchModelAliases() {
+  try {
+    const res = await fetch("/api/models/alias");
+    const data = await res.json();
+    if (res.ok) setModelAliases(data.aliases || {});
+  } catch (error) {
+    console.log("Error fetching model aliases:", error);
+  }
+}
 
-  const saveModels = async (models) => {
-    try {
-      const keyToUse = (selectedApiKey && selectedApiKey.trim())
-        ? selectedApiKey
-        : (!cloudEnabled ? "sk_9router" : selectedApiKey);
-      const validActiveModel = models.includes(activeModel) ? activeModel : (models[0] || "");
-      await fetch("/api/cli-tools/opencode-settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          baseUrl: getEffectiveBaseUrl(),
-          apiKey: keyToUse,
-          models,
-          activeModel: validActiveModel,
-          subagentModel,
-        }),
-      });
-    } catch (error) {
-      console.log("Error saving models:", error);
-    }
-  };
+  async function saveModels(models) {
+  try {
+    const keyToUse = selectedApiKey && selectedApiKey.trim() ? selectedApiKey : !cloudEnabled ? "sk_9router" : selectedApiKey;
+    const validActiveModel = models.includes(activeModel) ? activeModel : models[0] || "";
+    await fetch("/api/cli-tools/opencode-settings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        baseUrl: getEffectiveBaseUrl(),
+        apiKey: keyToUse,
+        models,
+        activeModel: validActiveModel,
+        subagentModel
+      })
+    });
+  } catch (error) {
+    console.log("Error saving models:", error);
+  }
+}
 
   const currentBaseUrl = status?.config?.provider?.["9router"]?.options?.baseURL || "";
 
-  const getConfigStatus = () => {
-    if (!status?.installed) return null;
-    if (!status.config) return "not_configured";
-    if (!status.has9Router) return "not_configured";
-    const url = status.config?.provider?.["9router"]?.options?.baseURL || "";
-    return matchKnownEndpoint(url, { tunnelPublicUrl, tailscaleUrl }) ? "configured" : "other";
-  };
+  function getConfigStatus() {
+  if (!status?.installed) return null;
+  if (!status.config) return "not_configured";
+  if (!status.has9Router) return "not_configured";
+  const url = status.config?.provider?.["9router"]?.options?.baseURL || "";
+  return matchKnownEndpoint(url, {
+    tunnelPublicUrl,
+    tailscaleUrl
+  }) ? "configured" : "other";
+}
 
   const configStatus = getConfigStatus();
 
-  const getEffectiveBaseUrl = () => {
-    const url = customBaseUrl || baseUrl;
-    return url.endsWith("/v1") ? url : `${url}/v1`;
-  };
+  function getEffectiveBaseUrl() {
+  const url = customBaseUrl || baseUrl;
+  return url.endsWith("/v1") ? url : `${url}/v1`;
+}
 
   const getDisplayUrl = () => customBaseUrl || `${baseUrl}/v1`;
 
-  const checkStatus = async () => {
-    setChecking(true);
-    try {
-      const res = await fetch("/api/cli-tools/opencode-settings");
-      const data = await res.json();
-      setStatus(data);
-    } catch (error) {
-      setStatus({ installed: false, error: error.message });
-    } finally {
-      setChecking(false);
-    }
-  };
-
-  const handleApply = async () => {
-    setApplying(true);
-    setMessage(null);
-    try {
-      const keyToUse = (selectedApiKey && selectedApiKey.trim())
-        ? selectedApiKey
-        : (!cloudEnabled ? "sk_9router" : selectedApiKey);
-
-      const res = await fetch("/api/cli-tools/opencode-settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          baseUrl: getEffectiveBaseUrl(),
-          apiKey: keyToUse,
-          models: selectedModels,
-          activeModel: activeModel === "" ? "" : (activeModel || selectedModels[0]),
-          subagentModel: subagentModel
-        }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        // Remember the endpoint so it stays selectable next time
-        rememberEndpoint(getEffectiveBaseUrl(), { tunnelPublicUrl, tailscaleUrl });
-        setMessage({ type: "success", text: "Settings applied successfully!" });
-        checkStatus();
-      } else {
-        setMessage({ type: "error", text: data.error || "Failed to apply settings" });
-      }
-    } catch (error) {
-      setMessage({ type: "error", text: error.message });
-    } finally {
-      setApplying(false);
-    }
-  };
-
-  const handleReset = async () => {
-    setRestoring(true);
-    setMessage(null);
-    try {
-      const res = await fetch("/api/cli-tools/opencode-settings", { method: "DELETE" });
-      const data = await res.json();
-      if (res.ok) {
-        setMessage({ type: "success", text: "Settings reset successfully!" });
-        setSelectedModel("");
-        setSubagentModel("");
-        setSelectedModels([]);
-        setActiveModel("");
-        checkStatus();
-      } else {
-        setMessage({ type: "error", text: data.error || "Failed to reset settings" });
-      }
-    } catch (error) {
-      setMessage({ type: "error", text: error.message });
-    } finally {
-      setRestoring(false);
-    }
-  };
-
-  const getManualConfigs = () => {
-    const keyToUse = (selectedApiKey && selectedApiKey.trim())
-      ? selectedApiKey
-      : (!cloudEnabled ? "sk_9router" : "<API_KEY_FROM_DASHBOARD>");
-
-    const modelsToShow = selectedModels.length > 0 ? selectedModels : ["provider/model-id"];
-    const activeModelToShow = activeModel || selectedModels[0] || modelsToShow[0];
-    const effectiveSubagentModel = subagentModel || activeModelToShow;
-
-    const modelsObj = {};
-    modelsToShow.forEach(m => {
-      modelsObj[m] = { name: m, modalities: { input: ["text", "image"], output: ["text"] } };
+  async function checkStatus() {
+  setChecking(true);
+  try {
+    const res = await fetch("/api/cli-tools/opencode-settings");
+    const data = await res.json();
+    setStatus(data);
+  } catch (error) {
+    setStatus({
+      installed: false,
+      error: error.message
     });
+  } finally {
+    setChecking(false);
+  }
+}
 
-    return [{
-      filename: "~/.config/opencode/opencode.json",
-      content: JSON.stringify({
-        provider: {
-          "9router": {
-            npm: "@ai-sdk/openai-compatible",
-            options: { baseURL: getEffectiveBaseUrl(), apiKey: keyToUse },
-            models: modelsObj,
+  async function handleApply() {
+  setApplying(true);
+  setMessage(null);
+  try {
+    const keyToUse = selectedApiKey && selectedApiKey.trim() ? selectedApiKey : !cloudEnabled ? "sk_9router" : selectedApiKey;
+    const res = await fetch("/api/cli-tools/opencode-settings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        baseUrl: getEffectiveBaseUrl(),
+        apiKey: keyToUse,
+        models: selectedModels,
+        activeModel: activeModel === "" ? "" : activeModel || selectedModels[0],
+        subagentModel: subagentModel
+      })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      // Remember the endpoint so it stays selectable next time
+      rememberEndpoint(getEffectiveBaseUrl(), {
+        tunnelPublicUrl,
+        tailscaleUrl
+      });
+      setMessage({
+        type: "success",
+        text: "Settings applied successfully!"
+      });
+      checkStatus();
+    } else {
+      setMessage({
+        type: "error",
+        text: data.error || "Failed to apply settings"
+      });
+    }
+  } catch (error) {
+    setMessage({
+      type: "error",
+      text: error.message
+    });
+  } finally {
+    setApplying(false);
+  }
+}
+
+  async function handleReset() {
+  setRestoring(true);
+  setMessage(null);
+  try {
+    const res = await fetch("/api/cli-tools/opencode-settings", {
+      method: "DELETE"
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setMessage({
+        type: "success",
+        text: "Settings reset successfully!"
+      });
+      setSelectedModel("");
+      setSubagentModel("");
+      setSelectedModels([]);
+      setActiveModel("");
+      checkStatus();
+    } else {
+      setMessage({
+        type: "error",
+        text: data.error || "Failed to reset settings"
+      });
+    }
+  } catch (error) {
+    setMessage({
+      type: "error",
+      text: error.message
+    });
+  } finally {
+    setRestoring(false);
+  }
+}
+
+  function getManualConfigs() {
+  const keyToUse = selectedApiKey && selectedApiKey.trim() ? selectedApiKey : !cloudEnabled ? "sk_9router" : "<API_KEY_FROM_DASHBOARD>";
+  const modelsToShow = selectedModels.length > 0 ? selectedModels : ["provider/model-id"];
+  const activeModelToShow = activeModel || selectedModels[0] || modelsToShow[0];
+  const effectiveSubagentModel = subagentModel || activeModelToShow;
+  const modelsObj = {};
+  modelsToShow.forEach(m => {
+    modelsObj[m] = {
+      name: m,
+      modalities: {
+        input: ["text", "image"],
+        output: ["text"]
+      }
+    };
+  });
+  return [{
+    filename: "~/.config/opencode/opencode.json",
+    content: JSON.stringify({
+      provider: {
+        "9router": {
+          npm: "@ai-sdk/openai-compatible",
+          options: {
+            baseURL: getEffectiveBaseUrl(),
+            apiKey: keyToUse
           },
-        },
-        model: `9router/${activeModelToShow}`,
-        agent: {
-          explorer: {
-            description: "Fast explorer subagent for codebase exploration",
-            mode: "subagent",
-            model: `9router/${effectiveSubagentModel}`
-          }
+          models: modelsObj
         }
-      }, null, 2),
-    }];
-  };
+      },
+      model: `9router/${activeModelToShow}`,
+      agent: {
+        explorer: {
+          description: "Fast explorer subagent for codebase exploration",
+          mode: "subagent",
+          model: `9router/${effectiveSubagentModel}`
+        }
+      }
+    }, null, 2)
+  }];
+}
 
   return (
     <Card padding="xs" className="overflow-hidden">

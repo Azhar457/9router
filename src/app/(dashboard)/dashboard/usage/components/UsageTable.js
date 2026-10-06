@@ -112,7 +112,7 @@ export default function UsageTable({
   useEffect(() => {
     try {
       const saved = localStorage.getItem(storageKey);
-      if (saved) setExpanded(new Set(JSON.parse(saved)));
+      if (saved) queueMicrotask(() => setExpanded(new Set(JSON.parse(saved))));
     } catch (e) {
       console.error(`Failed to load ${storageKey}:`, e);
     }

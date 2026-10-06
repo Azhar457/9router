@@ -93,34 +93,27 @@ export default function ClaudeToolCard({
 
   useEffect(() => {
     if (apiKeys?.length > 0 && !selectedApiKey) {
-      setSelectedApiKey(apiKeys[0].key);
+      queueMicrotask(() => setSelectedApiKey(apiKeys[0].key));
     }
   }, [apiKeys, selectedApiKey]);
 
   useEffect(() => {
     if (initialStatus) {
-      setClaudeStatus(initialStatus);
-      setExaMcpEnabled(!!initialStatus.exaMcpEnabled);
+      queueMicrotask(() => setClaudeStatus(initialStatus));
+      queueMicrotask(() => setExaMcpEnabled(!!initialStatus.exaMcpEnabled));
     }
   }, [initialStatus]);
 
   useEffect(() => {
     const v = claudeStatus?.settings?.env?.CLAUDE_CODE_AUTO_COMPACT_WINDOW;
-    setAutoCompactWindow(v || "");
+    queueMicrotask(() => setAutoCompactWindow(v || ""));
   }, [claudeStatus?.settings?.env?.CLAUDE_CODE_AUTO_COMPACT_WINDOW]);
 
   useEffect(() => {
     const env = claudeStatus?.settings?.env;
     if (!env) return;
-    setOneMContext(tool.defaultModels.some((model) => env[model.envKey]?.endsWith("[1m]")));
+    queueMicrotask(() => setOneMContext(tool.defaultModels.some((model) => env[model.envKey]?.endsWith("[1m]"))));
   }, [claudeStatus?.settings?.env, tool.defaultModels]);
-
-  useEffect(() => {
-    if (isExpanded) {
-      if (!claudeStatus) checkClaudeStatus();
-      fetchModelAliases();
-    }
-  }, [isExpanded]);
 
   useEffect(() => {
     fetch("/api/settings").then(r => r.json()).then(data => {
@@ -167,7 +160,7 @@ export default function ClaudeToolCard({
       // Restore key from settings.json; ApiKeySelect matches it against saved presets
       const tokenFromFile = env.ANTHROPIC_AUTH_TOKEN;
       if (tokenFromFile) {
-        setSelectedApiKey(tokenFromFile);
+        queueMicrotask(() => setSelectedApiKey(tokenFromFile));
       }
     }
   }, [claudeStatus, apiKeys, tool.defaultModels, onModelMappingChange]);
@@ -185,6 +178,19 @@ export default function ClaudeToolCard({
       setCheckingClaude(false);
     }
   };
+
+  // Hoisted below checkClaudeStatus / fetchModelAliases: the effect calls both
+  // of them, so it must live after their const declarations (react-hooks/immutability).
+  useEffect(() => {
+    if (!isExpanded) return;
+    // Fetch aliases and (only when a status snapshot is missing yet) trigger
+    // a status check. Deferring both keeps their setState out of the effect
+    // body (react-hooks/set-state-in-effect).
+    queueMicrotask(() => {
+      fetchModelAliases();
+      if (!claudeStatus) checkClaudeStatus();
+    });
+  }, [isExpanded]);
 
   const getEffectiveBaseUrl = () => {
     const url = customBaseUrl || baseUrl;

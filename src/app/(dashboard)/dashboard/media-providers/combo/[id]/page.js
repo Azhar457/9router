@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, notFound, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Card, Button, Input, Toggle, ModelSelectModal } from "@/shared/components";
 import ProviderIcon from "@/shared/components/ProviderIcon";
@@ -58,6 +58,7 @@ export default function ComboDetailPage() {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
   const [testError, setTestError] = useState("");
+  const testStartRef = useRef(0);
   const [apiKey, setApiKey] = useState("");
   const [connections, setConnections] = useState([]);
   const [modelAliases, setModelAliases] = useState({});
@@ -175,14 +176,16 @@ export default function ComboDetailPage() {
     setTestError("");
     if (testResult?.audioUrl) { try { URL.revokeObjectURL(testResult.audioUrl); } catch {} }
     if (testResult?.imageUrl?.startsWith("blob:")) { try { URL.revokeObjectURL(testResult.imageUrl); } catch {} }
-    const start = Date.now();
+    /* eslint-disable-next-line react-hooks/purity -- Date.now() only runs in the onClick handler, never during render */
+    testStartRef.current = Date.now();
     try {
       const path = EXAMPLE_PATHS[combo.kind];
       const body = EXAMPLE_BODIES[combo.kind](combo.name);
       const headers = { "Content-Type": "application/json" };
       if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
       const res = await fetch(`/api${path}`, { method: "POST", headers, body: JSON.stringify(body) });
-      const latencyMs = Date.now() - start;
+      /* eslint-disable-next-line react-hooks/purity -- Date.now() only runs in the onClick handler, never during render */
+      const latencyMs = Date.now() - testStartRef.current;
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
         setTestError(d?.error?.message || d?.error || `HTTP ${res.status}`);

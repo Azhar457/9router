@@ -139,7 +139,7 @@ export default function PenetrationTabClient() {
   // useState initializer makes the SSR output (no localStorage) diverge
   // from the client's real value and triggers a hydration mismatch.
   useEffect(() => {
-    setAcknowledged(hasScopeAcknowledgement());
+    queueMicrotask(() => setAcknowledged(hasScopeAcknowledgement()));
   }, []);
 
   const [open, setOpen] = useState(true);

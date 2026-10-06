@@ -31,31 +31,31 @@ export default function EditConnectionModal({ isOpen, connection, proxyPools, on
 
   useEffect(() => {
     if (connection) {
-      setFormData({
+      queueMicrotask(() => setFormData({
         name: connection.name || "",
         priority: connection.priority || 1,
         apiKey: "",
-      });
+      }));
       // Load Azure-specific data if present
       if (connection.provider === "azure" && connection.providerSpecificData) {
-        setAzureData({
+        queueMicrotask(() => setAzureData({
           azureEndpoint: connection.providerSpecificData.azureEndpoint || "",
           apiVersion: connection.providerSpecificData.apiVersion || "2024-10-01-preview",
           deployment: connection.providerSpecificData.deployment || "",
           organization: connection.providerSpecificData.organization || "",
-        });
+        }));
       }
       if (connection.provider === "cloudflare-ai" && connection.providerSpecificData) {
-        setCloudflareData({ accountId: connection.providerSpecificData.accountId || "" });
+        queueMicrotask(() => setCloudflareData({ accountId: connection.providerSpecificData.accountId || "" }));
       }
       // Load region for providers that support it (e.g. xiaomi-tokenplan)
       const providerCfg = AI_PROVIDERS?.[connection.provider];
       if (providerCfg?.regions) {
         const savedRegion = connection.providerSpecificData?.region || providerCfg.defaultRegion || providerCfg.regions[0]?.id || "";
-        setRegion(savedRegion);
+        queueMicrotask(() => setRegion(savedRegion));
       }
-      setTestResult(null);
-      setValidationResult(null);
+      queueMicrotask(() => setTestResult(null));
+      queueMicrotask(() => setValidationResult(null));
     }
   }, [connection]);
 

@@ -42,24 +42,28 @@ export default function DroidToolCard({
 
   const currentBaseUrl = droidStatus?.settings?.customModels?.find((m) => m.id?.startsWith("custom:9Router-Plinian"))?.baseUrl || "";
 
-  const getConfigStatus = () => {
-    if (!droidStatus?.installed) return null;
-    // Check for any 9Router-Plinian model entry (support multi-model: custom:9Router-Plinian-0, custom:9Router-Plinian-1, ...)
-    const currentConfig = droidStatus.settings?.customModels?.find(m => m.id?.startsWith("custom:9Router-Plinian"));
-    if (!currentConfig) return "not_configured";
-    return matchKnownEndpoint(currentConfig.baseUrl, { tunnelPublicUrl, tailscaleUrl, cloudUrl: cloudEnabled ? CLOUD_URL : null }) ? "configured" : "other";
-  };
+  function getConfigStatus() {
+  if (!droidStatus?.installed) return null;
+  // Check for any 9Router-Plinian model entry (support multi-model: custom:9Router-Plinian-0, custom:9Router-Plinian-1, ...)
+  const currentConfig = droidStatus.settings?.customModels?.find(m => m.id?.startsWith("custom:9Router-Plinian"));
+  if (!currentConfig) return "not_configured";
+  return matchKnownEndpoint(currentConfig.baseUrl, {
+    tunnelPublicUrl,
+    tailscaleUrl,
+    cloudUrl: cloudEnabled ? CLOUD_URL : null
+  }) ? "configured" : "other";
+}
 
   const configStatus = getConfigStatus();
 
   useEffect(() => {
     if (apiKeys?.length > 0 && !selectedApiKey) {
-      setSelectedApiKey(apiKeys[0].key);
+      queueMicrotask(() => setSelectedApiKey(apiKeys[0].key));
     }
   }, [apiKeys, selectedApiKey]);
 
   useEffect(() => {
-    if (initialStatus) setDroidStatus(initialStatus);
+    if (initialStatus) queueMicrotask(() => setDroidStatus(initialStatus));
   }, [initialStatus]);
 
   useEffect(() => {
@@ -69,15 +73,15 @@ export default function DroidToolCard({
     }
   }, [isExpanded]);
 
-  const fetchModelAliases = async () => {
-    try {
-      const res = await fetch("/api/models/alias");
-      const data = await res.json();
-      if (res.ok) setModelAliases(data.aliases || {});
-    } catch (error) {
-      console.log("Error fetching model aliases:", error);
-    }
-  };
+  async function fetchModelAliases() {
+  try {
+    const res = await fetch("/api/models/alias");
+    const data = await res.json();
+    if (res.ok) setModelAliases(data.aliases || {});
+  } catch (error) {
+    console.log("Error fetching model aliases:", error);
+  }
+}
 
   // Pre-fill model list from existing config (supports multi-model)
   useEffect(() => {
@@ -88,141 +92,157 @@ export default function DroidToolCard({
         .sort((a, b) => (a.index || 0) - (b.index || 0))
         .map(m => m.model);
       if (existingModels.length > 0) {
-        setModelList(existingModels);
+        queueMicrotask(() => setModelList(existingModels));
       } else {
         // Legacy: single model stored as custom:9Router-Plinian-0
         const legacy = droidStatus.settings?.customModels?.find(m => m.id === "custom:9Router-Plinian-0");
         if (legacy?.model) {
-          setModelList([legacy.model]);
+          queueMicrotask(() => setModelList([legacy.model]));
         }
       }
     }
   }, [droidStatus]);
 
-  const checkDroidStatus = async () => {
-    setCheckingDroid(true);
-    try {
-      const res = await fetch("/api/cli-tools/droid-settings");
-      const data = await res.json();
-      setDroidStatus(data);
-    } catch (error) {
-      setDroidStatus({ installed: false, error: error.message });
-    } finally {
-      setCheckingDroid(false);
-    }
-  };
+  async function checkDroidStatus() {
+  setCheckingDroid(true);
+  try {
+    const res = await fetch("/api/cli-tools/droid-settings");
+    const data = await res.json();
+    setDroidStatus(data);
+  } catch (error) {
+    setDroidStatus({
+      installed: false,
+      error: error.message
+    });
+  } finally {
+    setCheckingDroid(false);
+  }
+}
 
-  const getEffectiveBaseUrl = () => {
-    const url = customBaseUrl || baseUrl;
-    return url.endsWith("/v1") ? url : `${url}/v1`;
-  };
+  function getEffectiveBaseUrl() {
+  const url = customBaseUrl || baseUrl;
+  return url.endsWith("/v1") ? url : `${url}/v1`;
+}
 
-  const getDisplayUrl = () => {
-    const url = customBaseUrl || baseUrl;
-    return url.endsWith("/v1") ? url : `${url}/v1`;
-  };
+  function getDisplayUrl() {
+  const url = customBaseUrl || baseUrl;
+  return url.endsWith("/v1") ? url : `${url}/v1`;
+}
 
-  const addModel = () => {
-    const val = modelInput.trim();
-    if (!val || modelList.includes(val)) return;
-    setModelList((prev) => [...prev, val]);
-    setModelInput("");
-  };
+  function addModel() {
+  const val = modelInput.trim();
+  if (!val || modelList.includes(val)) return;
+  setModelList(prev => [...prev, val]);
+  setModelInput("");
+}
 
   const removeModel = (id) => setModelList((prev) => prev.filter((m) => m !== id));
 
-  const handleModelSelect = (model) => {
-    if (!model.value || modelList.includes(model.value)) return;
-    setModelList((prev) => [...prev, model.value]);
-    setModalOpen(false);
-  };
+  function handleModelSelect(model) {
+  if (!model.value || modelList.includes(model.value)) return;
+  setModelList(prev => [...prev, model.value]);
+  setModalOpen(false);
+}
 
-  const handleApplySettings = async () => {
-    setApplying(true);
-    setMessage(null);
-    try {
-      const keyToUse = selectedApiKey?.trim()
-        || (apiKeys?.length > 0 ? apiKeys[0].key : null)
-        || (!cloudEnabled ? "sk_9router" : null);
-
-      const res = await fetch("/api/cli-tools/droid-settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          baseUrl: getEffectiveBaseUrl(),
-          apiKey: keyToUse,
-          models: modelList,
-          activeModel: modelList[0] || "",
-        }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        // Remember the endpoint so it stays selectable next time
-        rememberEndpoint(getEffectiveBaseUrl(), { tunnelPublicUrl, tailscaleUrl });
-        setMessage({ type: "success", text: "Settings applied successfully!" });
-        checkDroidStatus();
-      } else {
-        setMessage({ type: "error", text: data.error || "Failed to apply settings" });
-      }
-    } catch (error) {
-      setMessage({ type: "error", text: error.message });
-    } finally {
-      setApplying(false);
-    }
-  };
-
-  const handleResetSettings = async () => {
-    setRestoring(true);
-    setMessage(null);
-    try {
-      const res = await fetch("/api/cli-tools/droid-settings", { method: "DELETE" });
-      const data = await res.json();
-      if (res.ok) {
-        setMessage({ type: "success", text: "Settings reset successfully!" });
-        setModelList([]);
-        checkDroidStatus();
-      } else {
-        setMessage({ type: "error", text: data.error || "Failed to reset settings" });
-      }
-    } catch (error) {
-      setMessage({ type: "error", text: error.message });
-    } finally {
-      setRestoring(false);
-    }
-  };
-
-  const getManualConfigs = () => {
-    const keyToUse = (selectedApiKey && selectedApiKey.trim())
-      ? selectedApiKey
-      : (!cloudEnabled ? "sk_9router" : "<API_KEY_FROM_DASHBOARD>");
-
-    const settingsContent = {
-      customModels: modelList.map((m, i) => ({
-        model: m,
-        id: `custom:9Router-Plinian-${i}`,
-        index: i,
+  async function handleApplySettings() {
+  setApplying(true);
+  setMessage(null);
+  try {
+    const keyToUse = selectedApiKey?.trim() || (apiKeys?.length > 0 ? apiKeys[0].key : null) || (!cloudEnabled ? "sk_9router" : null);
+    const res = await fetch("/api/cli-tools/droid-settings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
         baseUrl: getEffectiveBaseUrl(),
         apiKey: keyToUse,
-        displayName: m,
-        maxOutputTokens: 131072,
-        noImageSupport: false,
-        provider: "openai",
-      })),
-    };
+        models: modelList,
+        activeModel: modelList[0] || ""
+      })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      // Remember the endpoint so it stays selectable next time
+      rememberEndpoint(getEffectiveBaseUrl(), {
+        tunnelPublicUrl,
+        tailscaleUrl
+      });
+      setMessage({
+        type: "success",
+        text: "Settings applied successfully!"
+      });
+      checkDroidStatus();
+    } else {
+      setMessage({
+        type: "error",
+        text: data.error || "Failed to apply settings"
+      });
+    }
+  } catch (error) {
+    setMessage({
+      type: "error",
+      text: error.message
+    });
+  } finally {
+    setApplying(false);
+  }
+}
 
-    const platform = typeof navigator !== "undefined" && navigator.platform;
-    const isWindows = platform?.toLowerCase().includes("win");
-    const settingsPath = isWindows
-      ? "%USERPROFILE%\\.factory\\settings.json"
-      : "~/.factory/settings.json";
+  async function handleResetSettings() {
+  setRestoring(true);
+  setMessage(null);
+  try {
+    const res = await fetch("/api/cli-tools/droid-settings", {
+      method: "DELETE"
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setMessage({
+        type: "success",
+        text: "Settings reset successfully!"
+      });
+      setModelList([]);
+      checkDroidStatus();
+    } else {
+      setMessage({
+        type: "error",
+        text: data.error || "Failed to reset settings"
+      });
+    }
+  } catch (error) {
+    setMessage({
+      type: "error",
+      text: error.message
+    });
+  } finally {
+    setRestoring(false);
+  }
+}
 
-    return [
-      {
-        filename: settingsPath,
-        content: JSON.stringify(settingsContent, null, 2),
-      },
-    ];
+  function getManualConfigs() {
+  const keyToUse = selectedApiKey && selectedApiKey.trim() ? selectedApiKey : !cloudEnabled ? "sk_9router" : "<API_KEY_FROM_DASHBOARD>";
+  const settingsContent = {
+    customModels: modelList.map((m, i) => ({
+      model: m,
+      id: `custom:9Router-Plinian-${i}`,
+      index: i,
+      baseUrl: getEffectiveBaseUrl(),
+      apiKey: keyToUse,
+      displayName: m,
+      maxOutputTokens: 131072,
+      noImageSupport: false,
+      provider: "openai"
+    }))
   };
+  const platform = typeof navigator !== "undefined" && navigator.platform;
+  const isWindows = platform?.toLowerCase().includes("win");
+  const settingsPath = isWindows ? "%USERPROFILE%\\.factory\\settings.json" : "~/.factory/settings.json";
+  return [{
+    filename: settingsPath,
+    content: JSON.stringify(settingsContent, null, 2)
+  }];
+}
 
   return (
     <Card padding="xs" className="overflow-hidden">

@@ -7,37 +7,62 @@ import { readPresets, upsertPreset, deletePreset, subscribePresets, stripSlash }
 const CUSTOM_VALUE = "__custom__";
 const SAVE_VALUE = "__save__";
 
-const ensureV1 = (url) => {
+function ensureV1(url) {
   const trimmed = (url || "").replace(/\/+$/, "");
   if (!trimmed) return "";
   return /\/v1$/.test(trimmed) ? trimmed : `${trimmed}/v1`;
-};
+}
 
-const buildOptions = ({ requiresExternalUrl, tunnelEnabled, tunnelPublicUrl, tailscaleEnabled, tailscaleUrl, cloudEnabled, cloudUrl, savedPresets, withV1 }) => {
+function buildOptions({ requiresExternalUrl, tunnelEnabled, tunnelPublicUrl, tailscaleEnabled, tailscaleUrl, cloudEnabled, cloudUrl, savedPresets, withV1 }) {
   const opts = [];
-  const wrap = (url) => (withV1 ? ensureV1(url) : (url || "").replace(/\/+$/, ""));
+  const wrap = url => withV1 ? ensureV1(url) : (url || "").replace(/\/+$/, "");
   if (!requiresExternalUrl) {
     const localUrl = wrap(`http://127.0.0.1:${UPDATER_CONFIG.appPort}`);
-    opts.push({ value: "local", label: localUrl, url: localUrl });
+    opts.push({
+      value: "local",
+      label: localUrl,
+      url: localUrl
+    });
   }
   if (tunnelEnabled && tunnelPublicUrl) {
     const u = wrap(tunnelPublicUrl);
-    opts.push({ value: "tunnel", label: u, url: u });
+    opts.push({
+      value: "tunnel",
+      label: u,
+      url: u
+    });
   }
   if (tailscaleEnabled && tailscaleUrl) {
     const u = wrap(tailscaleUrl);
-    opts.push({ value: "tailscale", label: u, url: u });
+    opts.push({
+      value: "tailscale",
+      label: u,
+      url: u
+    });
   }
   if (cloudEnabled && cloudUrl) {
     const u = wrap(cloudUrl);
-    opts.push({ value: "cloud", label: u, url: u });
+    opts.push({
+      value: "cloud",
+      label: u,
+      url: u
+    });
   }
-  savedPresets.forEach((p) => {
-    opts.push({ value: `saved:${p.name}`, label: p.baseUrl, url: p.baseUrl, saved: true });
+  savedPresets.forEach(p => {
+    opts.push({
+      value: `saved:${p.name}`,
+      label: p.baseUrl,
+      url: p.baseUrl,
+      saved: true
+    });
   });
-  opts.push({ value: CUSTOM_VALUE, label: "Custom URL...", url: "" });
+  opts.push({
+    value: CUSTOM_VALUE,
+    label: "Custom URL...",
+    url: ""
+  });
   return opts;
-};
+}
 
 export default function BaseUrlSelect({
   value,
@@ -77,7 +102,7 @@ export default function BaseUrlSelect({
       });
     };
     sync();
-    setPresetsLoaded(true);
+    queueMicrotask(() => setPresetsLoaded(true));
     return subscribePresets(sync);
   }, []);
 
@@ -98,19 +123,19 @@ export default function BaseUrlSelect({
       ? options.find((o) => o.value !== CUSTOM_VALUE && normalizeUrl(o.url) === current)
       : null;
     if (matched) {
-      setCustomInput("");
+      queueMicrotask(() => setCustomInput(""));
       customInputRef.current = "";
-      setMode(matched.value);
+      queueMicrotask(() => setMode(matched.value));
       onChange(matched.url);
     } else if (current) {
-      setCustomInput(current);
+      queueMicrotask(() => setCustomInput(current));
       customInputRef.current = current;
-      setMode(CUSTOM_VALUE);
+      queueMicrotask(() => setMode(CUSTOM_VALUE));
       onChange(current);
     } else {
       const target = options.find((o) => o.value !== CUSTOM_VALUE);
       if (!target) return;
-      setMode(target.value);
+      queueMicrotask(() => setMode(target.value));
       onChange(target.url);
     }
   }, [presetsLoaded, options, onChange, currentUrl, withV1]);

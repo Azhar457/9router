@@ -374,36 +374,45 @@ export default function ProviderTopology({ providers = [], activeRequests = [], 
   const lastSet = useMemo(() => new Set(lastKey ? [lastKey] : []), [lastKey]);
   const errorSet = useMemo(() => new Set(errorKey ? [errorKey] : []), [errorKey]);
 
-  // Track firstSeen per active provider; drop provider if running too long (BE stuck)
-  const firstSeenRef = useRef({});
+  // Track firstSeen per active provider; drop provider if running too long (BE stuck).
+  // Mutable map in state (replaced, never mutated in place) so it is render-pure.
+  const [firstSeen, setFirstSeen] = useState({});
   const [tick, setTick] = useState(0);
+  const [nowMs, setNowMs] = useState(0);
 
   useEffect(() => {
-    const seen = firstSeenRef.current;
-    const now = Date.now();
-    for (const p of rawActiveSet) {
-      if (!seen[p]) seen[p] = now;
-    }
-    for (const p of Object.keys(seen)) {
-      if (!rawActiveSet.has(p)) delete seen[p];
-    }
+    queueMicrotask(() => {
+      const now = Date.now();
+      setFirstSeen((prev) => {
+        const next = {};
+        for (const p of rawActiveSet) {
+          next[p] = prev[p] || now;
+        }
+        return next;
+      });
+      setNowMs(now);
+    });
   }, [rawActiveSet]);
 
   useEffect(() => {
     if (rawActiveSet.size === 0) return;
-    const id = setInterval(() => setTick((t) => t + 1), FE_ACTIVE_TICK_MS);
+    const id = setInterval(() => {
+      setTick((t) => t + 1);
+      setNowMs(Date.now());
+    }, FE_ACTIVE_TICK_MS);
     return () => clearInterval(id);
   }, [rawActiveSet]);
 
   const activeSet = useMemo(() => {
-    const now = Date.now();
     const filtered = new Set();
-    for (const p of rawActiveSet) {
-      const ts = firstSeenRef.current[p];
-      if (!ts || now - ts < FE_ACTIVE_TIMEOUT_MS) filtered.add(p);
+    if (nowMs > 0) {
+      for (const p of rawActiveSet) {
+        const ts = firstSeen[p];
+        if (!ts || nowMs - ts < FE_ACTIVE_TIMEOUT_MS) filtered.add(p);
+      }
     }
     return filtered;
-  }, [rawActiveSet, tick]);
+  }, [rawActiveSet, tick, nowMs, firstSeen]);
 
   const { nodes, edges } = useMemo(
     () => buildLayout(providers, activeSet, lastSet, errorSet),

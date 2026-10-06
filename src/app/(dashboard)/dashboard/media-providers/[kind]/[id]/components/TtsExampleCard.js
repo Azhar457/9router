@@ -67,7 +67,7 @@ export function TtsExampleCard({ providerId }) {
   const [connectionCount, setConnectionCount] = useState(0);
 
   useEffect(() => {
-    setLocalEndpoint(window.location.origin);
+    queueMicrotask(() => setLocalEndpoint(window.location.origin));
     fetch("/api/keys")
       .then((r) => r.json())
       .then((d) => { setApiKey((d.keys || []).find((k) => k.isActive !== false)?.key || ""); })
@@ -94,15 +94,15 @@ export function TtsExampleCard({ providerId }) {
         if (config.hasBrowseButton) {
           // Google TTS: pre-select "en" (English) as default, show as single voice chip
           const defaultVoice = voices.find((v) => v.id === "en") || voices[0];
-          setSelectedLang(defaultVoice.id);
-          setSelectedVoice(defaultVoice.id);
-          setSelectedVoiceName(defaultVoice.name);
-          setCountryVoices([{ id: defaultVoice.id, name: defaultVoice.name }]);
+          queueMicrotask(() => setSelectedLang(defaultVoice.id));
+          queueMicrotask(() => setSelectedVoice(defaultVoice.id));
+          queueMicrotask(() => setSelectedVoiceName(defaultVoice.name));
+          queueMicrotask(() => setCountryVoices([{ id: defaultVoice.id, name: defaultVoice.name }]));
         } else {
           // OpenAI/OpenRouter: set voice chips directly (no language picker)
-          setCountryVoices(voices);
-          setSelectedVoice(voices[0].id);
-          setSelectedVoiceName(voices[0].name || voices[0].id);
+          queueMicrotask(() => setCountryVoices(voices));
+          queueMicrotask(() => setSelectedVoice(voices[0].id));
+          queueMicrotask(() => setSelectedVoiceName(voices[0].name || voices[0].id));
         }
       }
     }
@@ -115,14 +115,14 @@ export function TtsExampleCard({ providerId }) {
   useEffect(() => {
     if (!config.voicesPerModel || !selectedModel) return;
     const voices = getTtsVoicesForModel(providerId, selectedModel) || [];
-    setCountryVoices(voices);
+    queueMicrotask(() => setCountryVoices(voices));
     if (voices.length) {
-      setSelectedVoice(voices[0].id);
-      setSelectedVoiceName(voices[0].name || voices[0].id);
+      queueMicrotask(() => setSelectedVoice(voices[0].id));
+      queueMicrotask(() => setSelectedVoiceName(voices[0].name || voices[0].id));
     } else {
       // Model has no preset voices (voicedesign/voiceclone) — drop stale voice
-      setSelectedVoice("");
-      setSelectedVoiceName("");
+      queueMicrotask(() => setSelectedVoice(""));
+      queueMicrotask(() => setSelectedVoiceName(""));
     }
   }, [selectedModel]);
 

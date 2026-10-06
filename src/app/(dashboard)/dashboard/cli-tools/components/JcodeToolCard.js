@@ -38,24 +38,27 @@ export default function JcodeToolCard({
 
   const currentBaseUrl = jcodeStatus?.config?.providers?.["9router"]?.base_url || "";
 
-  const getConfigStatus = () => {
-    if (!jcodeStatus?.installed) return null;
-    if (!jcodeStatus?.has9Router) return "not_configured";
-    const currentProvider = jcodeStatus.config?.providers?.["9router"];
-    if (!currentProvider) return "not_configured";
-    return matchKnownEndpoint(currentProvider.base_url, { tunnelPublicUrl, tailscaleUrl }) ? "configured" : "other";
-  };
+  function getConfigStatus() {
+  if (!jcodeStatus?.installed) return null;
+  if (!jcodeStatus?.has9Router) return "not_configured";
+  const currentProvider = jcodeStatus.config?.providers?.["9router"];
+  if (!currentProvider) return "not_configured";
+  return matchKnownEndpoint(currentProvider.base_url, {
+    tunnelPublicUrl,
+    tailscaleUrl
+  }) ? "configured" : "other";
+}
 
   const configStatus = getConfigStatus();
 
   useEffect(() => {
     if (apiKeys?.length > 0 && !selectedApiKey) {
-      setSelectedApiKey(apiKeys[0].key);
+      queueMicrotask(() => setSelectedApiKey(apiKeys[0].key));
     }
   }, [apiKeys, selectedApiKey]);
 
   useEffect(() => {
-    if (initialStatus) setJcodeStatus(initialStatus);
+    if (initialStatus) queueMicrotask(() => setJcodeStatus(initialStatus));
   }, [initialStatus]);
 
   useEffect(() => {
@@ -65,15 +68,15 @@ export default function JcodeToolCard({
     }
   }, [isExpanded]);
 
-  const fetchModelAliases = async () => {
-    try {
-      const res = await fetch("/api/models/alias");
-      const data = await res.json();
-      if (res.ok) setModelAliases(data.aliases || {});
-    } catch (error) {
-      console.log("Error fetching model aliases:", error);
-    }
-  };
+  async function fetchModelAliases() {
+  try {
+    const res = await fetch("/api/models/alias");
+    const data = await res.json();
+    if (res.ok) setModelAliases(data.aliases || {});
+  } catch (error) {
+    console.log("Error fetching model aliases:", error);
+  }
+}
 
   useEffect(() => {
     if (jcodeStatus?.installed && !hasInitializedModel.current) {
@@ -81,114 +84,136 @@ export default function JcodeToolCard({
       const provider = jcodeStatus.config?.providers?.["9router"];
       if (provider) {
         if (provider.default_model) {
-          setSelectedModel(provider.default_model);
+          queueMicrotask(() => setSelectedModel(provider.default_model));
         }
         // Try to match API key from env file
         const envApiKey = jcodeStatus.envApiKey;
         if (envApiKey && apiKeys?.some(k => k.key === envApiKey)) {
-          setSelectedApiKey(envApiKey);
+          queueMicrotask(() => setSelectedApiKey(envApiKey));
         }
       }
     }
   }, [jcodeStatus, apiKeys]);
 
-  const checkJcodeStatus = async () => {
-    setCheckingJcode(true);
-    try {
-      const res = await fetch("/api/cli-tools/jcode-settings");
-      const data = await res.json();
-      setJcodeStatus(data);
-    } catch (error) {
-      setJcodeStatus({ installed: false, error: error.message });
-    } finally {
-      setCheckingJcode(false);
-    }
-  };
+  async function checkJcodeStatus() {
+  setCheckingJcode(true);
+  try {
+    const res = await fetch("/api/cli-tools/jcode-settings");
+    const data = await res.json();
+    setJcodeStatus(data);
+  } catch (error) {
+    setJcodeStatus({
+      installed: false,
+      error: error.message
+    });
+  } finally {
+    setCheckingJcode(false);
+  }
+}
 
   const normalizeLocalhost = (url) => url.replace("://localhost", "://127.0.0.1");
 
-  const getLocalBaseUrl = () => {
-    if (typeof window !== "undefined") {
-      return normalizeLocalhost(window.location.origin);
-    }
-    return "http://127.0.0.1:20128";
-  };
+  function getLocalBaseUrl() {
+  if (typeof window !== "undefined") {
+    return normalizeLocalhost(window.location.origin);
+  }
+  return "http://127.0.0.1:20128";
+}
 
-  const getEffectiveBaseUrl = () => {
-    const url = customBaseUrl || getLocalBaseUrl();
-    return url.endsWith("/v1") ? url : `${url}/v1`;
-  };
+  function getEffectiveBaseUrl() {
+  const url = customBaseUrl || getLocalBaseUrl();
+  return url.endsWith("/v1") ? url : `${url}/v1`;
+}
 
-  const getDisplayUrl = () => {
-    const url = customBaseUrl || getLocalBaseUrl();
-    return url.endsWith("/v1") ? url : `${url}/v1`;
-  };
+  function getDisplayUrl() {
+  const url = customBaseUrl || getLocalBaseUrl();
+  return url.endsWith("/v1") ? url : `${url}/v1`;
+}
 
-  const handleApplySettings = async () => {
-    setApplying(true);
-    setMessage(null);
-    try {
-      const keyToUse = selectedApiKey?.trim()
-        || (apiKeys?.length > 0 ? apiKeys[0].key : null)
-        || (!cloudEnabled ? "sk_9router" : null);
-
-      const res = await fetch("/api/cli-tools/jcode-settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          baseUrl: getEffectiveBaseUrl(),
-          apiKey: keyToUse,
-          models: selectedModel ? [selectedModel] : [],
-        }),
+  async function handleApplySettings() {
+  setApplying(true);
+  setMessage(null);
+  try {
+    const keyToUse = selectedApiKey?.trim() || (apiKeys?.length > 0 ? apiKeys[0].key : null) || (!cloudEnabled ? "sk_9router" : null);
+    const res = await fetch("/api/cli-tools/jcode-settings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        baseUrl: getEffectiveBaseUrl(),
+        apiKey: keyToUse,
+        models: selectedModel ? [selectedModel] : []
+      })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      // Remember the endpoint so it stays selectable next time
+      rememberEndpoint(getEffectiveBaseUrl(), {
+        tunnelPublicUrl,
+        tailscaleUrl
       });
-      const data = await res.json();
-      if (res.ok) {
-        // Remember the endpoint so it stays selectable next time
-        rememberEndpoint(getEffectiveBaseUrl(), { tunnelPublicUrl, tailscaleUrl });
-        setMessage({ type: "success", text: "Settings applied successfully!" });
-        checkJcodeStatus();
-      } else {
-        setMessage({ type: "error", text: data.error || "Failed to apply settings" });
-      }
-    } catch (error) {
-      setMessage({ type: "error", text: error.message });
-    } finally {
-      setApplying(false);
+      setMessage({
+        type: "success",
+        text: "Settings applied successfully!"
+      });
+      checkJcodeStatus();
+    } else {
+      setMessage({
+        type: "error",
+        text: data.error || "Failed to apply settings"
+      });
     }
-  };
+  } catch (error) {
+    setMessage({
+      type: "error",
+      text: error.message
+    });
+  } finally {
+    setApplying(false);
+  }
+}
 
-  const handleResetSettings = async () => {
-    setRestoring(true);
-    setMessage(null);
-    try {
-      const res = await fetch("/api/cli-tools/jcode-settings", { method: "DELETE" });
-      const data = await res.json();
-      if (res.ok) {
-        setMessage({ type: "success", text: "Settings reset successfully!" });
-        setSelectedModel("");
-        setSelectedApiKey("");
-        checkJcodeStatus();
-      } else {
-        setMessage({ type: "error", text: data.error || "Failed to reset settings" });
-      }
-    } catch (error) {
-      setMessage({ type: "error", text: error.message });
-    } finally {
-      setRestoring(false);
+  async function handleResetSettings() {
+  setRestoring(true);
+  setMessage(null);
+  try {
+    const res = await fetch("/api/cli-tools/jcode-settings", {
+      method: "DELETE"
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setMessage({
+        type: "success",
+        text: "Settings reset successfully!"
+      });
+      setSelectedModel("");
+      setSelectedApiKey("");
+      checkJcodeStatus();
+    } else {
+      setMessage({
+        type: "error",
+        text: data.error || "Failed to reset settings"
+      });
     }
-  };
+  } catch (error) {
+    setMessage({
+      type: "error",
+      text: error.message
+    });
+  } finally {
+    setRestoring(false);
+  }
+}
 
-  const handleModelSelect = (model) => {
-    setSelectedModel(model.value);
-    setModalOpen(false);
-  };
+  function handleModelSelect(model) {
+  setSelectedModel(model.value);
+  setModalOpen(false);
+}
 
-  const getManualConfigs = () => {
-    const keyToUse = (selectedApiKey && selectedApiKey.trim())
-      ? selectedApiKey
-      : (!cloudEnabled ? "sk_9router" : "<API_KEY_FROM_DASHBOARD>");
-
-    const configToml = `[providers.9router]
+  function getManualConfigs() {
+  const keyToUse = selectedApiKey && selectedApiKey.trim() ? selectedApiKey : !cloudEnabled ? "sk_9router" : "<API_KEY_FROM_DASHBOARD>";
+  const configToml = `[providers.9router]
 type = "openai-compatible"
 base_url = "${getEffectiveBaseUrl()}"
 auth = "bearer"
@@ -199,20 +224,15 @@ requires_api_key = true
 
 [[providers.9router.models]]
 id = "${selectedModel || "cc/claude-opus-4-7"}"`;
-
-    const envContent = `JCODE_9ROUTER_API_KEY="${keyToUse}"`;
-
-    return [
-      {
-        filename: "~/.jcode/config.toml",
-        content: configToml,
-      },
-      {
-        filename: "~/.config/jcode/provider-9router.env",
-        content: envContent,
-      },
-    ];
-  };
+  const envContent = `JCODE_9ROUTER_API_KEY="${keyToUse}"`;
+  return [{
+    filename: "~/.jcode/config.toml",
+    content: configToml
+  }, {
+    filename: "~/.config/jcode/provider-9router.env",
+    content: envContent
+  }];
+}
 
   return (
     <Card padding="xs" className="overflow-hidden">

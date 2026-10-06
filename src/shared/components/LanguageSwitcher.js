@@ -15,46 +15,154 @@ function getLocaleFromCookie() {
 }
 
 // Locale display names and flags - will be translated by runtime i18n
-const getLocaleInfo = (locale) => {
+function getLocaleInfo(locale) {
   const locales = {
-    "en": { name: "English", flag: "🇺🇸" },
-    "vi": { name: "Tiếng Việt", flag: "🇻🇳" },
-    "zh-CN": { name: "简体中文", flag: "🇨🇳" },
-    "zh-TW": { name: "繁體中文", flag: "🇹🇼" },
-    "ja": { name: "日本語", flag: "🇯🇵" },
-    "pt-BR": { name: "Português (Brasil)", flag: "🇧🇷" },
-    "pt-PT": { name: "Português (Portugal)", flag: "🇵🇹" },
-    "ko": { name: "한국어", flag: "🇰🇷" },
-    "es": { name: "Español", flag: "🇪🇸" },
-    "de": { name: "Deutsch", flag: "🇩🇪" },
-    "fr": { name: "Français", flag: "🇫🇷" },
-    "he": { name: "עברית", flag: "🇮🇱" },
-    "ar": { name: "العربية", flag: "🇸🇦" },
-    "ru": { name: "Русский", flag: "🇷🇺" },
-    "pl": { name: "Polski", flag: "🇵🇱" },
-    "cs": { name: "Čeština", flag: "🇨🇿" },
-    "nl": { name: "Nederlands", flag: "🇳🇱" },
-    "tr": { name: "Türkçe", flag: "🇹🇷" },
-    "uk": { name: "Українська", flag: "🇺🇦" },
-    "tl": { name: "Tagalog", flag: "🇵🇭" },
-    "id": { name: "Indonesia", flag: "🇮🇩" },
-    "th": { name: "ไทย", flag: "🇹🇭" },
-    "km": { name: "ខ្មែរ", flag: "🇰🇭" },
-    "hi": { name: "हिन्दी", flag: "🇮🇳" },
-    "bn": { name: "বাংলা", flag: "🇧🇩" },
-    "ur": { name: "اردو", flag: "🇵🇰" },
-    "ro": { name: "Română", flag: "🇷🇴" },
-    "sv": { name: "Svenska", flag: "🇸🇪" },
-    "it": { name: "Italiano", flag: "🇮🇹" },
-    "el": { name: "Ελληνικά", flag: "🇬🇷" },
-    "hu": { name: "Magyar", flag: "🇭🇺" },
-    "fi": { name: "Suomi", flag: "🇫🇮" },
-    "da": { name: "Dansk", flag: "🇩🇰" },
-    "no": { name: "Norsk", flag: "🇳🇴" },
-    "fa": { name: "فارسی", flag: "🇮🇷" }
+    "en": {
+      name: "English",
+      flag: "🇺🇸"
+    },
+    "vi": {
+      name: "Tiếng Việt",
+      flag: "🇻🇳"
+    },
+    "zh-CN": {
+      name: "简体中文",
+      flag: "🇨🇳"
+    },
+    "zh-TW": {
+      name: "繁體中文",
+      flag: "🇹🇼"
+    },
+    "ja": {
+      name: "日本語",
+      flag: "🇯🇵"
+    },
+    "pt-BR": {
+      name: "Português (Brasil)",
+      flag: "🇧🇷"
+    },
+    "pt-PT": {
+      name: "Português (Portugal)",
+      flag: "🇵🇹"
+    },
+    "ko": {
+      name: "한국어",
+      flag: "🇰🇷"
+    },
+    "es": {
+      name: "Español",
+      flag: "🇪🇸"
+    },
+    "de": {
+      name: "Deutsch",
+      flag: "🇩🇪"
+    },
+    "fr": {
+      name: "Français",
+      flag: "🇫🇷"
+    },
+    "he": {
+      name: "עברית",
+      flag: "🇮🇱"
+    },
+    "ar": {
+      name: "العربية",
+      flag: "🇸🇦"
+    },
+    "ru": {
+      name: "Русский",
+      flag: "🇷🇺"
+    },
+    "pl": {
+      name: "Polski",
+      flag: "🇵🇱"
+    },
+    "cs": {
+      name: "Čeština",
+      flag: "🇨🇿"
+    },
+    "nl": {
+      name: "Nederlands",
+      flag: "🇳🇱"
+    },
+    "tr": {
+      name: "Türkçe",
+      flag: "🇹🇷"
+    },
+    "uk": {
+      name: "Українська",
+      flag: "🇺🇦"
+    },
+    "tl": {
+      name: "Tagalog",
+      flag: "🇵🇭"
+    },
+    "id": {
+      name: "Indonesia",
+      flag: "🇮🇩"
+    },
+    "th": {
+      name: "ไทย",
+      flag: "🇹🇭"
+    },
+    "km": {
+      name: "ខ្មែរ",
+      flag: "🇰🇭"
+    },
+    "hi": {
+      name: "हिन्दी",
+      flag: "🇮🇳"
+    },
+    "bn": {
+      name: "বাংলা",
+      flag: "🇧🇩"
+    },
+    "ur": {
+      name: "اردو",
+      flag: "🇵🇰"
+    },
+    "ro": {
+      name: "Română",
+      flag: "🇷🇴"
+    },
+    "sv": {
+      name: "Svenska",
+      flag: "🇸🇪"
+    },
+    "it": {
+      name: "Italiano",
+      flag: "🇮🇹"
+    },
+    "el": {
+      name: "Ελληνικά",
+      flag: "🇬🇷"
+    },
+    "hu": {
+      name: "Magyar",
+      flag: "🇭🇺"
+    },
+    "fi": {
+      name: "Suomi",
+      flag: "🇫🇮"
+    },
+    "da": {
+      name: "Dansk",
+      flag: "🇩🇰"
+    },
+    "no": {
+      name: "Norsk",
+      flag: "🇳🇴"
+    },
+    "fa": {
+      name: "فارسی",
+      flag: "🇮🇷"
+    }
   };
-  return locales[locale] || { name: locale, flag: "🌐" };
-};
+  return locales[locale] || {
+    name: locale,
+    flag: "🌐"
+  };
+}
 
 export default function LanguageSwitcher({ className = "", isOpen: controlledOpen, onClose, hideTrigger = false }) {
   const [locale, setLocale] = useState("en");
@@ -73,7 +181,7 @@ export default function LanguageSwitcher({ className = "", isOpen: controlledOpe
   };
 
   useEffect(() => {
-    setLocale(getLocaleFromCookie());
+    queueMicrotask(() => setLocale(getLocaleFromCookie()));
   }, []);
 
   // Close modal when clicking outside

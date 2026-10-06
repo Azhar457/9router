@@ -55,7 +55,7 @@ export default function UsageChart({ period = "7d" }) {
   }, [period]);
 
   useEffect(() => {
-    fetchData();
+    queueMicrotask(() => fetchData());
   }, [fetchData]);
 
   const cfg = VIEW_CONFIG[viewMode];

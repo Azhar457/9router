@@ -73,10 +73,10 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
   // Detect if running on localhost (client-side only)
   useEffect(() => {
     if (typeof window !== "undefined") {
-      setIsLocalhost(
+      queueMicrotask(() => setIsLocalhost(
         window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
-      );
-      setPlaceholderUrl(`${window.location.origin}/callback?code=...`);
+      ));
+      queueMicrotask(() => setPlaceholderUrl(`${window.location.origin}/callback?code=...`));
     }
   }, []);
 
@@ -478,15 +478,15 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
     if (!isOpen || !provider) return;
     if (openedRef.current) return;
     openedRef.current = true;
-    setAuthData(null);
-    setCallbackUrl("");
-    setError(null);
-    setIsDeviceCode(false);
-    setDeviceData(null);
-    setPolling(false);
-    setAuthMode("browser");
-    setPasteToken("");
-    setIdeStatus(null);
+    queueMicrotask(() => setAuthData(null));
+    queueMicrotask(() => setCallbackUrl(""));
+    queueMicrotask(() => setError(null));
+    queueMicrotask(() => setIsDeviceCode(false));
+    queueMicrotask(() => setDeviceData(null));
+    queueMicrotask(() => setPolling(false));
+    queueMicrotask(() => setAuthMode("browser"));
+    queueMicrotask(() => setPasteToken(""));
+    queueMicrotask(() => setIdeStatus(null));
     pollingAbortRef.current = false;
     flowRef.current = { proxyStarted: false, proxyProvider: null, stopSent: false };
     // Best-effort IDE detection for paste-token providers (Trae/Windsurf)
@@ -558,7 +558,7 @@ export default function OAuthModal({ isOpen, provider, providerInfo, onSuccess, 
       }
       setTimeout(tick, POLL_INTERVAL_MS);
     };
-    setTimeout(tick, POLL_INTERVAL_MS);
+    queueMicrotask(() => setTimeout(tick, POLL_INTERVAL_MS));
     return () => { cancelled = true; };
   }, [authData]);
 

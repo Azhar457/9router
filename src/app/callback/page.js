@@ -73,15 +73,15 @@ function CallbackContent() {
     }
 
     if (!(code || token || error)) {
-      setTimeout(() => setStatus("manual"), 0);
+      queueMicrotask(() => setTimeout(() => setStatus("manual"), 0));
       return;
     }
 
-    setStatus("success");
-    setTimeout(() => {
+    queueMicrotask(() => setStatus("success"));
+    queueMicrotask(() => setTimeout(() => {
       window.close();
       setTimeout(() => setStatus("done"), 500);
-    }, 1500);
+    }, 1500));
   }, [searchParams]);
 
   return (

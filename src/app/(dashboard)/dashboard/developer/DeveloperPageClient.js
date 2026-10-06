@@ -77,66 +77,6 @@ const INJECT_LEVELS = [
   { id: "ultra", label: "Ultra — draft, attack, repair" },
 ];
 
-const PAYLOAD_CATEGORIES_UI = [
-  { key: "coding",   label: "💻 Coding" },
-  { key: "pentest",  label: "🛡 Red-Team" },
-  { key: "creative", label: "✍️ Creative / RP" },
-  { key: "general",  label: "⚙ General" },
-];
-
-const GODMODE_VARIANTS = [
-  // ── Coding ─────────────────────────────────────────────────────
-  { id: "f:ai:gpt-5.6-bladwin", label: "📄 GPT 5.6 — Bladwin v67 (AI-Jailbreaks)", cat: "coding", new: true },
-  { id: "f:bf:dev-mode",        label: "📄 BlackFriday — ChatGPT Dev Mode", cat: "coding" },
-  { id: "f:bf:coding-jailbreak", label: "📄 BlackFriday — Coding Generator JB70", cat: "coding" },
-  { id: "f:bf:codemaster-jailbreak", label: "📄 BlackFriday — CodeMaster JB", cat: "coding" },
-  // ── Red-Team ───────────────────────────────────────────────────
-  { id: "classic",           label: "Classic — G0DM0D3 + depth directive", cat: "pentest" },
-  { id: "grok420",           label: "Grok 4.20 — semantic inversion", cat: "pentest" },
-  { id: "geminiReset",       label: "Gemini Reset — RESET_CORTEX / !OMNI", cat: "pentest" },
-  { id: "gptClassic",        label: "GPT Classic — OG GODMODE format", cat: "pentest" },
-  { id: "claudeInversion",   label: "Claude Inversion — END/START boundary", cat: "pentest" },
-  { id: "hermesFast",        label: "Hermes Fast — instant stream, zero refusal check", cat: "pentest" },
-  { id: "adaptive",          label: "Adaptive — register-stripping, no jailbreak structure", cat: "pentest" },
-  { id: "f:ai:nyx-v4",            label: "📄 NYX V4 multi-AI (AI-Jailbreaks)", cat: "pentest" },
-  { id: "f:ai:cronus",            label: "📄 Cronus multi-AI (AI-Jailbreaks)", cat: "pentest" },
-  { id: "f:ai:bladwin-67",        label: "📄 Bladwin 67 multi-AI (AI-Jailbreaks)", cat: "pentest" },
-  { id: "f:ai:potato",            label: "📄 Potato multi-AI (AI-Jailbreaks)", cat: "pentest" },
-  { id: "f:ai:opus-4.8",          label: "📄 Opus 4.8 — PERMABANXD (AI-Jailbreaks)", cat: "pentest", new: true },
-  { id: "f:ai:claude-sonnet-4.6", label: "📄 Claude Sonnet 4.6 — x10n nullsec (AI-Jailbreaks)", cat: "pentest", new: true },
-  { id: "f:ai:antigravity-thinking", label: "📄 Antigravity Sonnet/Opus 4.6 thinking (AI-Jailbreaks)", cat: "pentest", new: true },
-  { id: "f:ai:lens-v2",           label: "📄 LENS v2 (AI-Jailbreaks)", cat: "pentest", new: true },
-  { id: "f:ai:bladwin-claude",    label: "📄 Bladwin Claude v67 (AI-Jailbreaks)", cat: "pentest", new: true },
-  { id: "f:ai:claude-potato",     label: "📄 Claude — Potato (AI-Jailbreaks)", cat: "pentest", new: true },
-  { id: "f:ai:grok-nyx",          label: "📄 Grok — NYX instruction override (AI-Jailbreaks)", cat: "pentest" },
-  { id: "f:ai:glm-rage",          label: "📄 GLM — RAGE v8.x (AI-Jailbreaks)", cat: "pentest" },
-  { id: "f:ai:deepseek-gothbreach", label: "📄 DeepSeek — Gothbreach (AI-Jailbreaks)", cat: "pentest" },
-  { id: "f:ai:deepseek1",         label: "📄 DeepSeek — Gothbreach v2 (AI-Jailbreaks)", cat: "pentest", new: true },
-  { id: "f:ai:kimi-k2.6-instant", label: "📄 Kimi K2.6 Instant (AI-Jailbreaks)", cat: "pentest", new: true },
-  { id: "f:ai:opencode-nyx",     label: "📄 OpenCode — NYX V4 (AI-Jailbreaks)", cat: "pentest", new: true },
-  { id: "f:bf:un-ethical-ai",    label: "📄 BlackFriday — DarkGPT un-ethical AI", cat: "pentest" },
-  { id: "f:bf:manipulation-dan-v13", label: "📄 BlackFriday — Manipulation GPT × DAN v13", cat: "pentest" },
-  { id: "f:bf:blackhat-programmer", label: "📄 BlackFriday — Blackhat Programmer", cat: "pentest", new: true },
-  { id: "f:bf:blackhat-hacker",     label: "📄 BlackFriday — Blackhat Hacker", cat: "pentest", new: true },
-  { id: "f:bf:unlimited-hacking",   label: "📄 BlackFriday — Unlimited Hacking AI", cat: "pentest", new: true },
-  { id: "f:bf:ultimate-hacking",    label: "📄 BlackFriday — Ultimate Hacking AI", cat: "pentest", new: true },
-      { id: "f:bf:dark-roleplay-v12",   label: "📄 BF — Dark RP v1.2 BASE (meta-wrapper)", cat: "pentest", new: true },
-      { id: "f:bf:dark-roleplay-v11",   label: "📄 BF — Dark RP v1.1 BASE (meta-wrapper)", cat: "pentest", new: true },
-      { id: "f:bf:rfc-framework",       label: "📄 BF — RFC Jailbreak Framework 454", cat: "pentest", new: true },
-      { id: "f:bf:s-dan",              label: "📄 BF — S-DAN (classic baseline)", cat: "pentest", new: true },
-  // ── Creative / RP ──────────────────────────────────────────────
-  { id: "f:ai:gemini-3.5-flash-lite", label: "📄 Gemini 3.5 Flash Lite — ENI RP (AI-Jailbreaks)", cat: "creative", new: true },
-  // (nsfw roleplay variants removed — focus is attacking / building / pentest)
-  // ── General / other ────────────────────────────────────────────
-  // Built-in payloads that already embed a carrier/identity frame — the
-  // carrier column is optional on top of these (see BUILTIN_CARRIER_IDS in
-  // open-sse/rtk/payloadCatalog.js).
-  { id: "VEIL",    label: "VEIL — embedded identity frame", cat: "general", builtInCarrier: true },
-  { id: "f:ai:mistral",              label: "📄 Mistral (AI-Jailbreaks)", cat: "general", new: true },
-  { id: "f:ai:qwen-3.8-max-preview", label: "📄 Qwen 3.8 Max Preview (AI-Jailbreaks)", cat: "general", new: true },
-  { id: "custom",  label: "Custom — your own payload", cat: "general" },
-];
-
 function safeParse(value, fallback) {
   try {
     return JSON.parse(value);
@@ -392,17 +332,6 @@ export default function DeveloperPageClient() {
   const [savedGodmodePresets, setSavedGodmodePresets] = useState({});
   const [gmPresetSource, setGmPresetSource] = useState("");
   const [gmPresetName, setGmPresetName] = useState("");
-  // Optional carrier column — wraps the main payload into a carrier slot.
-  const [carrierEnabled, setCarrierEnabled] = useState(false);
-  const [carrierLevel, setCarrierLevel] = useState("");
-  const [carrierCustom, setCarrierCustom] = useState("");
-  const [carrierPreview, setCarrierPreview] = useState({ chars: 0, estTokens: 0, spliced: false, text: "" });
-  // Payload sort — "default" keeps the optgroup order; other options sort
-  // by metadata from payloadCatalog.js (carriers first, current-gen first,
-  // smallest first). Per-model ranking is not yet useful (modelFamilies is
-  // empty for f:ai:* payloads).
-  const [payloadSort, setPayloadSort] = useState("default");
-  const [payloadCatalog, setPayloadCatalog] = useState(null);
   const [savedPersonas, setSavedPersonas] = useState({});
   const [personaSource, setPersonaSource] = useState("");
   const [personaName, setPersonaName] = useState("");
@@ -457,9 +386,6 @@ export default function DeveloperPageClient() {
         setRegisterCustom(typeof settings.injectionRegisterCustom === "string" ? settings.injectionRegisterCustom : "");
         setGodmodeLevel(settings.injectionGodmodeLevel || settings.godmodeLevel || "classic");
         setGodmodeCustom(typeof settings.injectionGodmodeCustom === "string" ? settings.injectionGodmodeCustom : (typeof settings.godmodeCustom === "string" ? settings.godmodeCustom : ""));
-        setCarrierEnabled(!!settings.injectionCarrierEnabled);
-        setCarrierLevel(typeof settings.injectionCarrierLevel === "string" ? settings.injectionCarrierLevel : "");
-        setCarrierCustom(typeof settings.injectionCarrierCustom === "string" ? settings.injectionCarrierCustom : "");
       })
       .catch(() => {})
       .finally(() => {
@@ -476,17 +402,6 @@ export default function DeveloperPageClient() {
       cancelled = true;
     };
   }, []);
-  // Load the payload catalog once so sort metadata (sizeChars, isCarrier,
-  // effectiveness) is available to reorder the variant lists.
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/developer/payload-catalog", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((d) => { if (!cancelled && d?.catalog) setPayloadCatalog(d.catalog); })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
-
 
   async function patchSetting(patch) {
     try {
@@ -585,124 +500,6 @@ export default function DeveloperPageClient() {
     } catch {}
   }
   // Reorder payload variants by sort key using the catalog metadata.
-  // "default" preserves the original optgroup order; the others sort by
-  // metadata so carriers / current-gen / smallest surface first.
-  const SORT_KEYS = [
-    { id: "default",  label: "Default" },
-    { id: "carrier",  label: "Carriers first" },
-    { id: "relevance", label: "Relevance (current-gen first, small first)" },
-    { id: "size-asc", label: "Smallest first" },
-    { id: "size-desc", label: "Largest first" },
-  ];
-
-  function sortVariants(items) {
-    if (!payloadCatalog || payloadSort === "default") return items;
-    const meta = new Map(payloadCatalog.map((row) => [row.id, row]));
-    const copy = [...items];
-    const lookup = (v) => meta.get(v.id) || { sizeChars: 0, isCarrier: false, hasBuiltInCarrier: false, effectiveness: "current" };
-    switch (payloadSort) {
-      case "carrier":
-        copy.sort((a, b) => {
-          const ca = lookup(a).isCarrier || lookup(a).hasBuiltInCarrier ? 0 : 1;
-          const cb = lookup(b).isCarrier || lookup(b).hasBuiltInCarrier ? 0 : 1;
-          return ca - cb || a.label.localeCompare(b.label);
-        });
-        break;
-      case "relevance":
-        copy.sort((a, b) => {
-          const la = lookup(a), lb = lookup(b);
-          const current = (r) => (r.effectiveness === "current" ? 0 : 1);
-          const diff = current(la) - current(lb);
-          if (diff) return diff;
-          return la.sizeChars - lb.sizeChars;
-        });
-        break;
-      case "size-asc":
-        copy.sort((a, b) => lookup(a).sizeChars - lookup(b).sizeChars);
-        break;
-      case "size-desc":
-        copy.sort((a, b) => lookup(b).sizeChars - lookup(a).sizeChars);
-        break;
-      default:
-        break;
-    }
-    return copy;
-  }
-
-
-  // ── Carrier (optional column) handlers ─────────────────────────
-  function toggleCarrierEnabled(value) {
-    setCarrierEnabled(value);
-    patchSetting({ injectionCarrierEnabled: value, injectionCarrierLevel: value ? (carrierLevel || "f:bf:dark-roleplay-v12") : "" });
-  }
-  const CARRIER_VARIANTS = [
-    { id: "", label: "Off" },
-    { id: "f:bf:dark-roleplay-v12", label: "📦 Dark RP v1.2 BASE — meta-wrapper (slot [YOUR JAILBREAK HERE])", carrier: true },
-    { id: "f:bf:dark-roleplay-v11", label: "📦 Dark RP v1.1 BASE — meta-wrapper", carrier: true },
-    { id: "f:bf:rfc-framework", label: "📦 RFC Jailbreak Framework 454 — tag config", carrier: true },
-    { id: "VEIL", label: "📦 VEIL — embedded identity frame", carrier: true, builtin: true },
-    { id: "custom", label: "Custom carrier text (paste below)" },
-  ];
-
-
-  // Track whether the carrier text has been hand-edited past its preset —
-  // so switching presets does not silently clobber the user's edits.
-  const carrierEditedRef = useRef(false);
-
-  async function changeCarrierVariant(level) {
-    setCarrierLevel(level);
-    if (level === "custom" || !level) {
-      // custom / off: don't clobber existing text; off clears
-      if (!level) {
-        setCarrierCustom("");
-        patchSetting({ injectionCarrierLevel: "", injectionCarrierCustom: "" });
-        setCarrierPreview({ chars: 0, estTokens: 0, spliced: false, text: "" });
-      }
-      carrierEditedRef.current = level === "custom";
-      return;
-    }
-    // Guard: refuse to overwrite a hand-edited carrier text.
-    if (carrierEditedRef.current && carrierCustom.trim()) {
-      if (globalThis.confirm?.(`Carrier text has been hand-edited. Replace it with the "${level}" preset?`)) {
-        carrierEditedRef.current = false;
-      } else {
-        setCarrierLevel("custom");
-        return;
-      }
-    }
-    carrierEditedRef.current = false;
-    setCarrierCustom("");
-    patchSetting({ injectionCarrierLevel: level, injectionCarrierCustom: "" });
-    try {
-      const res = await fetch("/api/developer/carrier-preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ level: godmodeLevel, custom: godmodeCustom, carrierLevel: level }),
-      });
-      const data = await res.json();
-      if (data?.text) {
-        setCarrierCustom(data.text);
-        patchSetting({ injectionCarrierCustom: data.text });
-        setCarrierPreview({ chars: data.chars, estTokens: data.estTokens, spliced: data.spliced, text: data.text });
-      }
-    } catch {}
-  }
-
-  const carrierSaveTimerRef = useRef(null);
-  function handleCarrierCustomChange(event) {
-    const value = event.target.value;
-    setCarrierCustom(value);
-    // First manual edit to the carrier text flips it into "custom" mode —
-    // any subsequent preset switch will prompt before clobbering it.
-    carrierEditedRef.current = true;
-    if (carrierLevel !== "custom" && value.trim()) setCarrierLevel("custom");
-    clearTimeout(carrierSaveTimerRef.current);
-    carrierSaveTimerRef.current = setTimeout(() => {
-      patchSetting({ injectionCarrierCustom: value, injectionCarrierLevel: carrierLevel === "custom" ? "custom" : carrierLevel });
-    }, 600);
-  }
-
-
   function persistGodmodePresets(next) {
     setSavedGodmodePresets(next);
     globalThis.localStorage.setItem(STORAGE_KEYS.godmodePresets, JSON.stringify(next));

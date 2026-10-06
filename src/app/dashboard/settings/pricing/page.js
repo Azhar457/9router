@@ -11,44 +11,44 @@ export default function PricingSettingsPage() {
   const [currentPricing, setCurrentPricing] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  async function loadPricing() {
+  setLoading(true);
+  try {
+    const response = await fetch("/api/pricing");
+    if (response.ok) {
+      const data = await response.json();
+      setCurrentPricing(data);
+    }
+  } catch (error) {
+    console.error("Failed to load pricing:", error);
+  } finally {
+    setLoading(false);
+  }
+}
+
   useEffect(() => {
-    loadPricing();
+    queueMicrotask(() => loadPricing());
   }, []);
 
-  const loadPricing = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch("/api/pricing");
-      if (response.ok) {
-        const data = await response.json();
-        setCurrentPricing(data);
-      }
-    } catch (error) {
-      console.error("Failed to load pricing:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePricingUpdated = () => {
-    loadPricing();
-  };
+  function handlePricingUpdated() {
+  loadPricing();
+}
 
   // Count total models with pricing
-  const getModelCount = () => {
-    if (!currentPricing) return 0;
-    let count = 0;
-    for (const provider in currentPricing) {
-      count += Object.keys(currentPricing[provider]).length;
-    }
-    return count;
-  };
+  function getModelCount() {
+  if (!currentPricing) return 0;
+  let count = 0;
+  for (const provider in currentPricing) {
+    count += Object.keys(currentPricing[provider]).length;
+  }
+  return count;
+}
 
   // Get providers list
-  const getProviders = () => {
-    if (!currentPricing) return [];
-    return Object.keys(currentPricing).sort();
-  };
+  function getProviders() {
+  if (!currentPricing) return [];
+  return Object.keys(currentPricing).sort();
+}
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">

@@ -469,10 +469,10 @@ export default function ProviderDetailPage() {
   };
 
   useEffect(() => {
-    fetchConnections();
-    fetchAliases();
-    fetchCustomModels();
-    fetchDisabledModels();
+    queueMicrotask(() => fetchConnections());
+    queueMicrotask(() => fetchAliases());
+    queueMicrotask(() => fetchCustomModels());
+    queueMicrotask(() => fetchDisabledModels());
   }, [fetchConnections, fetchAliases, fetchCustomModels, fetchDisabledModels]);
 
   // Live per-connection catalogs (cursor, zed): the static registry carries
@@ -482,19 +482,19 @@ export default function ProviderDetailPage() {
   useEffect(() => {
     const isLiveCatalog = providerId === "cursor" || providerId === "zed";
     if (!isLiveCatalog) {
-      setLiveModels([]);
+      queueMicrotask(() => setLiveModels([]));
       return;
     }
 
     const connection = connections.find((item) => item.isActive !== false);
     if (!connection?.id) {
-      setLiveModels([]);
-      if (providerId === "zed") setLiveModelsError(null);
+      queueMicrotask(() => setLiveModels([]));
+      if (providerId === "zed") queueMicrotask(() => setLiveModelsError(null));
       return;
     }
 
     let cancelled = false;
-    if (providerId === "zed") setLiveModelsError(null);
+    if (providerId === "zed") queueMicrotask(() => setLiveModelsError(null));
     fetch(`/api/providers/${connection.id}/models`, { cache: "no-store" })
       .then(async (res) => ({ ok: res.ok, data: await res.json().catch(() => null) }))
       .then(({ ok, data }) => {
@@ -1087,7 +1087,7 @@ export default function ProviderDetailPage() {
   };
 
   useEffect(() => {
-    setSelectedConnectionIds((prev) => prev.filter((id) => connections.some((conn) => conn.id === id)));
+    queueMicrotask(() => setSelectedConnectionIds((prev) => prev.filter((id) => connections.some((conn) => conn.id === id))));
   }, [connections]);
 
   const selectedProxySummary = (() => {

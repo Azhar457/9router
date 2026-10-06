@@ -40,23 +40,26 @@ export default function OpenClawToolCard({
 
   const currentBaseUrl = openclawStatus?.settings?.models?.providers?.["9router"]?.baseUrl || "";
 
-  const getConfigStatus = () => {
-    if (!openclawStatus?.installed) return null;
-    const currentProvider = openclawStatus.settings?.models?.providers?.["9router"];
-    if (!currentProvider) return "not_configured";
-    return matchKnownEndpoint(currentProvider.baseUrl, { tunnelPublicUrl, tailscaleUrl }) ? "configured" : "other";
-  };
+  function getConfigStatus() {
+  if (!openclawStatus?.installed) return null;
+  const currentProvider = openclawStatus.settings?.models?.providers?.["9router"];
+  if (!currentProvider) return "not_configured";
+  return matchKnownEndpoint(currentProvider.baseUrl, {
+    tunnelPublicUrl,
+    tailscaleUrl
+  }) ? "configured" : "other";
+}
 
   const configStatus = getConfigStatus();
 
   useEffect(() => {
     if (apiKeys?.length > 0 && !selectedApiKey) {
-      setSelectedApiKey(apiKeys[0].key);
+      queueMicrotask(() => setSelectedApiKey(apiKeys[0].key));
     }
   }, [apiKeys, selectedApiKey]);
 
   useEffect(() => {
-    if (initialStatus) setOpenclawStatus(initialStatus);
+    if (initialStatus) queueMicrotask(() => setOpenclawStatus(initialStatus));
   }, [initialStatus]);
 
   useEffect(() => {
@@ -66,15 +69,15 @@ export default function OpenClawToolCard({
     }
   }, [isExpanded]);
 
-  const fetchModelAliases = async () => {
-    try {
-      const res = await fetch("/api/models/alias");
-      const data = await res.json();
-      if (res.ok) setModelAliases(data.aliases || {});
-    } catch (error) {
-      console.log("Error fetching model aliases:", error);
-    }
-  };
+  async function fetchModelAliases() {
+  try {
+    const res = await fetch("/api/models/alias");
+    const data = await res.json();
+    if (res.ok) setModelAliases(data.aliases || {});
+  } catch (error) {
+    console.log("Error fetching model aliases:", error);
+  }
+}
 
   useEffect(() => {
     if (openclawStatus?.installed && !hasInitializedModel.current) {
@@ -82,9 +85,9 @@ export default function OpenClawToolCard({
       const provider = openclawStatus.settings?.models?.providers?.["9router"];
       if (provider) {
         const primaryModel = openclawStatus.settings?.agents?.defaults?.model?.primary;
-        if (primaryModel) setSelectedModel(primaryModel.replace("9router/", ""));
+        if (primaryModel) queueMicrotask(() => setSelectedModel(primaryModel.replace("9router/", "")));
         if (provider.apiKey && apiKeys?.some(k => k.key === provider.apiKey)) {
-          setSelectedApiKey(provider.apiKey);
+          queueMicrotask(() => setSelectedApiKey(provider.apiKey));
         }
       }
       // Init per-agent models from enriched agents list
@@ -93,144 +96,164 @@ export default function OpenClawToolCard({
       agentList.forEach((agent) => {
         if (agent.currentModel) initAgentModels[agent.id] = agent.currentModel;
       });
-      setAgentModels(initAgentModels);
+      queueMicrotask(() => setAgentModels(initAgentModels));
     }
   }, [openclawStatus, apiKeys]);
 
-  const checkOpenclawStatus = async () => {
-    setCheckingOpenclaw(true);
-    try {
-      const res = await fetch("/api/cli-tools/openclaw-settings");
-      const data = await res.json();
-      setOpenclawStatus(data);
-    } catch (error) {
-      setOpenclawStatus({ installed: false, error: error.message });
-    } finally {
-      setCheckingOpenclaw(false);
-    }
-  };
+  async function checkOpenclawStatus() {
+  setCheckingOpenclaw(true);
+  try {
+    const res = await fetch("/api/cli-tools/openclaw-settings");
+    const data = await res.json();
+    setOpenclawStatus(data);
+  } catch (error) {
+    setOpenclawStatus({
+      installed: false,
+      error: error.message
+    });
+  } finally {
+    setCheckingOpenclaw(false);
+  }
+}
 
   const normalizeLocalhost = (url) => url.replace("://localhost", "://127.0.0.1");
 
-  const getLocalBaseUrl = () => {
-    if (typeof window !== "undefined") {
-      return normalizeLocalhost(window.location.origin);
+  function getLocalBaseUrl() {
+  if (typeof window !== "undefined") {
+    return normalizeLocalhost(window.location.origin);
+  }
+  return "http://127.0.0.1:20128";
+}
+
+  function getEffectiveBaseUrl() {
+  const url = customBaseUrl || getLocalBaseUrl();
+  return url.endsWith("/v1") ? url : `${url}/v1`;
+}
+
+  function getDisplayUrl() {
+  const url = customBaseUrl || getLocalBaseUrl();
+  return url.endsWith("/v1") ? url : `${url}/v1`;
+}
+
+  async function handleApplySettings() {
+  setApplying(true);
+  setMessage(null);
+  try {
+    const keyToUse = selectedApiKey?.trim() || (apiKeys?.length > 0 ? apiKeys[0].key : null) || (!cloudEnabled ? "sk_9router" : null);
+    const res = await fetch("/api/cli-tools/openclaw-settings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        baseUrl: getEffectiveBaseUrl(),
+        apiKey: keyToUse,
+        model: selectedModel,
+        agentModels
+      })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      // Remember the endpoint so it stays selectable next time
+      rememberEndpoint(getEffectiveBaseUrl(), {
+        tunnelPublicUrl,
+        tailscaleUrl
+      });
+      setMessage({
+        type: "success",
+        text: "Settings applied successfully!"
+      });
+      checkOpenclawStatus();
+    } else {
+      setMessage({
+        type: "error",
+        text: data.error || "Failed to apply settings"
+      });
     }
-    return "http://127.0.0.1:20128";
-  };
+  } catch (error) {
+    setMessage({
+      type: "error",
+      text: error.message
+    });
+  } finally {
+    setApplying(false);
+  }
+}
 
-  const getEffectiveBaseUrl = () => {
-    const url = customBaseUrl || getLocalBaseUrl();
-    return url.endsWith("/v1") ? url : `${url}/v1`;
-  };
+  async function handleResetSettings() {
+  setRestoring(true);
+  setMessage(null);
+  try {
+    const res = await fetch("/api/cli-tools/openclaw-settings", {
+      method: "DELETE"
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setMessage({
+        type: "success",
+        text: "Settings reset successfully!"
+      });
+      setSelectedModel("");
+      setSelectedApiKey("");
+      checkOpenclawStatus();
+    } else {
+      setMessage({
+        type: "error",
+        text: data.error || "Failed to reset settings"
+      });
+    }
+  } catch (error) {
+    setMessage({
+      type: "error",
+      text: error.message
+    });
+  } finally {
+    setRestoring(false);
+  }
+}
 
-  const getDisplayUrl = () => {
-    const url = customBaseUrl || getLocalBaseUrl();
-    return url.endsWith("/v1") ? url : `${url}/v1`;
-  };
+  function handleModelSelect(model) {
+  if (agentModalFor) {
+    setAgentModels(prev => ({
+      ...prev,
+      [agentModalFor]: model.value
+    }));
+    setAgentModalFor(null);
+  } else {
+    setSelectedModel(model.value);
+  }
+  setModalOpen(false);
+}
 
-  const handleApplySettings = async () => {
-    setApplying(true);
-    setMessage(null);
-    try {
-      const keyToUse = selectedApiKey?.trim()
-        || (apiKeys?.length > 0 ? apiKeys[0].key : null)
-        || (!cloudEnabled ? "sk_9router" : null);
-
-      const res = await fetch("/api/cli-tools/openclaw-settings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+  function getManualConfigs() {
+  const keyToUse = selectedApiKey && selectedApiKey.trim() ? selectedApiKey : !cloudEnabled ? "sk_9router" : "<API_KEY_FROM_DASHBOARD>";
+  const settingsContent = {
+    agents: {
+      defaults: {
+        model: {
+          primary: `9router/${selectedModel || "provider/model-id"}`
+        }
+      }
+    },
+    models: {
+      providers: {
+        "9router": {
           baseUrl: getEffectiveBaseUrl(),
           apiKey: keyToUse,
-          model: selectedModel,
-          agentModels,
-        }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        // Remember the endpoint so it stays selectable next time
-        rememberEndpoint(getEffectiveBaseUrl(), { tunnelPublicUrl, tailscaleUrl });
-        setMessage({ type: "success", text: "Settings applied successfully!" });
-        checkOpenclawStatus();
-      } else {
-        setMessage({ type: "error", text: data.error || "Failed to apply settings" });
+          api: "openai-completions",
+          models: [{
+            id: selectedModel || "provider/model-id",
+            name: (selectedModel || "provider/model-id").split("/").pop()
+          }]
+        }
       }
-    } catch (error) {
-      setMessage({ type: "error", text: error.message });
-    } finally {
-      setApplying(false);
     }
   };
-
-  const handleResetSettings = async () => {
-    setRestoring(true);
-    setMessage(null);
-    try {
-      const res = await fetch("/api/cli-tools/openclaw-settings", { method: "DELETE" });
-      const data = await res.json();
-      if (res.ok) {
-        setMessage({ type: "success", text: "Settings reset successfully!" });
-        setSelectedModel("");
-        setSelectedApiKey("");
-        checkOpenclawStatus();
-      } else {
-        setMessage({ type: "error", text: data.error || "Failed to reset settings" });
-      }
-    } catch (error) {
-      setMessage({ type: "error", text: error.message });
-    } finally {
-      setRestoring(false);
-    }
-  };
-
-  const handleModelSelect = (model) => {
-    if (agentModalFor) {
-      setAgentModels(prev => ({ ...prev, [agentModalFor]: model.value }));
-      setAgentModalFor(null);
-    } else {
-      setSelectedModel(model.value);
-    }
-    setModalOpen(false);
-  };
-
-  const getManualConfigs = () => {
-    const keyToUse = (selectedApiKey && selectedApiKey.trim())
-      ? selectedApiKey
-      : (!cloudEnabled ? "sk_9router" : "<API_KEY_FROM_DASHBOARD>");
-
-    const settingsContent = {
-      agents: {
-        defaults: {
-          model: {
-            primary: `9router/${selectedModel || "provider/model-id"}`,
-          },
-        },
-      },
-      models: {
-        providers: {
-          "9router": {
-            baseUrl: getEffectiveBaseUrl(),
-            apiKey: keyToUse,
-            api: "openai-completions",
-            models: [
-              {
-                id: selectedModel || "provider/model-id",
-                name: (selectedModel || "provider/model-id").split("/").pop(),
-              },
-            ],
-          },
-        },
-      },
-    };
-
-    return [
-      {
-        filename: "~/.openclaw/openclaw.json",
-        content: JSON.stringify(settingsContent, null, 2),
-      },
-    ];
-  };
+  return [{
+    filename: "~/.openclaw/openclaw.json",
+    content: JSON.stringify(settingsContent, null, 2)
+  }];
+}
 
   return (
     <Card padding="xs" className="overflow-hidden">

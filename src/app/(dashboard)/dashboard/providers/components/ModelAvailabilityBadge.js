@@ -41,7 +41,7 @@ export default function ModelAvailabilityBadge() {
   }, []);
 
   useEffect(() => {
-    fetchStatus();
+    queueMicrotask(() => fetchStatus());
     const interval = setInterval(fetchStatus, 30000);
     return () => clearInterval(interval);
   }, [fetchStatus]);

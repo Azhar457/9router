@@ -82,7 +82,6 @@ export async function readZedSystemId() {
 
 async function queryKvStore(dbPath, key) {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const Database = require("better-sqlite3");
     const db = new Database(dbPath, { readonly: true, fileMustExist: true });
     try {
