@@ -203,8 +203,10 @@ export default function GlobalInjectionClient({ payloadCatalog }) {
     if (editing !== "godmodeCustom") setGodmodeCustom(typeof settings.injectionGodmodeCustom === "string" ? settings.injectionGodmodeCustom : (typeof settings.godmodeCustom === "string" ? settings.godmodeCustom : ""));
     if (editing !== "carrierEnabled") setCarrierEnabled(!!settings.injectionCarrierEnabled);
     if (editing !== "carrierLevel") setCarrierLevel(typeof settings.injectionCarrierLevel === "string" ? settings.injectionCarrierLevel : "");
+    // Hoisted to function scope: the splice-seam computation below (line setCarrierPreview)
+    // reads it regardless of the editing guard, so it must always be defined.
+    const loadedCarrierCustom = typeof settings.injectionCarrierCustom === "string" ? settings.injectionCarrierCustom : "";
     if (editing !== "carrierCustom") {
-      const loadedCarrierCustom = typeof settings.injectionCarrierCustom === "string" ? settings.injectionCarrierCustom : "";
       setCarrierCustom(loadedCarrierCustom);
     }
     // Skill-router slot (Penetration tab) — read-only visibility: when the
