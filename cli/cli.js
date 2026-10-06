@@ -97,6 +97,16 @@ const GH_UPDATE_TARBALL = process.env.NINEROUTER_GH_TARBALL || "9router-plinian-
 const GH_UPDATE_URL = `https://github.com/${GH_UPDATE_REPO}/releases/latest/download/${GH_UPDATE_TARBALL}`;
 const INSTALL_CMD_LATEST = `curl -fsSL ${GH_UPDATE_URL} -o /tmp/${APP_NAME}.tgz && npm i -g /tmp/${APP_NAME}.tgz`;
 
+// 0.6.0 ships the Strix security-payload skill router, which is still in beta
+// — not yet battle-tested in the wild. Surface that on the install prompt so
+// an auto-update from the stable 0.5.99 channel is a conscious choice, not a
+// silent one. Kept out of the base banner so it only fires for the beta line.
+const STRIX_BETA_WARNING =
+  "\x1b[33m⚠ Beta: v0.6.0 carries the Strix security-payload skill router (in testing — " +
+  "may be less stable than the 0.5.99 stable line).\x1b[0m" +
+  "\n  If you prefer the proven stable build, pin the update:\n" +
+  "   curl -fsSL https://github.com/Azhar457/9router/releases/download/v0.5.99/9router-plinian-0.5.99.tgz -o /tmp/9router-plinian.tgz && npm i -g /tmp/9router-plinian.tgz\n";
+
 const DEFAULT_PORT = 20128;
 const DEFAULT_HOST = "0.0.0.0";
 
@@ -774,6 +784,9 @@ function startServer(updatePromise) {
           const { clearScreen } = require("./src/cli/utils/display");
           clearScreen();
           console.log(`\n⬆  Update v${pkg.version} → v${latestVersion}\n`);
+          if (String(latestVersion).startsWith("0.6.0")) {
+            console.log(STRIX_BETA_WARNING);
+          }
           console.log(`Run this after exit:\n`);
           console.log(`   \x1b[33m${INSTALL_CMD_LATEST}\x1b[0m\n`);
           cleanup();

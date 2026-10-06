@@ -1,3 +1,37 @@
+# v0.6.0 (BETA — 2026-10-06)
+
+> **⚠ Beta channel — not yet fully tested.** This build ships the Strix
+> security-payload skill router and the Global Injection transparency
+> redesign. The payload/injection code paths are present but **not yet
+> battle-tested across real provider traffic**. If stability matters more
+> than the new capabilities, stay on the **0.5.99 stable** line:
+>
+> ```bash
+> curl -fsSL https://github.com/Azhar457/9router/releases/download/v0.5.99/9router-plinian-0.5.99.tgz \\
+>   -o /tmp/9router-plinian.tgz && npm i -g /tmp/9router-plinian.tgz
+> ```
+
+## What is new (Strix + injection, all beta)
+
+- **Strix skill-router (fetch-only pointer mode).** A one-line
+  `[STRIX-POINTER]` (~108 tok) is appended instead of inlining the
+  8–24 KB skill markdown into every request; the agent fetches the index and
+  the 1–3 skills it actually needs.
+- **Global Injection transparency redesign.** Carrier + payload composition,
+  the RTK payload-catalog registry, and a live Shield status panel in the
+  dashboard header.
+- **Sidebar updater UX.** Old builds now show the install command + a
+  copy-and-shutdown flow in the sidebar; current builds show an
+  'up to date' confirmation.
+
+## Stability notes
+
+- The Strix payload catalog and skill router are the newest, least-tested
+  surface. RTK jailbreak variants and combo routing are unchanged from the
+  0.5.x line and remain the well-trodden path.
+- Rollback to stable: install 0.5.99 (command above) — it predates Strix and
+  has no `strix-payloads/` files.
+
 # v0.5.99 (2026-10-05)
 
 ## Model visibility — you only see what you can actually route
