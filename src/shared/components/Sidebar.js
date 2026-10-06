@@ -58,7 +58,7 @@ export default function Sidebar({ onClose }) {
    const { copied, copy } = useCopyToClipboard(2000);
    const { palette, setPalette } = useTheme();
 
-  const INSTALL_CMD = UPDATER_CONFIG.installCmdLatest;
+  const INSTALL_CMD = UPDATER_CONFIG.installCmdForPlatform(typeof navigator !== "undefined" ? navigator.platform : "") || UPDATER_CONFIG.installCmdLatest;
 
   useEffect(() => {
     useSettingsStore.getState().fetchSettings().then((data) => {

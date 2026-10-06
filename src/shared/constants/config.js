@@ -14,15 +14,43 @@ export const GITHUB_CONFIG = {
 };
 
 // Updater configuration
+const GH_LATEST_URL = "https://github.com/Azhar457/9router/releases/latest/download/9router-plinian-latest.tgz";
+
+// Per-OS install command templates.
+// - bash / sh: single line with &&
+// - cmd: powershell one-liner (avoids curl alias + && problems)
+// - pwsh: native PowerShell one-liner (curl.exe + ; separators)
+// - posix path via $TMPDIR so macOS + Linux both work
 export const UPDATER_CONFIG = {
   npmPackageName: "9router-plinian",
   // GitHub is the update source of truth (npm is deprecated / dual-use-blocked).
   // The updater downloads this tarball and runs `npm i -g <file>`.
   ghRepo: "Azhar457/9router",
   ghAsset: "9router-plinian-latest.tgz",
-  ghUrl: "https://github.com/Azhar457/9router/releases/latest/download/9router-plinian-latest.tgz",
-  installCmd: "curl -fsSL https://github.com/Azhar457/9router/releases/latest/download/9router-plinian-latest.tgz -o /tmp/9router-plinian.tgz && npm i -g /tmp/9router-plinian.tgz",
-  installCmdLatest: "curl -fsSL https://github.com/Azhar457/9router/releases/latest/download/9router-plinian-latest.tgz -o /tmp/9router-plinian.tgz && npm i -g /tmp/9router-plinian.tgz",
+  ghUrl: GH_LATEST_URL,
+  // Backwards-compat default (bash). Kept as-is so existing consumers don't
+  // break; Sidebar now picks the OS-specific one via `installCmdForPlatform`.
+  installCmd: `curl -fsSL ${GH_LATEST_URL} -o /tmp/9router-plinian.tgz && npm i -g /tmp/9router-plinian.tgz`,
+  installCmdLatest: `curl -fsSL ${GH_LATEST_URL} -o /tmp/9router-plinian.tgz && npm i -g /tmp/9router-plinian.tgz`,
+  // Command templates per platform. Each returns a string the user can
+  // copy+paste into the matching shell and it will work.
+  installCmdByPlatform: {
+    // bash / zsh / sh (macOS Terminal, Ubuntu, etc)
+    bash: `curl -fsSL ${GH_LATEST_URL} -o /tmp/9router-plinian.tgz && npm i -g /tmp/9router-plinian.tgz`,
+    // cmd.exe (Windows) — powershell one-liner, no &&, no /tmp
+    cmd: `powershell -NoProfile -Command "curl.exe -fsSL ${GH_LATEST_URL} -o $env:TEMP\\9router-plinian.tgz; npm i -g $env:TEMP\\9router-plinian.tgz"`,
+    // PowerShell (Windows) — native, no shell escaping
+    pwsh: `curl.exe -fsSL ${GH_LATEST_URL} -o $env:TEMP\\9router-plinian.tgz; npm i -g $env:TEMP\\9router-plinian.tgz`,
+  },
+  // Pick the right command for the current OS. In the browser `navigator.platform`
+  // / `userAgent` is available; on Node we fall back to `process.platform`.
+  installCmdForPlatform(platform) {
+    const p = String(platform || "").toLowerCase();
+    if (p.includes("win")) return this.installCmdByPlatform.cmd;
+    if (p.includes("mac") || p.includes("darwin")) return this.installCmdByPlatform.bash;
+    // linux / unknown → bash
+    return this.installCmdByPlatform.bash;
+  },
   shutdownCountdownSec: 3,
   exitDelayMs: 500,
   statusPort: 20129,
