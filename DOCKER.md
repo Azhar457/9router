@@ -103,7 +103,7 @@ docker rm -f 9router
 To pin a specific version instead of following `latest`, use a numbered image tag:
 
 ```bash
-docker pull decolua/9router:0.5.81
+docker pull decolua/9router:0.6.0
 ```
 
 ---
@@ -146,20 +146,20 @@ The workflow rejects SemVer build metadata such as `v1.2.3+build.7` because the 
 node scripts/release.js "Release title" "Notes"
 
 # Or manually
-git tag v0.5.81 && git push origin v0.5.81
+git tag v0.6.0 && git push origin v0.6.0
 ```
 
-To republish an existing tag, run the `Build and Push Docker Image` workflow manually and provide the exact tag, for example `v0.5.81`, in the `release_tag` input. Manual runs publish the numbered tag but leave `latest` unchanged by default:
+To republish an existing tag, run the `Build and Push Docker Image` workflow manually and provide the exact tag, for example `v0.6.0`, in the `release_tag` input. Manual runs publish the numbered tag but leave `latest` unchanged by default:
 
 ```text
-release_tag:     v0.5.81
+release_tag:     v0.6.0
 promote_latest:  false
 ```
 
 The `promote_latest` checkbox is an explicit opt-in for changing `latest`. Use it when a deliberate rollback or recovery should make that version the current default:
 
 ```text
-release_tag:     v0.5.75
+release_tag:     v0.5.99
 promote_latest:  true
 ```
 
