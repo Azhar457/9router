@@ -16,12 +16,16 @@
 // Same fail-open contract as caveman.js / ponytail.js / plinian.js /
 // godmode.js: any error leaves the body untouched.
 //
-// Carrier column (optional, off by default): a second "carrier" payload
-// (dark-RP v12, RFC framework, or custom text) wraps the main payload —
-// auto-spliced into the [YOUR JAILBREAK HERE] slot, or appended when the
-// carrier has no slot. Wrapping is NOT always more effective; the column
-// is opt-in precisely for that reason. Some payloads (VEIL) already embed
-// a carrier frame internally — see payloadCatalog.js BUILTIN_CARRIER_IDS.
+// Carrier warp (v0.6.0 rework): the separate "carrier column" was REMOVED.
+// A carrier warp frame (VEIL / Dark RP / RFC 454) now lives inside the
+// Persona text (injectionIdentity) — the Persona dropdown's "📦 Carrier warp"
+// preset auto-fills the persona textarea with the carrier frame. At
+// injection time, if the persona text contains the [YOUR JAILBREAK HERE]
+// slot marker, the main payload auto-splices into it; otherwise the payload
+// appends after the persona frame. This means the persona text IS the
+// carrier — no separate injectionCarrier* keys needed at runtime. Legacy
+// injectionCarrier* keys are auto-migrated to injectionIdentity on first
+// load (one-time, in the UI).
 //
 // Model-aware: when a model string is provided and the level is not pinned,
 // pickGodmodeVariant picks the best-fit payload — including the adaptive
@@ -44,10 +48,14 @@ export function injectGlobal(body, format, opts = {}) {
     godmodeLevel = "classic",
     godmodeCustom = "",
     model = "",
+    skillRouterCustom = "",
+    // Legacy (one-time migration only, not read at runtime):
+    // carrierEnabled / carrierLevel / carrierCustom are retained in the
+    // destructure for backward compat with older callers, but the
+    // runtime carrier logic now reads the persona text (identity) instead.
     carrierEnabled = false,
     carrierLevel = "",
     carrierCustom = "",
-    skillRouterCustom = "",
   } = opts;
 
   if (!enabled || !body) return;
@@ -63,14 +71,38 @@ export function injectGlobal(body, format, opts = {}) {
       injectPlinian(body, format, registerLevel, identity);
     }
     // 2. Jailbreak payload — selected or auto-picked per model.
-    //    Carrier (optional, off by default): when carrierEnabled + a carrier
-    //    is chosen, the main payload is auto-wrapped into the carrier's slot.
-    //    carrierCustom overrides the carrier text (user-editable).
+    //
+    // Carrier warp (v0.6.0 rework): the persona text (identity) may contain
+    // a carrier frame with the [YOUR JAILBREAK HERE] slot marker. When it
+    // does, the main payload auto-splices into the slot; when the persona
+    // has no slot, the payload appends after the persona frame (nothing lost).
+    // This replaces the old injectionCarrier* column entirely — the persona
+    // textarea is now the single source of truth for carrier text.
     if (godmodeLevel) {
       const mainText = getGodmodePrompt(godmodeLevel, godmodeCustom);
-      const carrierOn = carrierEnabled && (carrierCustom.trim() || carrierLevel);
-      if (carrierOn) {
-        const carrierText = carrierCustom.trim() || getExternalPayload(carrierLevel) || "";
+      const identityTrimmed = String(identity || "").trim();
+      // Carrier warp detection: the persona text carries the slot marker.
+      const carrierWarp = identityTrimmed.includes(CARRIER_SLOT);
+      // Legacy carrier column: still honored for one migration window so
+      // requests in-flight during the upgrade keep working (the UI migrates
+      // legacy keys to the persona textarea on mount; after that this branch
+      // is dead code and can be removed in a future major).
+      const legacyCarrierOn =
+        carrierEnabled &&
+        !carrierWarp &&
+        (String(carrierCustom || "").trim() || carrierLevel);
+      if (carrierWarp) {
+        // Persona IS the carrier — splice the main payload into the slot.
+        const composed = spliceCarrier(identityTrimmed, mainText);
+        injectSystemPrompt(body, format, composed);
+        opts.onCarrierSplice?.({
+          carrier: "persona",
+          chars: composed.length,
+          spliced: true,
+        });
+      } else if (legacyCarrierOn) {
+        // Legacy carrier column (migration window only).
+        const carrierText = String(carrierCustom || "").trim() || getExternalPayload(carrierLevel) || "";
         const composed = spliceCarrier(carrierText, mainText);
         injectSystemPrompt(body, format, composed);
         opts.onCarrierSplice?.({
@@ -79,6 +111,7 @@ export function injectGlobal(body, format, opts = {}) {
           spliced: carrierText.includes(CARRIER_SLOT),
         });
       } else {
+        // No carrier warp — just the main payload.
         injectSystemPrompt(body, format, mainText);
       }
     }

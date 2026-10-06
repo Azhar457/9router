@@ -48,13 +48,25 @@ export function estimateGlobalInjection({
   const autoPicked = !godmodeLevel || godmodeLevel === "classic";
   const effectiveLevel = autoPicked && model ? pickGodmodeVariant(model) : (godmodeLevel || "classic");
   const god = getGodmodePrompt(effectiveLevel, godmodeCustom);
-  // Mirror injectGlobal(): when the optional carrier is on, the payload is
-  // spliced into the carrier's slot (or appended when the carrier has none).
-  const carrierOn = carrierEnabled && (carrierCustom.trim() || carrierLevel);
-  const finalPayload = carrierOn
-    ? spliceCarrier(carrierCustom.trim() || getExternalPayload(carrierLevel) || "", god)
+  // Mirror injectGlobal() v0.6.0 rework: the carrier warp now lives inside
+  // the persona text (identity). When identity carries the [YOUR JAILBREAK
+  // HERE] slot, the main payload auto-splices into it; otherwise the legacy
+  // carrier column (migration window only) is used; otherwise bare payload.
+  const identityTrimmed = String(identity || "").trim();
+  const carrierWarp = identityTrimmed.includes(CARRIER_SLOT);
+  const legacyCarrierOn =
+    !carrierWarp &&
+    carrierEnabled &&
+    (carrierCustom.trim() || carrierLevel);
+  const carrierText = carrierWarp
+    ? identityTrimmed
+    : legacyCarrierOn
+      ? (carrierCustom.trim() || getExternalPayload(carrierLevel) || "")
+      : "";
+  const finalPayload = carrierText
+    ? spliceCarrier(carrierText, god)
     : god;
-  const finalCarrier = carrierOn ? (carrierCustom.trim() || getExternalPayload(carrierLevel) || "") : "";
+  const finalCarrier = carrierText || "";
   return {
     register: estimateTokens(reg),
     payload: estimateTokens(god),

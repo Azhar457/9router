@@ -140,7 +140,7 @@ export default function ShieldStatus() {
                 injectionOn
                   ? `${translate("register")} ${s.registerLevel}${s.identity ? ` + ${translate("identity")}` : ""} · ${translate("payload")} ${s.payloadLabel}${
                       s.payloadChars ? ` · ${s.payloadChars.toLocaleString()} ${translate("chars")}` : ""
-                    }${s.carrierEnabled && s.carrierLevel ? ` · ${translate("carrier")} ${s.carrierLevel}` : ""}`
+                    }${s.identity && s.identity.includes("[YOUR JAILBREAK HERE]") ? ` · 📦 ${translate("carrier")}` : ""}`
                   : translate("no payload added to any request")
               }
             />

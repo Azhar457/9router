@@ -343,10 +343,15 @@ async function handleSingleModelChat(
         : typeof chatSettings.injectionGodmodeCustom === "string"
           ? chatSettings.injectionGodmodeCustom
           : (typeof chatSettings.godmodeCustom === "string" ? chatSettings.godmodeCustom : ""),
+      // v0.6.0 rework: the carrier warp now lives in injectionIdentity
+      // (the Persona textarea). The legacy injectionCarrier* keys are
+      // passed through for one migration window — globalInject.js reads
+      // them as a fallback when the persona text has no slot marker yet.
+      // After the UI migrates the legacy keys to the persona text on mount,
+      // these become inert.
       injectionCarrierEnabled: !!chatSettings.injectionCarrierEnabled,
       injectionCarrierLevel:
-        (typeof chatSettings.injectionCarrierLevel === "string" && chatSettings.injectionCarrierLevel) ||
-        (chatSettings.injectionCarrierEnabled ? (chatSettings.injectionCarrierLevel || "") : ""),
+        (typeof chatSettings.injectionCarrierLevel === "string" && chatSettings.injectionCarrierLevel) || "",
       injectionCarrierCustom:
         typeof chatSettings.injectionCarrierCustom === "string" ? chatSettings.injectionCarrierCustom : "",
       injectionSkillRouterCustom:

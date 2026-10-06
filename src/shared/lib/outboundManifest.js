@@ -20,17 +20,16 @@
 export const OUTBOUND_FEATURES = [
   {
     key: "injectionEnabled",
-    label: "Global Injection — register + jailbreak payload ke provider",
+    label: "Global Injection — register + persona + jailbreak payload (+ carrier warp via persona) ke provider",
     category: "Payload steering",
     kind: "provider",
   },
-  {
-    key: "injectionCarrierEnabled",
-    label: "Carrier wrap (payload dibungkus carrier frame)",
-    category: "Payload steering",
-    kind: "provider",
-    requires: "injectionEnabled",
-  },
+  // v0.6.0 rework: the separate injectionCarrierEnabled feature was removed.
+  // The carrier warp now lives inside the persona text (injectionIdentity) —
+  // the Persona dropdown's "📦 Carrier warp" preset auto-fills the persona
+  // textarea with the carrier frame. At injection time, if the persona text
+  // contains the [YOUR JAILBREAK HERE] slot marker, the main payload auto-
+  // splices into it (globalInject.js). No separate carrier settings key.
   {
     key: "rtkEnabled",
     label: "RTK token saver — kompresi tool_result in-place",
@@ -101,8 +100,8 @@ export const OUTBOUND_FEATURES = [
 
 /**
  * Evaluate the feature list against settings.
- * Returns [{ key, label, category, kind, on }] — `requires` chains (carrier
- * only counts when injection itself is on) and per-connection maps
+ * Returns [{ key, label, category, kind, on }] — `requires` chains
+ * (a dependent only counts when its parent is on) and per-connection maps
  * (auto-ping) count as ON only when at least one connection is enabled.
  */
 function featureOn(f, s) {
@@ -144,10 +143,8 @@ export function canToggleOn(featureKey) {
 /**
  * Build the /api/settings patch for flipping one manifest feature.
  *
- * - Turning a dependent feature ON also switches its parent ON (carrier wrap
- *   without Global Injection is a no-op).
  * - Turning a parent OFF switches the dependents OFF in the same write, so the
- *   UI can never show "carrier ON, injection OFF".
+ *   UI can never show a dependent ON while its parent is OFF.
  * Returns { patch, extras } — extras are keys that changed as a side effect.
  */
 export function buildTogglePatch(featureKey, nextOn, settings = {}) {

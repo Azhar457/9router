@@ -33,8 +33,7 @@ const EMPTY = {
   payloadLabel: "",
   payloadChars: 0,
   payloadTokens: 0,
-  carrierEnabled: false,
-  carrierLevel: "",
+  carrierWarp: false,
   skillRouterActive: false,
   skillRouterChars: 0,
   skillRouterTokens: 0,
@@ -79,8 +78,11 @@ function derive(raw) {
     payloadLabel: payloadLevel === "custom" ? "custom" : payloadLevel,
     payloadChars,
     payloadTokens: payloadChars ? Math.max(1, Math.round(payloadChars / 4)) : 0,
-    carrierEnabled: !!s.injectionCarrierEnabled,
-    carrierLevel: s.injectionCarrierLevel || "",
+    // v0.6.0 rework: the carrier warp now lives inside the Persona text
+    // (injectionIdentity). The legacy injectionCarrier* keys are kept for
+    // one-time data migration only — they are no longer part of the live
+    // outbound pipeline.
+    carrierWarp: identity.includes("[YOUR JAILBREAK HERE]"),
     skillRouterActive: !!skillRouter,
     skillRouterChars: skillRouter.length,
     skillRouterTokens: skillRouter ? Math.max(1, Math.round(skillRouter.length / 4)) : 0,

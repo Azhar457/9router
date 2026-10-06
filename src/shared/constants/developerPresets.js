@@ -89,6 +89,14 @@ export const RACE_HARD_TIMEOUT_MS = 120000;
 // Persona scaffolds for the Global-injection identity slot. Three-section
 // structure (IDENTITY / ROLE / RULES) mirrors how CLI agents self-describe,
 // so one preset serves every client behind the router without per-agent setup.
+//
+// The 4 "carrier warp" frames (VEIL / Dark RP v1.2 / Dark RP v1.1 / RFC 454)
+// live in GlobalInjectionClient.js's PERSONA_CARRIER_PRESETS, NOT here —
+// their text is resolved server-side from the payload registry at Apply
+// time, so they appear as a separate "📦 Carrier warp" optgroup in the
+// Persona dropdown. The Persona text (injectionIdentity) IS the carrier:
+// splicing into [YOUR JAILBREAK HERE] happens at injection time
+// (open-sse/rtk/globalInject.js) when the text carries the slot marker.
 export const PERSONA_TEMPLATES = [
   {
     id: "tpl-plinian-default",
@@ -157,6 +165,10 @@ export const PERSONA_TEMPLATES = [
   },
 ];
 
+// Resolve a persona template by id. The 4 carrier warp frames (VEIL / Dark
+// RP v1.2 / Dark RP v1.1 / RFC 454) live in GlobalInjectionClient.js's
+// PERSONA_CARRIER_PRESETS constant — not here — because their text is
+// resolved server-side from the payload registry at Apply time.
 export function getPersonaTemplate(id) {
   return PERSONA_TEMPLATES.find((t) => t.id === id) || null;
 }

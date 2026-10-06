@@ -88,6 +88,7 @@ graphify-out/*
 
 # fork build artifacts
 *.tgz
+package/
 cli/app/
 cli-beta/
 # Kiro local workspace state

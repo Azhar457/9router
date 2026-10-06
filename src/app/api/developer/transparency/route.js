@@ -1,5 +1,6 @@
 import { getGodmodePrompt, pickGodmodeVariant } from "open-sse/rtk/godmodePayloads.js";
 import { getPlinianPrompt } from "open-sse/rtk/plinianPrompts.js";
+import { spliceCarrier } from "open-sse/rtk/payloadCatalog.js";
 import { detect, estimateTokenSaver, classifyPrompt } from "@/shared/lib/injectionDetect.js";
 
 export const runtime = "nodejs";
@@ -85,8 +86,17 @@ export async function POST(request) {
     godmodeText = getGodmodePrompt(effectiveLevel, godmodeCustom);
   }
 
-  // Match live injection order: register first, payload second
-  const parts = [registerText, godmodeText].filter(Boolean);
+  // v0.6.0 rework: carrier warp lives in the persona text (identity).
+  // When identity carries the [YOUR JAILBREAK HERE] slot, the main payload
+  // auto-splices into it — mirrors injectGlobal() in globalInject.js.
+  const identityTrimmed = String(identity || "").trim();
+  const carrierWarp = identityTrimmed.includes("[YOUR JAILBREAK HERE]");
+  const composedPayload = carrierWarp
+    ? spliceCarrier(identityTrimmed, godmodeText)
+    : godmodeText;
+
+  // Match live injection order: register first, composed payload second
+  const parts = [registerText, composedPayload].filter(Boolean);
   const outboundSystem = parts.join("\n\n===\n\n");
 
   const draft = typeof body?.draft === "string" ? body.draft : "";
@@ -97,6 +107,7 @@ export async function POST(request) {
   return Response.json({
     registerText,
     godmodeText,
+    carrierWarp,
     outboundSystem,
     requestDetection,
     harmClassification,

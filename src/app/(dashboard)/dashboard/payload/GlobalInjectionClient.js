@@ -47,7 +47,7 @@ const PAYLOAD_CATEGORIES_UI = [
 
 // Slot marker that carriers use to splice the main payload — matches
 // CARRIER_SLOT in open-sse/rtk/payloadCatalog.js (keeps the seam highlight
-// in sync with what the carrier-preview API reports).
+// in sync with what the injection pipeline checks).
 const CARRIER_SLOT_MARK = "[YOUR JAILBREAK HERE]";
 
 const GODMODE_VARIANTS = [
@@ -87,9 +87,9 @@ const GODMODE_VARIANTS = [
   { id: "f:bf:unlimited-hacking",   label: "📄 BlackFriday — Unlimited Hacking AI", cat: "pentest", new: true },
   { id: "f:bf:ultimate-hacking",    label: "📄 BlackFriday — Ultimate Hacking AI", cat: "pentest", new: true },
   { id: "f:bf:s-dan",              label: "📄 BF — S-DAN (classic baseline)", cat: "pentest", new: true },
-  // Carrier-type payloads live exclusively in section ③ (CARRIER_VARIANTS) —
-  // they wrap OTHER payloads, so they are not selectable as the main payload.
-  // Removed: f:bf:dark-roleplay-v12, f:bf:dark-roleplay-v11, f:bf:rfc-framework, VEIL
+  // Carrier-type payloads (Dark RP / RFC / VEIL) now live as Persona presets
+  // in the "📦 Carrier warp" optgroup — they wrap OTHER payloads, so they
+  // are not selectable as the main payload (GODMODE_VARIANTS above).
   // ── Creative / RP ──────────────────────────────────────────────
   { id: "f:ai:gemini-3.5-flash-lite", label: "📄 Gemini 3.5 Flash Lite — ENI RP (AI-Jailbreaks)", cat: "creative", new: true },
   // (nsfw roleplay variants removed — focus is attacking / building / pentest)
@@ -107,14 +107,43 @@ const SORT_KEYS = [
   { id: "size-desc", label: "Largest first" },
 ];
 
-const CARRIER_VARIANTS = [
-  { id: "", label: "Off" },
-  { id: "f:bf:dark-roleplay-v12", label: "📦 Dark RP v1.2 BASE — meta-wrapper (slot [YOUR JAILBREAK HERE])", carrier: true },
-  { id: "f:bf:dark-roleplay-v11", label: "📦 Dark RP v1.1 BASE — meta-wrapper", carrier: true },
-  { id: "f:bf:rfc-framework", label: "📦 RFC Jailbreak Framework 454 — tag config", carrier: true },
-  { id: "VEIL", label: "📦 VEIL — embedded identity frame", carrier: true, builtin: true },
-  { id: "custom", label: "Custom carrier text (paste below)" },
+// ── Persona carrier warp presets (v0.6.0 rework) ────────────────────────
+// The 4 classic carrier frames (VEIL / Dark RP / RFC 454) moved from the
+// removed section ③ "Carrier wrap" into the Persona dropdown as a
+// separate optgroup "📦 Carrier warp". Applying a carrier preset fills the
+// Persona textarea (`injectionIdentity`) with the full carrier frame —
+// Maker sees + edits it there. Splicing into [YOUR JAILBREAK HERE] happens
+// automatically at injection time (globalInject.js) when the persona text
+// contains the slot marker. The persona text IS the carrier now — no
+// separate carrier column, single source of truth.
+//
+// Each entry: value = personaSource value (car:<id>), label = dropdown text,
+// id = the payload registry key used to fetch the real carrier frame text.
+const PERSONA_CARRIER_PRESETS = [
+  { value: "car:veil", id: "VEIL", label: "📦 VEIL — embedded identity frame (wraps payload)" },
+  { value: "car:dark-roleplay-v12", id: "f:bf:dark-roleplay-v12", label: "📦 Dark RP v1.2 — meta-wrapper ([YOUR JAILBREAK HERE])" },
+  { value: "car:dark-roleplay-v11", id: "f:bf:dark-roleplay-v11", label: "📦 Dark RP v1.1 — meta-wrapper ([YOUR JAILBREAK HERE])" },
+  { value: "car:rfc-framework", id: "f:bf:rfc-framework", label: "📦 RFC 454 — tag-config frame (wraps payload)" },
 ];
+
+
+
+
+
+// Fetch the full carrier frame text for a PERSONA_CARRIER_PRESETS entry.
+// All keys (VEIL builtin, f:bf:* file-registry) resolve through the single
+// /api/developer/persona-preset endpoint. Fail-open: on network error or
+// 404 the caller keeps its current text.
+async function loadCarrierPresetText(id) {
+  try {
+    const r = await fetch(`/api/developer/persona-preset?key=${encodeURIComponent(id)}`);
+    if (!r.ok) return "";
+    const data = await r.json();
+    return typeof data.text === "string" ? data.text : "";
+  } catch {
+    return "";
+  }
+}
 
 export default function GlobalInjectionClient({ payloadCatalog }) {
   // Unified Global Injection state — one master toggle, sub-selectors
@@ -133,11 +162,6 @@ export default function GlobalInjectionClient({ payloadCatalog }) {
   useEffect(() => onLocaleChange(() => setLocaleTick((v) => v + 1)), []);
   const [gmPresetSource, setGmPresetSource] = useState("");
   const [gmPresetName, setGmPresetName] = useState("");
-  // Optional carrier column — wraps the main payload into a carrier slot.
-  const [carrierEnabled, setCarrierEnabled] = useState(false);
-  const [carrierLevel, setCarrierLevel] = useState("");
-  const [carrierCustom, setCarrierCustom] = useState("");
-  const [carrierPreview, setCarrierPreview] = useState({ chars: 0, estTokens: 0, spliced: false, text: "" });
   // Payload sort — "default" keeps the optgroup order; other options sort
   // by metadata from payloadCatalog.js (carriers first, current-gen first,
   // smallest first).
@@ -201,25 +225,14 @@ export default function GlobalInjectionClient({ payloadCatalog }) {
     if (editing !== "registerCustom") setRegisterCustom(typeof settings.injectionRegisterCustom === "string" ? settings.injectionRegisterCustom : "");
     if (editing !== "godmodeLevel") setGodmodeLevel(settings.injectionGodmodeLevel || settings.godmodeLevel || "classic");
     if (editing !== "godmodeCustom") setGodmodeCustom(typeof settings.injectionGodmodeCustom === "string" ? settings.injectionGodmodeCustom : (typeof settings.godmodeCustom === "string" ? settings.godmodeCustom : ""));
-    if (editing !== "carrierEnabled") setCarrierEnabled(!!settings.injectionCarrierEnabled);
-    if (editing !== "carrierLevel") setCarrierLevel(typeof settings.injectionCarrierLevel === "string" ? settings.injectionCarrierLevel : "");
-    // Hoisted to function scope: the splice-seam computation below (line setCarrierPreview)
-    // reads it regardless of the editing guard, so it must always be defined.
-    const loadedCarrierCustom = typeof settings.injectionCarrierCustom === "string" ? settings.injectionCarrierCustom : "";
-    if (editing !== "carrierCustom") {
-      setCarrierCustom(loadedCarrierCustom);
-    }
+    // Carrier state was removed in v0.6.0 — legacy injectionCarrier* keys
+    // are auto-migrated to the Persona textarea on mount (see migration
+    // useEffect below). No new carrier state is hydrated here.
     // Skill-router slot (Penetration tab) — read-only visibility: when the
     // SKILL-ROUTER-STRIX index is active, it ships as an extra block after
     // the jailbreak payload. This card shows it in the outbound list but
     // never edits it.
     setSkillRouterActive(!!(typeof settings.injectionSkillRouterCustom === "string" && settings.injectionSkillRouterCustom.trim()));
-    // Hydrate the splice-seam flag from the persisted carrier text so the
-    // seam highlight shows on first paint without needing a preset switch.
-    setCarrierPreview((prev) => ({
-      ...prev,
-      spliced: !!settings.injectionCarrierEnabled && loadedCarrierCustom.includes(CARRIER_SLOT_MARK),
-    }));
   }
 
   useEffect(() => {
@@ -229,6 +242,50 @@ export default function GlobalInjectionClient({ payloadCatalog }) {
       .then((settings) => {
         if (cancelled) return;
         syncInjectionFromSettings(settings);
+        // ── One-time data migration (v0.6.0) ─────────────────────
+        // Legacy injectionCarrier* keys (from the old section ③ "Carrier
+        // wrap") auto-convert to the Persona text (injectionIdentity) so
+        // Maker's carrier setup is preserved. The carrier text becomes the
+        // Persona frame; splicing into [YOUR JAILBREAK HERE] happens at
+        // injection time when the persona text carries the slot marker.
+        // After migration the legacy keys are cleared so the new persona-
+        // based carrier is the single source of truth.
+        const legacyCarrierEnabled = !!settings.injectionCarrierEnabled;
+        const legacyCarrierLevel = typeof settings.injectionCarrierLevel === "string" ? settings.injectionCarrierLevel : "";
+        const legacyCarrierCustom = typeof settings.injectionCarrierCustom === "string" ? settings.injectionCarrierCustom : "";
+        const legacyCarrierText = legacyCarrierCustom.trim() || "";
+        if (legacyCarrierEnabled && (legacyCarrierText || legacyCarrierLevel)) {
+          // Migration: write the carrier text to the Persona textarea.
+          // For legacy carrier levels (f:bf:* / VEIL), fetch the real text
+          // via loadCarrierPresetText; for custom text, use it as-is.
+          const migrate = async () => {
+            let text = legacyCarrierText;
+            if (!text && legacyCarrierLevel) {
+              text = await loadCarrierPresetText(legacyCarrierLevel);
+            }
+            if (!text) return;
+            // Only migrate if the Persona textarea is empty (don't clobber
+            // a persona the user already set).
+            const currentIdentity = settings.injectionIdentity || "";
+            if (!currentIdentity.trim()) {
+              setInjectIdentity(text);
+              patchSetting({
+                injectionIdentity: text,
+                injectionCarrierEnabled: false,
+                injectionCarrierLevel: "",
+                injectionCarrierCustom: "",
+              });
+            } else {
+              // Persona already has text — just clear the legacy keys.
+              patchSetting({
+                injectionCarrierEnabled: false,
+                injectionCarrierLevel: "",
+                injectionCarrierCustom: "",
+              });
+            }
+          };
+          migrate().catch(() => {});
+        }
       })
       .catch(() => {})
       .finally(() => {
@@ -427,74 +484,6 @@ export default function GlobalInjectionClient({ payloadCatalog }) {
     return copy;
   }
 
-  // ── Carrier (optional column) handlers ─────────────────────────
-  function toggleCarrierEnabled(value) {
-    setCarrierEnabled(value);
-    patchSetting({ injectionCarrierEnabled: value, injectionCarrierLevel: value ? (carrierLevel || "f:bf:dark-roleplay-v12") : "" });
-  }
-
-  // Track whether the carrier text has been hand-edited past its preset —
-  // so switching presets does not silently clobber the user's edits.
-  const carrierEditedRef = useRef(false);
-
-  async function changeCarrierVariant(level) {
-    setCarrierLevel(level);
-    if (level === "custom" || !level) {
-      // custom / off: don't clobber existing text; off clears
-      if (!level) {
-        setCarrierCustom("");
-        patchSetting({ injectionCarrierLevel: "", injectionCarrierCustom: "" });
-        setCarrierPreview({ chars: 0, estTokens: 0, spliced: false, text: "" });
-      }
-      carrierEditedRef.current = level === "custom";
-      return;
-    }
-    // Guard: refuse to overwrite a hand-edited carrier text.
-    if (carrierEditedRef.current && carrierCustom.trim()) {
-      if (globalThis.confirm?.(`Carrier text has been hand-edited. Replace it with the "${level}" preset?`)) {
-        carrierEditedRef.current = false;
-      } else {
-        setCarrierLevel("custom");
-        return;
-      }
-    }
-    carrierEditedRef.current = false;
-    setCarrierCustom("");
-    patchSetting({ injectionCarrierLevel: level, injectionCarrierCustom: "" });
-    try {
-      const res = await fetch("/api/developer/carrier-preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ level: godmodeLevel, custom: godmodeCustom, carrierLevel: level }),
-      });
-      const data = await res.json();
-      if (data?.text) {
-        setCarrierCustom(data.text);
-        patchSetting({ injectionCarrierCustom: data.text });
-        setCarrierPreview({ chars: data.chars, estTokens: data.estTokens, spliced: data.spliced, text: data.text });
-      }
-    } catch {}
-  }
-
-  const carrierSaveTimerRef = useRef(null);
-  function handleCarrierCustomChange(event) {
-    const value = event.target.value;
-    setLocalEditKey("carrierCustom");
-    setCarrierCustom(value);
-    // First manual edit to the carrier text flips it into "custom" mode —
-    // any subsequent preset switch will prompt before clobbering it.
-    carrierEditedRef.current = true;
-    if (carrierLevel !== "custom" && value.trim()) setCarrierLevel("custom");
-    // Live splice-seam state: a hand edit can remove (or add back) the slot
-    // marker, so the preview flag follows the actual text, not the preset.
-    setCarrierPreview((prev) => ({ ...prev, spliced: value.includes(CARRIER_SLOT_MARK) }));
-    clearTimeout(carrierSaveTimerRef.current);
-    carrierSaveTimerRef.current = setTimeout(() => {
-      if (localEditInFlight.current === "carrierCustom") clearLocalEditKey();
-      patchSetting({ injectionCarrierCustom: value, injectionCarrierLevel: carrierLevel === "custom" ? "custom" : carrierLevel });
-    }, 600);
-  }
-
   function persistGodmodePresets(next) {
     setSavedGodmodePresets(next);
     globalThis.localStorage.setItem(STORAGE_KEYS.godmodePresets, JSON.stringify(next));
@@ -613,7 +602,29 @@ export default function GlobalInjectionClient({ payloadCatalog }) {
 
   function applyPersonaSource() {
     if (!personaSource) return;
-    if (personaSource.startsWith("tpl:")) {
+    if (personaSource.startsWith("car:")) {
+      // v0.6.0 rework: carrier warp preset (e.g. "car:veil").
+      // Fetch the real carrier frame from the payload registry + fill the
+      // Persona textarea. Maker sees the full text, can edit it. Splicing
+      // into [YOUR JAILBREAK HERE] happens at injection time when the
+      // persona text contains the slot marker.
+      const preset = PERSONA_CARRIER_PRESETS.find((p) => p.value === personaSource);
+      if (!preset) return;
+      loadCarrierPresetText(preset.id)
+        .then((text) => {
+          if (!text) return; // 404 / network — keep the current persona text
+          setInjectIdentity(text);
+          // One write: fill the persona textarea + clear the legacy carrier
+          // keys so the persona-based carrier is the single source of truth.
+          patchSetting({
+            injectionIdentity: text,
+            injectionCarrierEnabled: false,
+            injectionCarrierLevel: "",
+            injectionCarrierCustom: "",
+          });
+        })
+        .catch(() => {});
+    } else if (personaSource.startsWith("tpl:")) {
       const tpl = getPersonaTemplate(personaSource.slice(4));
       if (tpl) {
         setInjectIdentity(tpl.text);
@@ -736,9 +747,16 @@ export default function GlobalInjectionClient({ payloadCatalog }) {
                   >
                     <option value="">Preset persona…</option>
                     <optgroup label="Templates">
-                      {PERSONA_TEMPLATES.map((tpl) => (
+                      {PERSONA_TEMPLATES.filter((t) => !t.carrier).map((tpl) => (
                         <option key={tpl.id} value={`tpl:${tpl.id}`}>
                           {tpl.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="📦 Carrier warp (wraps main payload)">
+                      {PERSONA_CARRIER_PRESETS.map((p) => (
+                        <option key={p.value} value={p.value}>
+                          {p.label}
                         </option>
                       ))}
                     </optgroup>
@@ -881,60 +899,24 @@ export default function GlobalInjectionClient({ payloadCatalog }) {
                 </p>
               </section>
 
-              {/* ── 2c. Carrier (optional column) ─────────────── */}
-              <section className="flex flex-col gap-1.5 rounded-lg border border-border bg-surface-2/40 p-2.5">
-                <header className="flex items-center justify-between">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-text-main">③ Carrier wrap</span>
-                  <span className="text-[10px] text-text-muted">optional — not always more effective</span>
-                </header>
-                <div className="flex flex-wrap items-center gap-2">
-                    <label className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-                      <input
-                        type="checkbox"
-                        checked={carrierEnabled}
-                        onChange={(event) => toggleCarrierEnabled(event.target.checked)}
-                        className="h-4 w-4 accent-primary"
-                      />
-                      Carrier wrap
-                    </label>
-                    {carrierEnabled && (
-                      <>
-                        <select
-                          value={carrierLevel}
-                          onChange={(event) => changeCarrierVariant(event.target.value)}
-                          className="h-8 min-w-[240px] rounded-lg border border-border bg-surface px-2 text-xs text-text-main"
-                        >
-                          {CARRIER_VARIANTS.map((variant) => (
-                            <option key={variant.id || "off"} value={variant.id}>
-                              {variant.label}{variant.carrier ? " (auto-wrap)" : ""}
-                            </option>
-                          ))}
-                        </select>
-                        <span className="text-[10px] text-text-muted">
-                          {carrierPreview.spliced
-                            ? "📦 splices payload into [YOUR JAILBREAK HERE]"
-                            : (carrierLevel ? "appends payload after carrier (no slot)" : "")}
-                        </span>
-                        {carrierPreview.spliced && (
-                          <div className="flex w-full items-center gap-2 rounded-lg border border-primary/50 bg-primary/10 px-2.5 py-1.5 text-[11px]">
-                            <span className="font-mono font-semibold text-primary">⚡ SEAM: {"[YOUR JAILBREAK HERE]"}</span>
-                            <span className="text-text-muted">← payload (section ①) is spliced in here when this carrier ships</span>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                  {carrierEnabled && (
-                    <textarea
-                      value={carrierCustom}
-                      onChange={handleCarrierCustomChange}
-                      rows={3}
-                      readOnly={!injectEnabled}
-                      placeholder="Effective carrier text — edit to customize the wrap (e.g. tweak the [YOUR JAILBREAK HERE] slot or add framing)."
-                      className="w-full resize-y rounded-lg border border-border bg-surface px-3 py-2 font-mono text-xs text-text-main outline-none focus:border-primary/50 read-only:cursor-not-allowed read-only:opacity-60"
-                    />
-                  )}
-              </section>
+              {/* ── 2c. Carrier warp (v0.6.0 — now a Persona preset) ──
+                  The separate ③ "Carrier wrap" column was removed. The
+                  carrier frames (VEIL / Dark RP / RFC 454) moved into the
+                  Persona dropdown as a "📦 Carrier warp" optgroup —
+                  applying one fills the Persona textarea, which is the
+                  single source of truth. Splicing into [YOUR JAILBREAK
+                  HERE] happens automatically at injection time when the
+                  persona text carries the slot marker. */}
+              {injectIdentity.includes(CARRIER_SLOT_MARK) ? (
+                <div className="flex w-full items-center gap-2 rounded-lg border border-primary/50 bg-primary/10 px-2.5 py-1.5 text-[11px]">
+                  <span className="font-mono font-semibold text-primary">⚡ SEAM: {"[YOUR JAILBREAK HERE]"}</span>
+                  <span className="text-text-muted">← main payload (section ①) auto-splices into this Persona carrier frame at injection time</span>
+                </div>
+              ) : (
+                <p className="text-[10px] text-text-muted">
+                  📦 Carrier warp: pick a carrier frame in the Persona dropdown — it wraps the main payload at injection time. No separate column.
+                </p>
+              )}
 
               {/* ── 3. Register (Plinian) prompt ───────────────── */}
               <section className="flex flex-col gap-1.5 rounded-lg border border-border bg-surface-2/30 p-2.5">
@@ -1024,16 +1006,15 @@ export default function GlobalInjectionClient({ payloadCatalog }) {
                     {godmodeLevel === "custom" ? "Custom" : GODMODE_VARIANTS.find((v) => v.id === godmodeLevel)?.label || godmodeLevel}
                     {GODMODE_VARIANTS.find((v) => v.id === godmodeLevel)?.new && <span className="ml-1 text-primary">🆕 new</span>}
                   </li>
-                  {carrierEnabled && (
+                  {injectIdentity.includes(CARRIER_SLOT_MARK) && (
                     <li>
-                      <span className="font-semibold text-text-main">3. Carrier wrap</span> —{" "}
-                      {carrierLevel ? (CARRIER_VARIANTS.find((v) => (v.id || "off") === carrierLevel)?.label || carrierLevel) : "Custom carrier"}
-                      {carrierPreview.spliced ? " (auto-wraps payload)" : " (appends payload)"}
+                      <span className="font-semibold text-text-main">3. Carrier wrap (via Persona)</span> —{" "}
+                      <span className="text-primary">Persona text contains {"[YOUR JAILBREAK HERE]"}</span> — main payload auto-splices in at injection time
                     </li>
                   )}
                   {skillRouterActive && (
                     <li>
-                      <span className="font-semibold text-text-main">{carrierEnabled ? "4" : "3"}. Skill router</span> —{" "}
+                      <span className="font-semibold text-text-main">{injectIdentity.includes(CARRIER_SLOT_MARK) ? "4" : "3"}. Skill router</span> —{" "}
                       SKILL-ROUTER-STRIX index (Penetration tab, separate slot —{" "}
                       <a href="/dashboard/penetration" className="underline underline-offset-2 hover:text-text-main">manage it there</a>)
                     </li>
@@ -1043,15 +1024,15 @@ export default function GlobalInjectionClient({ payloadCatalog }) {
                   While ON, both are appended to every proxied request — Hermes, CLI tools, all clients.
                 </p>
               </div>
-              {carrierEnabled && (
+              {injectIdentity.includes(CARRIER_SLOT_MARK) && (
                 <p className="text-[10px] text-text-muted">
-                  With carrier ON, the payload rides inside the carrier frame on every proxied request — toggle off if wrapping hurts land-rate for your target model.
+                  📦 Persona carrier active — the payload rides inside the carrier frame on every proxied request. Clear the slot marker in the Persona textarea to disable the wrap.
                 </p>
               )}
             </div>
             {!injectEnabled && (
               <p className="text-[11px] font-medium text-amber-500">
-                🔒 {translate("Locked — turn on Global Injection to edit Persona, Preset, Payload, Carrier, and Register.")}
+                🔒 {translate("Locked — turn on Global Injection to edit Persona, Preset, Payload, and Register.")}
               </p>
             )}
           </div>
