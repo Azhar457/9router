@@ -55,6 +55,22 @@ export async function POST(request) {
     }
   }
 
+  // _sessionId → header x-session-id, consumed by
+  // open-sse/utils/sessionManager.js. Without it the session id is derived
+  // from the provider connection, which is STABLE across runs — Kiro then
+  // replays the previous request's opening user turn (applyKiroSessionReplay),
+  // so a second A/B run on the same model would carry the previous run's
+  // prompt. A fresh id per launch makes every raced entry an isolated
+  // conversation. Same value across the two arms would re-share a session, so
+  // the page mints one per launchOne() call.
+  let sessionId = "";
+  if (body && typeof body === "object") {
+    if (typeof body._sessionId === "string") {
+      sessionId = body._sessionId.trim().slice(0, 256);
+      delete body._sessionId;
+    }
+  }
+
   const keys = await getApiKeys().catch(() => []);
   const activeKey = Array.isArray(keys) ? keys.find((k) => k?.isActive && k.key) : null;
   if (!activeKey) {
@@ -67,6 +83,7 @@ export async function POST(request) {
   const headers = new Headers();
   headers.set("content-type", "application/json");
   headers.set("authorization", `Bearer ${activeKey.key}`);
+  if (sessionId) headers.set("x-session-id", sessionId);
   if (noSteering) headers.set("x-9router-token-saver", "off");
   if (noPayload) headers.set("x-9router-inject", "off");
 

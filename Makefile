@@ -17,10 +17,19 @@
 #    package so `make` always installs to the right global prefix.
 # 3. Final fallback: the running node's prefix (best-effort).
 TRAY_BIN ?= /home/jars/.local/bin/9router
-INSTALL_PREFIX := $(shell p=$$(readlink -f $(TRAY_BIN) 2>/dev/null); case "$$p" in */lib/node_modules/9router-plinian/cli.js) echo "$$p" | sed -E 's#/lib/node_modules/9router-plinian/cli\.js$$##';; *) found=$$(find $(HOME)/.nvm/versions/node -maxdepth 5 -path '*/node_modules/9router-plinian/package.json' -print -quit 2>/dev/null); if [ -n "$$found" ]; then dirname $$(dirname "$$found"); else node -p "require('path').dirname(require('path').dirname(process.execPath))"; fi;; esac)
+# `case ... in pattern)` has an unbalanced `)` from Make's point of view: make
+# scans `$(shell ...)` counting parens, cuts the command short at that `)`,
+# /bin/sh then dies on the fragment, and the captured "output" is the shell's
+# own error text — so INSTALL_PREFIX silently became garbage and
+# `npm install -g --prefix "<garbage>"` failed. Same logic, expressed with
+# if/then/fi so every paren stays balanced.
+INSTALL_PREFIX := $(shell p=$$(readlink -f $(TRAY_BIN) 2>/dev/null); if echo "$$p" | grep -q '/lib/node_modules/9router-plinian/cli.js$$'; then echo "$$p" | sed -E 's#/lib/node_modules/9router-plinian/cli\.js$$##'; else found=$$(find $(HOME)/.nvm/versions/node -maxdepth 5 -path '*/node_modules/9router-plinian/package.json' -print -quit 2>/dev/null); if [ -n "$$found" ]; then dirname $$(dirname $$(dirname $$(dirname "$$found"))); else node -p "require('path').dirname(require('path').dirname(process.execPath))"; fi; fi)
 
 VERSION := $(shell node -p "require('./package.json').version")
-TGZ := ../9router-plinian-$(VERSION).tgz
+# cli/pack:cli runs `npm pack --pack-destination ..` with cwd=cli/, so the
+# tarball lands in THIS directory, not its parent. install was pointing one
+# level too high and failed with ENOENT on a non-existent path.
+TGZ := ./9router-plinian-$(VERSION).tgz
 
 .PHONY: help build pack install 9router-plinian
 

@@ -19,12 +19,18 @@ import { updateProviderCredentials } from "@/sse/services/tokenRefresh";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 import { capabilitiesFromServiceKind, getCapabilitiesForModel, aggregateComboCapabilities } from "open-sse/providers/capabilities.js";
 
-// ── noAuth free providers (no DB connection row, but exposed in /v1/models) ──
+// noAuth free providers (no DB connection row, but exposed in /v1/models) ──
 // These providers ship their catalog via a static fetch endpoint + a filter,
 // not through a user-supplied API key. They are always "active" when the
 // matching kind is requested. `skipDynamicFetch` short-circuits the remote
 // call so cross-instance recursive /models fetches fall back to the static
 // PROVIDER_MODELS list.
+// Live catalogs are memoized per provider so a refetch (tab focus, reconnect)
+// doesn't re-hit every upstream; 60s is short enough that a newly published
+// free model still shows up quickly.
+const NOAUTH_CACHE_TTL_MS = 60_000;
+const noAuthCatalogCache = new Map();
+
 const NOAUTH_RESOLVERS = {
   opencode: async () => {
     try {
@@ -704,6 +710,41 @@ export async function buildModelsList(kindFilter, options = {}) {
         }
       )
     );
+
+    // Every live noAuth catalog fetch used to be awaited inside the loop below,
+    // so /v1/models cost the SUM of provider latencies — and up to 8s for each
+    // provider that hung. Kick them off together first (cost = slowest one) and
+    // memoize for NOAUTH_CACHE_TTL_MS, so tab-focus refetches don't re-hit the
+    // network. Target selection reads only state the loop never mutates, so the
+    // model list below is unchanged.
+    const liveByProvider = new Map();
+    if (!skipDynamicFetch) {
+      const targets = [];
+      for (const [providerId, info] of Object.entries(AI_PROVIDERS)) {
+        if (!info?.noAuth) continue;
+        if (!providerMatchesKinds(providerId, kindFilter, customNodeKinds)) continue;
+        if (seenAliases.has(providerId)) continue;
+        const cached = noAuthCatalogCache.get(providerId);
+        if (cached && Date.now() - cached.at < NOAUTH_CACHE_TTL_MS) {
+          liveByProvider.set(providerId, cached.models);
+          continue;
+        }
+        const resolver = NOAUTH_RESOLVERS[providerId];
+        if (resolver) targets.push([providerId, resolver]);
+      }
+      await Promise.all(
+        targets.map(async ([providerId, resolver]) => {
+          try {
+            const live = await resolver();
+            noAuthCatalogCache.set(providerId, { at: Date.now(), models: live?.models || null });
+            liveByProvider.set(providerId, live);
+          } catch (err) {
+            console.log(`noAuth live fetch failed for ${providerId}: ${err?.message || err}`);
+          }
+        })
+      );
+    }
+
     for (const [providerId, info] of Object.entries(AI_PROVIDERS)) {
       if (!info?.noAuth) continue;
       if (!providerMatchesKinds(providerId, kindFilter, customNodeKinds)) continue;
@@ -716,19 +757,12 @@ export async function buildModelsList(kindFilter, options = {}) {
       let liveModelKindById = new Map();
       let liveCapabilitiesById = new Map();
       if (!skipDynamicFetch) {
-        const noAuthResolver = NOAUTH_RESOLVERS[providerId];
-        if (noAuthResolver) {
-          try {
-            const live = await noAuthResolver();
-            if (live?.models?.length) {
-              rawModelIds = live.models.map((m) => m.id);
-              liveModelKindById = new Map(
-                live.models.filter((m) => m?.id).map((m) => [m.id, modelKind(m)])
-              );
-            }
-          } catch (err) {
-            console.log(`noAuth live fetch failed for ${providerId}: ${err?.message || err}`);
-          }
+        const live = liveByProvider.get(providerId);
+        if (live?.models?.length) {
+          rawModelIds = live.models.map((m) => m.id);
+          liveModelKindById = new Map(
+            live.models.filter((m) => m?.id).map((m) => [m.id, modelKind(m)])
+          );
         }
       }
       for (const modelId of new Set(rawModelIds)) {
@@ -769,6 +803,25 @@ export async function buildModelsList(kindFilter, options = {}) {
     if (!model?.id || seenModelIds.has(model.id)) continue;
     seenModelIds.add(model.id);
     dedupedModels.push(model);
+  }
+
+  // How many active connections (API keys / OAuth grants) back each provider.
+  // Clients that fan out several requests at one provider need this to size
+  // their own concurrency — see shared/lib/concurrency.js. Additive field on an
+  // OpenAI-compatible list; omitted when the alias can't be resolved or the
+  // provider has no active connection, so consumers can fall back safely.
+  const aliasToProviderIdForCount = Object.fromEntries(
+    Object.entries(PROVIDER_ID_TO_ALIAS).map(([id, alias]) => [alias, id])
+  );
+  const connectionCountByProvider = new Map();
+  for (const conn of connections) {
+    if (!conn?.provider) continue;
+    connectionCountByProvider.set(conn.provider, (connectionCountByProvider.get(conn.provider) || 0) + 1);
+  }
+  for (const model of dedupedModels) {
+    const providerId = aliasToProviderIdForCount[String(model?.owned_by || "").trim()];
+    const count = providerId ? connectionCountByProvider.get(providerId) : 0;
+    if (count > 0) model.connections = count;
   }
 
   return dedupedModels;

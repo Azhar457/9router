@@ -34,6 +34,7 @@ import {
 } from "@/shared/lib/tabConfig";
 import { STRIX_FLAT } from "@/shared/lib/strixManifest";
 import { onLocaleChange, translate } from "@/i18n/runtime";
+import AgentRunPanel from "./AgentRunPanel";
 
 const STRIX_CATEGORIES = [
   { key: "vulnerabilities", label: "Vulnerabilities" },
@@ -132,6 +133,35 @@ export default function PenetrationTabClient() {
   const flags = useTabFlags();
 
   const [acknowledged, setAcknowledged] = useState(false);
+
+  // Dua mode dalam satu halaman: kartu SKILL-ROUTER-STRIX yang sudah ada
+  // (index skill, tidak ada eksekusi) dan Agent yang benar-benar menjalankan
+  // tool. Mode default "agent" supaya halaman ini-lead what it actually does.
+  const [mode, setMode] = useState("agent");
+  const [agentModels, setAgentModels] = useState([]);
+
+  // Daftar model untuk dropdown Agent. Dimuat sekali saat tab agent dipakai,
+  // bukan saat mount: halaman ini sebelumnya tidak butuh /v1/models sama sekali
+  // dan memaksa semua pengguna untuk membayar biaya load itu.
+  useEffect(() => {
+    if (mode !== "agent" || agentModels.length > 0) return;
+    let cancelled = false;
+    fetch("/v1/models", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((payload) => {
+        if (cancelled) return;
+        const rows = Array.isArray(payload?.data) ? payload.data : [];
+        setAgentModels(
+          rows.map((m) => ({ id: String(m.id || ""), name: String(m.name || m.id || "") }))
+        );
+      })
+      .catch(() => {
+        /* dropdown akan menampilkan "model belum termuat" — cukup jelas */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, agentModels.length]);
 
   // Hydrate the persisted scope-acknowledgement state on the client only.
   // The server render and the client's first render both use the initial
@@ -370,8 +400,33 @@ export default function PenetrationTabClient() {
       <div className="flex items-center gap-3">
         <h1 className="text-xl font-bold text-text-main">{translate("Penetration")}</h1>
         <Badge variant="error" dot>{translate("Security Research Only")}</Badge>
+
+        <div className="ml-auto flex items-center gap-1 rounded-lg border border-border bg-surface/60 p-0.5">
+          {[
+            { key: "agent", label: "Agent", icon: "smart_toy" },
+            { key: "skills", label: "Skill Router", icon: "menu_book" },
+          ].map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setMode(tab.key)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium transition-colors",
+                mode === tab.key
+                  ? "bg-primary/10 text-primary"
+                  : "text-text-muted hover:text-text-main"
+              )}
+            >
+              <span className="material-symbols-outlined text-[15px]">{tab.icon}</span>
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
+      {mode === "agent" ? (
+        <AgentRunPanel models={agentModels} />
+      ) : (
       <div className="rounded-xl border border-border bg-surface/40">
         {/* Header row */}
         <div className="flex flex-wrap items-center gap-3 px-3 py-2">
@@ -795,6 +850,7 @@ export default function PenetrationTabClient() {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

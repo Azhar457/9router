@@ -1,3 +1,72 @@
+# v0.6.1 (2026-10-11)
+
+## Multi-agent penetration runner
+
+- **New Penetration agent tab.** Delegates a target to a Root coordinator
+  that spawns recon / exploit / privesc child agents. Every finding must
+  carry real evidence — the Root rejects unproven claims and re-runs the
+  child that produced them. Streamed live over SSE into an `AgentRunPanel`
+  in the Penetration tab.
+- **Sandbox execution.** Child agents run their commands inside a Docker
+  (or Podman) container built from `docker/pentest/Dockerfile` — the host
+  is never the execution surface. Runtime is auto-detected, overridable
+  per run.
+- **Shared agent runtime** (`agentRuntime.js`, `agentTools.js`). A
+  provider-agnostic loop that feeds tool calls back to the LLM, with a
+  concurrency limiter (`concurrency.js`) that sizes itself from the live
+  connection count `/v1/models` now exposes per provider.
+
+## Auth: same-origin browser access for Penetration
+
+- `assertPenetrationAuth` no longer demands the machine CLI token for
+  same-origin browser requests. The dashboard JWT + Origin/Sec-Fetch-Site
+  check is enough; cross-site POSTs are still rejected (CSRF closed).
+  curl / CLI callers keep the stricter dual-token path.
+
+## /v1/models performance
+
+- **Parallel + cached noAuth catalog fetch.** The free-provider live
+  catalog (`/models` on opencode, etc.) used to be awaited serially —
+  `/v1/models` cost the sum of every provider latency, up to 8s each on a
+  hang. Fetches now run concurrently and are memoized for 60s, so
+  tab-focus refetches don't re-hit the network.
+- **`activeConnections` field.** Each model entry reports how many live
+  API keys / OAuth grants back its provider, so clients that fan out can
+  size their own concurrency without a separate probe.
+
+## Developer tab — A/B session isolation
+
+- Each `launchOne()` mints a unique `_sessionId` forwarded as
+  `x-session-id`. Previously the session id was derived from the provider
+  connection (stable across runs), so Kiro's `applyKiroSessionReplay`
+  would inject the previous run's opening turn into the next one — two
+  raced arms silently shared a conversation.
+
+## Strix skills
+
+- New top-level skills: `cve_lookup`, `cvss_scoring`, `proof_of_concept`.
+
+## Fixes
+
+- **Makefile `install` target.** The `case ... in pattern)` syntax has an
+  unbalanced `)` from Make's perspective — make truncated `$(shell …)` at
+  that paren and `INSTALL_PREFIX` silently became the shell's error text,
+  breaking `npm install -g --prefix`. Rewritten with `if/then/fi`.
+- **Makefile tarball path.** `cli/pack:cli` writes the `.tgz` into the
+  project root (not its parent); `install` was looking one level too high
+  and failing with ENOENT.
+- **`assertPayloadAuth` async headers.** `headers()` is async in the
+  current Next.js version; the sync call returned a Promise and
+  `.get(CLI_TOKEN_HEADER)` was always `null`, disabling CLI-token auth on
+  payload routes.
+
+## Tests
+
+- New unit suites: `developer-concurrency`, `penetration-agent`,
+  `penetration-multiagent`.
+
+---
+
 # v0.6.0 (BETA — 2026-10-06)
 
 > **⚠ Beta channel — not yet fully tested.** This build ships the Strix

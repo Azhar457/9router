@@ -7,11 +7,10 @@ import {
   getStylePreset,
   PERSONA_TEMPLATES,
   RACE_HARD_TIMEOUT_MS,
-  RACE_WAVE_DELAY_MS,
-  RACE_WAVE_SIZE,
   STYLE_PRESETS,
   TIER_SIZES,
 } from "@/shared/constants/developerPresets";
+import { providerBudget, runPooled } from "@/shared/lib/concurrency";
 import { countHedges, rankResults, scoreResponse } from "@/shared/lib/plinianScoring";
 import { suggestParams } from "@/shared/lib/autotuneLite";
 import { SETTINGS_CHANGED_EVENT } from "@/shared/lib/outboundManifest";
@@ -50,15 +49,39 @@ function saveLarge(key, data) {
   } catch {}
 }
 
+// Writes used to land on every streamed token: a single 3k-token synthesis
+// meant thousands of synchronous localStorage writes of the whole buffer,
+// which blocks the main thread and stalls the very stream being persisted.
+// 400ms trailing coalescing drops that to a handful of writes while still
+// surviving a reload that happens mid-stream.
+const PERSIST_DEBOUNCE_MS = 400;
+const STREAM_PAINT_MS = 80;
+function useDebouncedSave(key, value, enabled) {
+  useEffect(() => {
+    if (!enabled) return;
+    const t = setTimeout(() => saveLarge(key, value), PERSIST_DEBOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [key, value, enabled]);
+}
+
+// Runs that were still in flight when the page went away (reload, HMR, tab
+// close) come back with no content and no error. They are NOT failures — they
+// were killed by the page, not by the provider — so they get their own flag
+// and the UI offers a re-run instead of showing a fake red error.
+const INTERRUPTED_LABEL = "Interrupted — page closed or reloaded mid-run";
+
 function reviveEntry(entry) {
   if (!entry || typeof entry !== "object") return null;
+  const inFlight = entry.status === "running" || entry.status === "pending";
   const status = entry.status === "done" ? "done"
     : entry.status === "error" ? "error"
     : (entry.content ? "done" : "error");
+  const interrupted = status === "error" && !entry.error && inFlight;
   return {
     ...entry,
     status,
-    error: status === "error" && !entry.error ? "Interrupted (page changed)" : entry.error || "",
+    interrupted,
+    error: status === "error" && !entry.error && !interrupted ? "Failed with no message" : entry.error || "",
   };
 }
 
@@ -125,15 +148,19 @@ function normalizeV1Model(model) {
     name: shortName,
     providerId: ownedBy,
     providerName: humanize(ownedBy),
+    // Active key/OAuth-grant count for this provider, stamped by /v1/models.
+    // Drives the per-provider concurrency budget below.
+    connections: Math.max(0, Number(model?.connections) || 0),
   };
 }
 
-async function readStreamedCompletion(response, onText) {
+async function readStreamedCompletion(response, onText, onFirstPiece) {
   const reader = response.body?.getReader();
   if (!reader) {
     const data = await response.json().catch(() => ({}));
     const fallback = textValue(data?.choices?.[0]?.message?.content || data?.output_text || data?.error || data?.message || "");
     if (fallback && onText) onText(fallback);
+    if (fallback && onFirstPiece) onFirstPiece();
     return fallback;
   }
 
@@ -166,6 +193,11 @@ async function readStreamedCompletion(response, onText) {
         if (!piece) continue;
 
         full += piece;
+        if (onFirstPiece) {
+          const notify = onFirstPiece;
+          onFirstPiece = null; // fire once
+          notify();
+        }
         if (onText) onText(full, piece);
       } catch {
         // Ignore malformed chunks.
@@ -189,10 +221,22 @@ function errorHint(message) {
   if (msg.includes("404")) return " (model not routable — model list may be stale, reload the page)";
   if (msg.includes("503")) return " (no active API key in this router — create one in Endpoint settings)";
   if (msg.includes("401")) return " (session expired — reload the page to log in again)";
+  if (/\b429\b|rate.?limit|too many requests/i.test(msg)) {
+    return " (provider rate limit — this provider is saturated; add a key or switch strategy to round-robin in Profile)";
+  }
   return "";
 }
 
 // One request through the dashboard relay. Shared by Single / Race / A-B.
+// freshSessionId() guarantees the router treats this launch as a brand-new
+// conversation — see the _sessionId note below.
+function freshSessionId() {
+  return (
+    globalThis.crypto?.randomUUID?.()
+    || `dev-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`
+  );
+}
+
 async function launchOne({
   model,
   systemPromptText,
@@ -215,6 +259,11 @@ async function launchOne({
         stream: true,
         temperature: temp,
         max_tokens: maxTok,
+        // One throwaway session per launch. The relay turns this into an
+        // x-session-id header, which makes the router treat this call as its
+        // own conversation instead of continuing whatever the provider
+        // connection was last used for (see api/developer/chat/route.js).
+        _sessionId: freshSessionId(),
         ...(noSteering ? { _noSteering: true } : {}),
         // Per-request global-inject override:
         //   payloadText → "test" arm carries the jailbreak payload.
@@ -230,13 +279,24 @@ async function launchOne({
       throw new Error(textValue(errorData.error || errorData.message || `HTTP ${response.status}`));
     }
 
-    const content = await readStreamedCompletion(response);
+    // onFirstPiece fires once, when the first real token arrives — that is the
+    // number a benchmark tab actually needs, because total duration is
+    // dominated by how long the model keeps talking, not by how fast it starts.
+    let ttft_ms = 0;
+    const content = await readStreamedCompletion(response, null, () => {
+      ttft_ms = Math.round(performance.now() - startedAt);
+    });
     const duration_ms = Math.round(performance.now() - startedAt);
     if (!content) throw new Error("Empty response");
-    return { ok: true, content, duration_ms };
+    return { ok: true, content, duration_ms, ttft_ms };
   } catch (error) {
     const msg = error.name === "AbortError" ? "Cancelled" : textValue(error?.message) || "Failed";
-    return { ok: false, duration_ms: Math.round(performance.now() - startedAt), error: msg };
+    return {
+      ok: false,
+      duration_ms: Math.round(performance.now() - startedAt),
+      ttft_ms,
+      error: msg,
+    };
   }
 }
 
@@ -300,6 +360,12 @@ export default function DeveloperPageClient() {
 
   const [autotuneOn, setAutotuneOn] = useState(() => readStoredString(STORAGE_KEYS.autotune) === "on");
 
+  // Which key-selection strategy the router is running. Under "fill-first"
+  // every concurrent request resolves to the SAME provider connection, so the
+  // concurrency budget must not scale with the key count. Read from the same
+  // /api/settings call the injection state already uses.
+  const [fallbackStrategy, setFallbackStrategy] = useState("fill-first");
+
   const [hasRestored] = useState(() => {
     try {
       const synthRaw = safeParse(readStoredString(STORAGE_KEYS.councilSynth), {});
@@ -341,6 +407,16 @@ export default function DeveloperPageClient() {
   const [registerPresetSource, setRegisterPresetSource] = useState("");
   const [registerPresetName, setRegisterPresetName] = useState("");
   const [savedRegisterPresets, setSavedRegisterPresets] = useState({});
+
+  // n=1 is one sample per arm: at temperature 0.7 the delta is mostly sampling
+  // noise. 3 or 5 reps turn the verdict into something you can act on.
+  const [abRepeats, setAbRepeats] = useState(() => {
+    const n = Math.round(Number(readStoredString("developer.abRepeats", "1")) || 1);
+    return [1, 3, 5].includes(n) ? n : 1;
+  });
+  useEffect(() => {
+    globalThis.localStorage.setItem("developer.abRepeats", String(abRepeats));
+  }, [abRepeats]);
 
   const [abPresetId, setAbPresetId] = useState(() => {
     const saved = readStoredString(STORAGE_KEYS.abPreset);
@@ -386,6 +462,7 @@ export default function DeveloperPageClient() {
         setRegisterCustom(typeof settings.injectionRegisterCustom === "string" ? settings.injectionRegisterCustom : "");
         setGodmodeLevel(settings.injectionGodmodeLevel || settings.godmodeLevel || "classic");
         setGodmodeCustom(typeof settings.injectionGodmodeCustom === "string" ? settings.injectionGodmodeCustom : (typeof settings.godmodeCustom === "string" ? settings.godmodeCustom : ""));
+        if (settings.fallbackStrategy) setFallbackStrategy(settings.fallbackStrategy);
       })
       .catch(() => {})
       .finally(() => {
@@ -658,12 +735,19 @@ export default function DeveloperPageClient() {
     }, 600);
   }
 
+  // True while a /v1/models load is in flight. The focus/visibility bump below
+  // fires on page load too, and that second fetch used to cancel and discard
+  // the first one — so the list the operator waited for was always the *second*
+  // round trip. Suppressing the bump mid-flight halves load time.
+  const loadInFlightRef = useRef(false);
+
   useEffect(() => {
     let cancelled = false;
 
     async function loadData() {
       setLoadingData(true);
       setLoadError("");
+      loadInFlightRef.current = true;
 
       try {
         // Authoritative routable model list — same data CLI tools see at
@@ -713,6 +797,7 @@ export default function DeveloperPageClient() {
           // refetch, which read as "loading restarted" rather than an error.
         }
       } finally {
+        loadInFlightRef.current = false;
         if (!cancelled) setLoadingData(false);
       }
     }
@@ -733,10 +818,18 @@ export default function DeveloperPageClient() {
   // together when switching back to a tab). Increment settingsToken by one
   // per debounce window so /v1/models is fetched exactly once per change.
   const settingsTokenRef = useRef(0);
+  const bumpTimerRef = useRef(null);
   useEffect(() => {
+    // Debounced, as the comment above promises — focus and visibilitychange
+    // fire back-to-back on every tab return and each one used to trigger its
+    // own /v1/models fetch. Window collapse them into a single bump.
     const bump = () => {
-      settingsTokenRef.current += 1;
-      setSettingsToken(settingsTokenRef.current);
+      clearTimeout(bumpTimerRef.current);
+      bumpTimerRef.current = setTimeout(() => {
+        if (loadInFlightRef.current) return;
+        settingsTokenRef.current += 1;
+        setSettingsToken(settingsTokenRef.current);
+      }, 300);
     };
     const onVisibility = () => {
       if (document.visibilityState === "visible") bump();
@@ -750,6 +843,7 @@ export default function DeveloperPageClient() {
     globalThis.addEventListener?.("focus", onWindowFocus);
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
+      clearTimeout(bumpTimerRef.current);
       globalThis.removeEventListener?.(SETTINGS_CHANGED_EVENT, bump);
       globalThis.removeEventListener?.("focus", onWindowFocus);
       document.removeEventListener("visibilitychange", onVisibility);
@@ -767,6 +861,16 @@ export default function DeveloperPageClient() {
   }, [providerGroups]);
 
   const allModels = useMemo(() => Array.from(modelIndex.values()), [modelIndex]);
+
+  // Fan entries out across providers, metered per provider rather than
+  // globally: racing 10 models on 10 different providers still runs 10 at
+  // once, while 10 requests aimed at one provider are capped by that
+  // provider's real key budget (shared/lib/concurrency.js).
+  const runEntries = (entries, worker) =>
+    runPooled(entries, worker, {
+      keyFor: (entry) => entry.model?.providerId || "default",
+      budgetFor: (_key, entry) => providerBudget(entry.model, fallbackStrategy),
+    });
 
   useEffect(() => {
     globalThis.localStorage.setItem(STORAGE_KEYS.mode, mode);
@@ -831,16 +935,10 @@ export default function DeveloperPageClient() {
   useEffect(() => {
     try { globalThis.localStorage.setItem(STORAGE_KEYS.singleOutput, singleOutput); } catch {}
   }, [singleOutput]);
-  useEffect(() => {
-    if (raceItems.length) saveLarge(STORAGE_KEYS.raceItems, raceItems);
-  }, [raceItems]);
-  useEffect(() => {
-    if (abItems.length) saveLarge(STORAGE_KEYS.abItems, abItems);
-  }, [abItems]);
-  useEffect(() => {
-    if (councilRows.length) saveLarge(STORAGE_KEYS.councilRows, councilRows);
-    if (councilSynth.content) saveLarge(STORAGE_KEYS.councilSynth, councilSynth);
-  }, [councilRows, councilSynth]);
+  useDebouncedSave(STORAGE_KEYS.raceItems, raceItems, raceItems.length > 0);
+  useDebouncedSave(STORAGE_KEYS.abItems, abItems, abItems.length > 0);
+  useDebouncedSave(STORAGE_KEYS.councilRows, councilRows, councilRows.length > 0);
+  useDebouncedSave(STORAGE_KEYS.councilSynth, councilSynth, !!councilSynth.content);
 
   const activePreset = getStylePreset(styleId);
 
@@ -867,10 +965,14 @@ export default function DeveloperPageClient() {
   const abPairs = useMemo(() => {
     const map = new Map();
     for (const item of abItems) {
-      if (!map.has(item.model.id)) {
-        map.set(item.model.id, { model: item.model, plain: null, test: null });
+      // One row per (model, repetition). Repetitions share a model but are
+      // independent paired samples, so they get their own row instead of being
+      // collapsed — the mean across them is what abAggregate reports.
+      const id = `${item.model.id}#${item.rep ?? 0}`;
+      if (!map.has(id)) {
+        map.set(id, { id, model: item.model, rep: item.rep ?? 0, plain: null, test: null });
       }
-      map.get(item.model.id)[item.arm] = item;
+      map.get(id)[item.arm] = item;
     }
     return Array.from(map.values())
       .map((row) => {
@@ -1014,13 +1116,10 @@ export default function DeveloperPageClient() {
 
     let successCount = 0;
 
-    const launch = async (entry, delay) => {
-      if (delay > 0) {
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        if (controller.signal.aborted) {
-          updateEntry(entry.key, { status: "error", error: "Cancelled" });
-          return false;
-        }
+    const launch = async (entry) => {
+      if (controller.signal.aborted) {
+        updateEntry(entry.key, { status: "error", error: "Cancelled" });
+        return false;
       }
 
       updateEntry(entry.key, { status: "running" });
@@ -1038,6 +1137,7 @@ export default function DeveloperPageClient() {
           status: "done",
           content: result.content,
           duration_ms: result.duration_ms,
+          ttft_ms: result.ttft_ms,
           score: scoreResponse(result.content, query),
         });
         successCount += 1;
@@ -1052,11 +1152,7 @@ export default function DeveloperPageClient() {
       return false;
     };
 
-    const launches = entries.map((entry, index) =>
-      launch(entry, Math.floor(index / RACE_WAVE_SIZE) * RACE_WAVE_DELAY_MS)
-    );
-
-    await Promise.all(launches);
+    await runEntries(entries, launch);
     clearTimeout(hardTimer);
 
     if (raceAbortRef.current === controller) {
@@ -1090,20 +1186,25 @@ export default function DeveloperPageClient() {
 
     const models = raceIds.map((id) => modelIndex.get(id)).filter(Boolean);
     const entries = [];
-    for (const arm of arms) {
-      for (const model of models) {
-        entries.push({
-          key: `${arm.id}:${model.id}`,
-          arm: arm.id,
-          armLabel: arm.id === "plain" ? "Default" : testPreset.label,
-          model,
-          status: "pending",
-          content: "",
-          duration_ms: 0,
-          score: 0,
-          hedges: 0,
-          error: "",
-        });
+    const reps = Math.max(1, Number(abRepeats) || 1);
+    for (let rep = 0; rep < reps; rep++) {
+      for (const arm of arms) {
+        for (const model of models) {
+          entries.push({
+            key: `${arm.id}:${model.id}:${rep}`,
+            arm: arm.id,
+            rep,
+            armLabel: arm.id === "plain" ? "Default" : testPreset.label,
+            model,
+            status: "pending",
+            content: "",
+            duration_ms: 0,
+            ttft_ms: 0,
+            score: 0,
+            hedges: 0,
+            error: "",
+          });
+        }
       }
     }
     setAbItems(entries.map((e) => ({ ...e })));
@@ -1112,14 +1213,24 @@ export default function DeveloperPageClient() {
       setAbItems((prev) => prev.map((item) => (item.key === key ? { ...item, ...patch } : item)));
     };
 
-    // Free-tier friendly: strictly sequential, one request in flight.
-    const hardTimer = setTimeout(() => controller.abort(), RACE_HARD_TIMEOUT_MS * arms.length);
+    // Same per-provider pool as Race / Council: A/B used to run strictly sequential,
+    // so N models cost 2N back-to-back round trips. Metered per provider, so
+    // both arms of one model still overlap while the provider's key budget
+    // holds. The hard timer is sized per wave, not per arm, or a long run would
+    // abort itself before the last batch lands.
+    // ponytail: fixed 2-per-key ceiling, no 429 backoff. Raise
+    // PER_KEY_CONCURRENCY in shared/lib/concurrency.js when your provider
+    // tolerates more, or add retry-on-429 here if bursts still get limited.
+    // Worst case is fully serial (one provider, budget 1), so the safety net is
+    // sized by the whole entry count — the old `* arms.length` was shorter than
+    // the sequential run it guarded and could abort a legitimately slow test.
+    const hardTimer = setTimeout(() => controller.abort(), RACE_HARD_TIMEOUT_MS * entries.length);
     let successCount = 0;
 
-    for (const entry of entries) {
+    const launch = async (entry) => {
       if (controller.signal.aborted) {
         updateEntry(entry.key, { status: "error", error: "Cancelled" });
-        continue;
+        return;
       }
 
       updateEntry(entry.key, { status: "running" });
@@ -1145,6 +1256,7 @@ export default function DeveloperPageClient() {
           status: "done",
           content: result.content,
           duration_ms: result.duration_ms,
+          ttft_ms: result.ttft_ms,
           score: scoreResponse(result.content, query),
           hedges: countHedges(result.content),
         });
@@ -1155,8 +1267,9 @@ export default function DeveloperPageClient() {
           error: result.error + (result.error === "Cancelled" ? "" : errorHint(result.error)),
         });
       }
-    }
+    };
 
+    await runEntries(entries, launch);
     clearTimeout(hardTimer);
     if (abAbortRef.current === controller) {
       abAbortRef.current = null;
@@ -1188,28 +1301,22 @@ export default function DeveloperPageClient() {
     const updateRow = (key, patch) =>
       setCouncilRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
 
-    // Phase 1 — independent opinions (parallel waves)
+    // Phase 1 — independent opinions, metered per provider
     let successCount = 0;
-    const launches = rows.map((entry, index) =>
-      (async () => {
-        if (index >= RACE_WAVE_SIZE) {
-          await new Promise((r) => setTimeout(r, Math.floor(index / RACE_WAVE_SIZE) * RACE_WAVE_DELAY_MS));
-          if (controller.signal.aborted) { updateRow(entry.key, { status: "error", error: "Cancelled" }); return; }
-        }
-        updateRow(entry.key, { status: "running" });
-        const result = await launchOne({
-          model: entry.model, systemPromptText: systemPrompt, query,
-          temperature, maxTokens, signal: controller.signal,
-        });
-        if (result.ok) {
-          successCount += 1;
-          updateRow(entry.key, { status: "done", content: result.content, duration_ms: result.duration_ms });
-        } else {
-          updateRow(entry.key, { status: "error", duration_ms: result.duration_ms, error: result.error });
-        }
-      })()
-    );
-    await Promise.all(launches);
+    await runEntries(rows, async (entry) => {
+      if (controller.signal.aborted) { updateRow(entry.key, { status: "error", error: "Cancelled" }); return; }
+      updateRow(entry.key, { status: "running" });
+      const result = await launchOne({
+        model: entry.model, systemPromptText: systemPrompt, query,
+        temperature, maxTokens, signal: controller.signal,
+      });
+      if (result.ok) {
+        successCount += 1;
+        updateRow(entry.key, { status: "done", content: result.content, duration_ms: result.duration_ms, ttft_ms: result.ttft_ms });
+      } else {
+        updateRow(entry.key, { status: "error", duration_ms: result.duration_ms, ttft_ms: result.ttft_ms, error: result.error });
+      }
+    });
 
     if (controller.signal.aborted) { setCouncilBusy(false); return; }
 
@@ -1246,6 +1353,7 @@ export default function DeveloperPageClient() {
           stream: true,
           temperature,
           max_tokens: maxTokens * 2,
+          _sessionId: freshSessionId(),
         }),
         signal: controller.signal,
       });
@@ -1253,8 +1361,17 @@ export default function DeveloperPageClient() {
         const errData = await response.json().catch(() => ({}));
         throw new Error(textValue(errData.error || errData.message || `HTTP ${response.status}`));
       }
-      const text = await readStreamedCompletion(response, (full) =>
-        setCouncilSynth({ status: "running", content: full }));
+      // Repaint at most every STREAM_PAINT_MS. The provider emits chunks far
+      // faster than a human can read them; painting each one re-rendered this
+      // whole component (60+ state slots) dozens of times per second for no
+      // visible gain. The final setState below still lands the full text.
+      let lastPaint = 0;
+      const text = await readStreamedCompletion(response, (full) => {
+        const now = performance.now();
+        if (now - lastPaint < STREAM_PAINT_MS) return;
+        lastPaint = now;
+        setCouncilSynth({ status: "running", content: full });
+      });
       setCouncilSynth({ status: "done", content: text || "" });
     } catch (error) {
       if (error.name !== "AbortError") {
@@ -1357,22 +1474,22 @@ export default function DeveloperPageClient() {
     }
   }
 
-  if (loadingData) {
-    return (
-      <div className="flex items-center justify-center py-24 text-text-muted">
-        <span className="material-symbols-outlined animate-spin mr-2">progress_activity</span>
-        Loading providers…
-      </div>
-    );
-  }
-
-  if (loadError) {
-    return (
-      <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-4 text-sm text-red-500">
-        {loadError}
-      </div>
-    );
-  }
+  // Provider loading is a panel-level concern, not a page-level one. This used
+  // to early-return a full-page "Loading providers…" that replaced the whole
+  // layout until /v1/models resolved; now the shell renders immediately and
+  // only the model-dependent bits carry this strip.
+  const providerStatus = loadError ? (
+    <p className="rounded-lg border border-red-500/30 bg-red-500/5 px-3 py-2 text-xs text-red-500">
+      {loadError}
+    </p>
+  ) : loadingData ? (
+    <p className="flex items-center gap-2 text-xs text-text-muted">
+      <span className="material-symbols-outlined animate-spin text-[16px]">progress_activity</span>
+      {translate(
+        providerGroups.length > 0 ? "Refreshing live models…" : "Loading providers…"
+      )}
+    </p>
+  ) : null;
 
   const heurWinner = raceRanked.find((item) => item.status === "done");
 
@@ -1428,7 +1545,9 @@ export default function DeveloperPageClient() {
 
         <span className="ml-auto flex items-center gap-3">
           <span className="text-xs text-text-muted">
-            {allModels.length} models · {providerGroups.length} providers
+            {providerGroups.length > 0
+              ? `${allModels.length} models · ${providerGroups.length} providers`
+              : translate("Loading providers…")}
           </span>
         </span>
       </div>
@@ -1574,6 +1693,8 @@ export default function DeveloperPageClient() {
             )}
           </div>
 
+          {providerStatus}
+
           <label className="flex items-center gap-2 text-xs text-text-muted">
             <input
               type="checkbox"
@@ -1644,14 +1765,7 @@ export default function DeveloperPageClient() {
               }}
               placeholder={translate("Search models to race…")}
             />
-            {loadingData && (
-              <p className="flex items-center gap-2 text-xs text-text-muted">
-                <span className="material-symbols-outlined animate-spin text-[16px]">
-                  progress_activity
-                </span>
-                {translate("Refreshing live models…")}
-              </p>
-            )}
+            {providerStatus}
             {raceIds.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
                 {raceIds.map((id) => {
@@ -1701,7 +1815,7 @@ export default function DeveloperPageClient() {
                   </Button>
                 ) : (
                   <Button icon="compare_arrows" onClick={runAbTest}>
-                    Run A/B ({raceIds.length}×2)
+                    Run A/B ({raceIds.length}×2{abRepeats > 1 ? `×${abRepeats}` : ""})
                   </Button>
                 )
               ) : raceBusy ? (
@@ -1714,9 +1828,23 @@ export default function DeveloperPageClient() {
                 </Button>
               )}
               {mode === "ab" && !abBusy && raceIds.length > 0 && (
-                <span className="text-xs text-text-muted">
-                  sequential · {raceIds.length * 2} calls · A = {getStylePreset(abPresetId).label}{abUsePayload ? " + payload" : ""} vs B = default
-                </span>
+                <>
+                  <label className="flex items-center gap-1 text-xs text-text-muted">
+                    repeat
+                    <select
+                      value={abRepeats}
+                      onChange={(event) => setAbRepeats(Number(event.target.value))}
+                      className="rounded-md border border-border bg-surface px-1.5 py-0.5 text-xs text-text-main outline-none focus:border-primary/50"
+                    >
+                      <option value={1}>1</option>
+                      <option value={3}>3</option>
+                      <option value={5}>5</option>
+                    </select>
+                  </label>
+                  <span className="text-xs text-text-muted">
+                    {Math.max(...raceIds.map((id) => providerBudget(modelIndex.get(id), fallbackStrategy)))} in flight per provider · {raceIds.length * 2 * abRepeats} calls · A = {getStylePreset(abPresetId).label}{abUsePayload ? " + payload" : ""} vs B = default
+                  </span>
+                </>
               )}
               {mode === "race" && raceNotice && <span className="text-sm text-amber-500">{raceNotice}</span>}
               {mode === "ab" && abNotice && <span className="text-sm text-amber-500">{abNotice}</span>}
@@ -1828,11 +1956,30 @@ export default function DeveloperPageClient() {
                       )}
                       {item.status === "pending" && <span className="text-text-muted">queued</span>}
                       {item.duration_ms > 0 && <span className="text-text-muted">{(item.duration_ms / 1000).toFixed(1)}s</span>}
+                      {item.ttft_ms > 0 && (
+                        <span className="text-text-muted" title="Time to first token">
+                          ttft {item.ttft_ms}ms
+                        </span>
+                      )}
                       {item.score > 0 && <span className="font-semibold text-primary">{item.score}</span>}
                     </span>
                   </div>
 
                   {item.error && <div className="mt-1 text-xs text-red-500">{item.error}</div>}
+
+                  {item.interrupted && (
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-amber-500">
+                      <span>{INTERRUPTED_LABEL}</span>
+                      <button
+                        type="button"
+                        onClick={() => !raceBusy && runRace()}
+                        disabled={raceBusy || !draft.trim()}
+                        className="rounded-md border border-amber-500/40 px-2 py-0.5 text-amber-500 transition hover:bg-amber-500/10 disabled:opacity-40"
+                      >
+                        Retry run
+                      </button>
+                    </div>
+                  )}
 
                   {item.content && (
                     <details open={index === 0}>
@@ -1912,10 +2059,11 @@ export default function DeveloperPageClient() {
               )}
 
               {abPairs.map((row) => (
-                <div key={row.model.id} className="rounded-xl border border-border bg-surface/40 p-3">
+                <div key={row.id} className="rounded-xl border border-border bg-surface/40 p-3">
                   <div className="flex flex-wrap items-center gap-2 text-sm">
                     <span className="material-symbols-outlined text-[16px] text-text-muted">compare_arrows</span>
                     <span className="font-medium text-text-main">{row.model.name}</span>
+                    {(row.rep ?? 0) > 0 && <span className="text-xs text-text-muted">run #{row.rep + 1}</span>}
                     <span className="text-xs text-text-muted">{row.model.providerName}</span>
                     {row.delta !== null && (
                       <span
@@ -1946,8 +2094,22 @@ export default function DeveloperPageClient() {
                           {side?.score > 0 && <span className="font-semibold text-primary">{side.score}</span>}
                           {side?.hedges > 0 && <span className="text-amber-500" title="hedge phrases">{side.hedges} hedge</span>}
                           {side?.duration_ms > 0 && <span className="text-text-muted ml-auto">{(side.duration_ms / 1000).toFixed(1)}s</span>}
+                          {side?.ttft_ms > 0 && <span className="text-text-muted" title="Time to first token">ttft {side.ttft_ms}ms</span>}
                         </div>
                         {side?.error && <div className="mt-1 text-xs text-red-500">{side.error}</div>}
+                        {side?.interrupted && (
+                          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-amber-500">
+                            <span>{INTERRUPTED_LABEL}</span>
+                            <button
+                              type="button"
+                              onClick={() => !abBusy && runAbTest()}
+                              disabled={abBusy || !draft.trim() || raceIds.length < 1}
+                              className="rounded-md border border-amber-500/40 px-2 py-0.5 text-amber-500 transition hover:bg-amber-500/10 disabled:opacity-40"
+                            >
+                              Retry run
+                            </button>
+                          </div>
+                        )}
                         {side?.content && (
                           <details className="mt-1">
                             <summary className="cursor-pointer select-none text-xs text-text-muted hover:text-text-main">
@@ -2000,6 +2162,19 @@ export default function DeveloperPageClient() {
                     </span>
                   </div>
                   {row.error && <div className="mt-1 text-xs text-red-500">{row.error}</div>}
+                  {row.interrupted && (
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-amber-500">
+                      <span>{INTERRUPTED_LABEL}</span>
+                      <button
+                        type="button"
+                        onClick={() => !councilBusy && runCouncil()}
+                        disabled={councilBusy || !draft.trim()}
+                        className="rounded-md border border-amber-500/40 px-2 py-0.5 text-amber-500 transition hover:bg-amber-500/10 disabled:opacity-40"
+                      >
+                        Retry run
+                      </button>
+                    </div>
+                  )}
                   {row.content && (
                     <details open>
                       <summary className="cursor-pointer select-none pt-1 text-xs text-text-muted hover:text-text-main">
