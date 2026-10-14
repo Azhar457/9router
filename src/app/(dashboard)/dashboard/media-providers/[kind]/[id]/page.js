@@ -21,10 +21,10 @@ export default function MediaProviderDetailPage() {
   const router = useRouter();
   const kindConfig = MEDIA_PROVIDER_KINDS.find((k) => k.id === kind);
   const isEmbeddingCustom = isCustomEmbeddingProvider(id) && kind === "embedding";
-  const isOpenAICustom = isOpenAICompatibleProvider(id);
-  const isAnthropicCustom = isAnthropicCompatibleProvider(id);
-  const isCustom = isEmbeddingCustom || isOpenAICustom || isAnthropicCustom || id.startsWith("custom-");
-
+  const isOpenAICompatible = isOpenAICompatibleProvider(id);
+  const isAnthropicCompatible = isAnthropicCompatibleProvider(id);
+  const isImageCustom = isOpenAICompatible && kind === "image";
+  const isCustom = isEmbeddingCustom || isOpenAICompatible || isAnthropicCompatible || id.startsWith("custom-");
   const handleDeleteCustom = async () => {
     if (!confirm("Delete this custom provider node and its connections?")) return;
     try {
@@ -72,7 +72,7 @@ export default function MediaProviderDetailPage() {
   }
 
   const kinds = isCustom
-    ? [...new Set([...(customNode?.serviceKinds || []), ...(isEmbeddingCustom ? ["embedding"] : [])])]
+    ? [...new Set([...(customNode?.serviceKinds || []), ...(isEmbeddingCustom ? ["embedding"] : []), ...(isImageCustom ? ["image"] : [])])]
     : (provider.serviceKinds ?? ["llm"]);
   if (!kinds.includes(kind)) return notFound();
 
