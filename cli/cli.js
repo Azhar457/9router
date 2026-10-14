@@ -189,13 +189,28 @@ if (skipUpdate && !trayMode && !process.stdin.isTTY) {
 // Always use Node.js runtime with absolute path
 const RUNTIME = process.execPath;
 
-// Compare semver versions: returns 1 if a > b, -1 if a < b, 0 if equal
+// Compare semver versions: returns 1 if a > b, -1 if a < b, 0 if equal.
+// Supports suffix tags like 0.6.1b > 0.6.1.
 function compareVersions(a, b) {
-  const partsA = a.split(".").map(Number);
-  const partsB = b.split(".").map(Number);
-  for (let i = 0; i < 3; i++) {
-    if (partsA[i] > partsB[i]) return 1;
-    if (partsA[i] < partsB[i]) return -1;
+  if (a === b) return 0;
+  const parse = (v) => {
+    const clean = String(v || "").trim().replace(/^v/, "");
+    const [core, ...pre] = clean.split("-");
+    const nums = core.split(".").map((part) => {
+      const m = part.match(/^(\d+)(.*)$/);
+      return m ? { num: Number(m[1]), extra: m[2] || "" } : { num: 0, extra: "" };
+    });
+    return { nums, extra: pre.join("-") };
+  };
+
+  const pa = parse(a);
+  const pb = parse(b);
+
+  for (let i = 0; i < Math.max(pa.nums.length, pb.nums.length, 3); i++) {
+    const na = pa.nums[i] || { num: 0, extra: "" };
+    const nb = pb.nums[i] || { num: 0, extra: "" };
+    if (na.num !== nb.num) return na.num > nb.num ? 1 : -1;
+    if (na.extra !== nb.extra) return na.extra > nb.extra ? 1 : -1;
   }
   return 0;
 }
@@ -854,9 +869,9 @@ function startServer(updatePromise) {
           console.log(`   Server: http://${displayHost}:${port}`);
           console.log(`\n💡 You can close this terminal. Right-click tray icon to quit.\n`);
 
-          // cleanup() kills server so bgProcess can claim the port fresh.
-          // Stay alive 3s to verify the bg process actually survived startup —
-          // if it died, surface the log tail instead of exiting silently.
+          // In Windows/Linux hide-to-tray mode, mark shutdown before killing
+          // server so attachServerEvents does NOT trigger an auto-restart loop!
+          isShuttingDown = true;
           cleanup();
           setTimeout(() => {
             let alive = false;

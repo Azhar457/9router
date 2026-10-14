@@ -39,11 +39,25 @@ function fetchLatestVersion() {
 }
 
 function compareVersions(a, b) {
-  const pa = a.split(".").map(Number);
-  const pb = b.split(".").map(Number);
-  for (let i = 0; i < 3; i++) {
-    if (pa[i] > pb[i]) return 1;
-    if (pa[i] < pb[i]) return -1;
+  if (a === b) return 0;
+  const parse = (v) => {
+    const clean = String(v || "").trim().replace(/^v/, "");
+    const [core, ...pre] = clean.split("-");
+    const nums = core.split(".").map((part) => {
+      const m = part.match(/^(\d+)(.*)$/);
+      return m ? { num: Number(m[1]), extra: m[2] || "" } : { num: 0, extra: "" };
+    });
+    return { nums, extra: pre.join("-") };
+  };
+
+  const pa = parse(a);
+  const pb = parse(b);
+
+  for (let i = 0; i < Math.max(pa.nums.length, pb.nums.length, 3); i++) {
+    const na = pa.nums[i] || { num: 0, extra: "" };
+    const nb = pb.nums[i] || { num: 0, extra: "" };
+    if (na.num !== nb.num) return na.num > nb.num ? 1 : -1;
+    if (na.extra !== nb.extra) return na.extra > nb.extra ? 1 : -1;
   }
   return 0;
 }
