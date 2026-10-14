@@ -118,6 +118,7 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
   const [showAddCustomModel, setShowAddCustomModel] = useState(false);
   const [autoRegisterRunning, setAutoRegisterRunning] = useState(false);
   const [autoRegisterResult, setAutoRegisterResult] = useState(null);
+  const [testAllRunning, setTestAllRunning] = useState(false);
 
   const providerAlias = providerAliasOverride || getProviderAlias(providerId);
   const effectiveType = kindFilter || "llm";
@@ -234,6 +235,7 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
     } finally { setTestingModelId(null); }
   };
 
+
   // Built-in models — filter by kindFilter if provided
   const allBuiltIn = getModelsByProviderId(providerId);
   const builtInModels = kindFilter
@@ -252,21 +254,59 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
 
   const displayModels = builtInModels;
 
+  const handleTestAll = async () => {
+    const all = [...displayModels.map((m) => m.id), ...myCustomModels.map((m) => m.id)];
+    if (!all.length || testAllRunning) return;
+    setTestAllRunning(true);
+    setTestingModelId(null);
+    setTestError("");
+    const results = {};
+    await Promise.all(all.map(async (modelId) => {
+      try {
+        const res = await fetch("/api/models/test", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ model: `${providerAlias}/${modelId}`, kind: kindFilter }),
+        });
+        const data = await res.json();
+        results[modelId] = data.ok ? "ok" : "error";
+      } catch {
+        results[modelId] = "error";
+      }
+    }));
+    setModelTestResults((prev) => ({ ...prev, ...results }));
+    setTestAllRunning(false);
+  };
+
   return (
     <>
       <Card>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Models{kindFilter ? ` — ${kindFilter.toUpperCase()}` : ""}</h2>
-          {isCustomNode && (
-            <button
-              onClick={handleAutoRegister}
-              disabled={autoRegisterRunning}
-              className="inline-flex items-center gap-1.5 h-7 px-3 text-xs font-semibold rounded-[8px] bg-surface-2 hover:bg-surface-3 text-text-main border border-border transition-colors disabled:opacity-50"
-            >
-              <span className="material-symbols-outlined text-[18px]">download</span>
-              {autoRegisterRunning ? "Importing…" : "Import from /models"}
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {(displayModels.length > 0 || myCustomModels.length > 0) && (
+              <button
+                onClick={handleTestAll}
+                disabled={testAllRunning}
+                className="inline-flex items-center gap-1.5 h-7 px-3 text-xs font-semibold rounded-[8px] bg-surface-2 hover:bg-surface-3 text-text-main border border-border transition-colors disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-[18px]" style={testAllRunning ? { animation: "spin 1s linear infinite" } : undefined}>
+                  {testAllRunning ? "progress_activity" : "play_circle"}
+                </span>
+                {testAllRunning ? "Testing…" : "Test All"}
+              </button>
+            )}
+            {isCustomNode && (
+              <button
+                onClick={handleAutoRegister}
+                disabled={autoRegisterRunning}
+                className="inline-flex items-center gap-1.5 h-7 px-3 text-xs font-semibold rounded-[8px] bg-brand-500 hover:bg-brand-600 text-white border border-transparent transition-colors disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-[18px]">download</span>
+                {autoRegisterRunning ? "Importing…" : "Import from /models"}
+              </button>
+            )}
+          </div>
         </div>
         {testError && <p className="text-xs text-red-500 mb-3 break-words">{testError}</p>}
 
