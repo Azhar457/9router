@@ -155,7 +155,7 @@ jobs:
       - name: Check out publishing Dockerfile
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.workflow_sha }}
+          ref: ${{ github.ref_name }}
           path: workflow
           sparse-checkout: |
             Dockerfile
