@@ -11,6 +11,10 @@ export default function EditCompatibleNodeModal({ isOpen, node, onSave, onClose,
     apiType: "chat",
     baseUrl: "https://api.openai.com/v1",
     imageEnabled: false,
+    videoEnabled: false,
+    ttsEnabled: false,
+    sttEnabled: false,
+    embeddingEnabled: false,
   });
   const [saving, setSaving] = useState(false);
   const [checkKey, setCheckKey] = useState("");
@@ -20,12 +24,17 @@ export default function EditCompatibleNodeModal({ isOpen, node, onSave, onClose,
 
   useEffect(() => {
     if (node) {
+      const kinds = node.serviceKinds || [];
       queueMicrotask(() => setFormData({
         name: node.name || "",
         prefix: node.prefix || "",
         apiType: node.apiType || "chat",
         baseUrl: node.baseUrl || (isAnthropic ? "https://api.anthropic.com/v1" : "https://api.openai.com/v1"),
-        imageEnabled: (node.serviceKinds || []).includes("image"),
+        imageEnabled: kinds.includes("image"),
+        videoEnabled: kinds.includes("video"),
+        ttsEnabled: kinds.includes("tts"),
+        sttEnabled: kinds.includes("stt"),
+        embeddingEnabled: kinds.includes("embedding"),
       }));
     }
   }, [node, isAnthropic]);
@@ -46,7 +55,13 @@ export default function EditCompatibleNodeModal({ isOpen, node, onSave, onClose,
       };
       if (!isAnthropic) {
         payload.apiType = formData.apiType;
-        payload.serviceKinds = formData.imageEnabled ? ["image"] : [];
+        const kinds = [];
+        if (formData.imageEnabled) kinds.push("image");
+        if (formData.videoEnabled) kinds.push("video");
+        if (formData.ttsEnabled) kinds.push("tts");
+        if (formData.sttEnabled) kinds.push("stt");
+        if (formData.embeddingEnabled) kinds.push("embedding");
+        payload.serviceKinds = kinds;
       }
       await onSave(payload);
     } finally {
@@ -121,6 +136,39 @@ export default function EditCompatibleNodeModal({ isOpen, node, onSave, onClose,
               onChange={(v) => setFormData((prev) => ({ ...prev, imageEnabled: typeof v === "boolean" ? v : !prev.imageEnabled }))}
               title="Text to Image capability"
             />
+          </div>
+        )}
+        {!isAnthropic && (
+          <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+            <div>
+              <div className="text-sm font-medium">Video</div>
+              <div className="text-xs text-text-muted">List this node under Video. Async jobs via POST {formData.baseUrl || "…"}/videos, polled at the provider&rsquo;s status endpoint.</div>
+            </div>
+            <Toggle
+              checked={formData.videoEnabled}
+              onChange={(v) => setFormData((prev) => ({ ...prev, videoEnabled: typeof v === "boolean" ? v : !prev.videoEnabled }))}
+              title="Video capability"
+            />
+          </div>
+        )}
+        {!isAnthropic && (
+          <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+            <div>
+              <div className="text-sm font-medium">Speech (TTS / STT)</div>
+              <div className="text-xs text-text-muted">List this node under Text-to-Speech and Speech-to-Text.</div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Toggle
+                checked={formData.ttsEnabled}
+                onChange={(v) => setFormData((prev) => ({ ...prev, ttsEnabled: typeof v === "boolean" ? v : !prev.ttsEnabled }))}
+                title="Text to Speech capability"
+              />
+              <Toggle
+                checked={formData.sttEnabled}
+                onChange={(v) => setFormData((prev) => ({ ...prev, sttEnabled: typeof v === "boolean" ? v : !prev.sttEnabled }))}
+                title="Speech to Text capability"
+              />
+            </div>
           </div>
         )}
         <div className="flex gap-2">

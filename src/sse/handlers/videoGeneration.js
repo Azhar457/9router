@@ -7,7 +7,7 @@ import {
 } from "../services/auth.js";
 import { getSettings, getProviderConnectionById } from "@/lib/localDb";
 import { getModelInfo } from "../services/model.js";
-import { handleVideoProxyCore, getVideoConfig, sanitizeSecrets } from "open-sse/handlers/videoCore.js";
+import { handleVideoProxyCore, getVideoConfig, getVideoConfigForNode, sanitizeSecrets } from "open-sse/handlers/videoCore.js";
 import { errorResponse, unavailableResponse } from "open-sse/utils/error.js";
 import { HTTP_STATUS } from "open-sse/config/runtimeConfig.js";
 import { updateProviderCredentials, checkAndRefreshToken } from "../services/tokenRefresh.js";
@@ -83,7 +83,14 @@ async function resolveVideoProvider(parsedBody) {
   if (!modelInfo.provider) {
     return { error: errorResponse(HTTP_STATUS.BAD_REQUEST, "Combos are not supported for video generation") };
   }
-  if (!getVideoConfig(modelInfo.provider)) {
+  // Node-synthesized configs: a custom openai-compatible node with video in its
+  // serviceKinds gets a config from credentials at proxy time. Accept it here
+  // too so the provider isn't rejected before handleVideoProxyCore runs.
+  const hasConfig =
+    getVideoConfig(modelInfo.provider) ||
+    (typeof modelInfo.provider === "string" &&
+      modelInfo.provider.startsWith("openai-compatible-"));
+  if (!hasConfig) {
     // Bare model ids (no explicit "provider/" prefix) fall back to the default
     // video provider — the prefix-less inference targets chat providers only.
     if (!modelStr.includes("/")) {

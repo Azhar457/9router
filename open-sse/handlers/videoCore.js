@@ -18,6 +18,27 @@ export function getVideoConfig(provider) {
   return PROVIDER_MEDIA[provider]?.videoConfig || null;
 }
 
+// Custom openai-compatible nodes are NOT in PROVIDER_MEDIA (they resolve to a
+// node UUID as the provider id, mirroring the image openaiCompatNode pattern).
+// Synthesize a minimal config from the node's credentials baseUrl so video can
+// route the same way image does. Provider-specific adapters (e.g. Agnes) are
+// still matched by provider id when available; a bare node falls back to the
+// generic OpenAI-compatible shape (create POST /videos, poll GET /videos/{id}).
+export function getVideoConfigForNode(provider, credentials = null) {
+  const cfg = getVideoConfig(provider);
+  if (cfg) return cfg;
+  const baseUrl = credentials?.providerSpecificData?.baseUrl;
+  if (
+    typeof provider === "string" &&
+    provider.startsWith("openai-compatible-") &&
+    typeof baseUrl === "string" &&
+    baseUrl
+  ) {
+    return { baseUrl, fromNode: true };
+  }
+  return null;
+}
+
 /** Strip bearer tokens / obvious secrets from text destined for clients or logs. */
 export function sanitizeSecrets(text, credentials = null) {
   if (!text) return text;
@@ -87,7 +108,7 @@ export async function handleVideoProxyCore({
   log,
   onCredentialsRefreshed,
 }) {
-  const config = getVideoConfig(provider);
+  const config = getVideoConfigForNode(provider, credentials);
   if (!config) {
     return createErrorResult(HTTP_STATUS.BAD_REQUEST, `Provider '${provider}' does not support video generation`);
   }
@@ -95,7 +116,14 @@ export async function handleVideoProxyCore({
     return createErrorResult(HTTP_STATUS.BAD_REQUEST, `Unknown video action: ${action}`);
   }
 
-  const adapter = getVideoAdapter(provider);
+  // Node-synthesized configs (fromNode) are not a registry alias, so pick the
+  // adapter by baseUrl host when the provider is a custom openai-compatible
+  // node and no registry adapter matched. Agnes is the first such host.
+  let adapter = getVideoAdapter(provider);
+  if (!adapter && config.fromNode) {
+    const base = config.baseUrl || "";
+    if (base.includes("apihub.agnes-ai.com")) adapter = getVideoAdapter("agnes");
+  }
   const fetchSignal = combineSignals(signal, timeoutMs);
 
   // Default (xAI shape) request plan; adapters override URL/method/headers/body.

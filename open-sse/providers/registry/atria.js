@@ -22,6 +22,11 @@ export default {
   transport: {
     baseUrl: "https://api.atria-asi.ai/v1/chat/completions",
     validateUrl: "https://api.atria-asi.ai/v1/models",
+    // Atria is a research preview: long prefill under payload-size prompts
+    // (8–70KB jailbreak/steering injects) regularly exceeds the 360s default
+    // stall timeout and false-fires the watchdog. Per-provider override per
+    // the qoder.js pattern.
+    stallTimeoutMs: 600000,
   },
   // Docs pin the model field to one case-sensitive id. Text-only for now: the
   // service ships a hook that blocks image/PDF input, so no vision is claimed.

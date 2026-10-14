@@ -1,3 +1,10 @@
+# v0.6.1b (2026-10-14)
+
+## Fixes
+- **Cross-Platform Standalone Build**: Fix `TypeError: File URL path must be absolute` on Windows caused by Linux/WSL build-time absolute path leaks in minified chunks (`jailbreakPayloads.js` & `strixPayloads.js`). Implemented robust path resolution fallback (`import.meta.url` try/catch with `__dirname` and `process.cwd()` validation).
+- **Auto-Register & Media Models**: Added backend GET/POST `/api/provider-nodes/:id/auto-register-models` endpoints, model scan and test-gate ping logic, and frontend `ModelsCard` auto-register action UI.
+- **CLI Packaging & ETL**: Enhanced CLI bundler to sanitize all hardcoded absolute build paths and bundle payload collections cleanly into `payloads.tar.gz`.
+
 # v0.6.1 (2026-10-11)
 
 ## Multi-agent penetration runner

@@ -175,6 +175,7 @@ export default function MediaProviderDetailPage() {
           providerId={id}
           kindFilter={kind}
           providerAliasOverride={isCustom ? customNode?.prefix : undefined}
+          isCustomNode={isCustom}
         />
       )}
 

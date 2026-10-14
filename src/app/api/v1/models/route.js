@@ -212,7 +212,9 @@ function inferKindFromUnknownModelId(modelId) {
   const lower = String(modelId).toLowerCase();
   if (/embed/.test(lower)) return "embedding";
   if (/tts|speech|audio|voice/.test(lower)) return "tts";
-  if (/image|imagen|dall-?e|flux|sdxl|sd-|stable-diffusion/.test(lower)) return "image";
+  // video before image: some ids (e.g. "image-to-video") match both — video wins.
+  if (/video|film|clip|animate/.test(lower)) return "video";
+  if (/image|imagen|dall-?e|flux|sdxl|sd-|stable-diffusion|banana|pic/.test(lower)) return "image";
   return LLM_KIND;
 }
 
@@ -584,16 +586,23 @@ export async function buildModelsList(kindFilter, options = {}) {
       const customModelIds = customModels
         .filter((m) => {
           if (!m?.id) return false;
-          const kind = getModelKind(m) || LLM_KIND;
-          // imageToText custom models are vision-capable chat models: expose them
-          // both in the default LLM list and in /v1/models/image-to-text.
+          // Auto-detect kind from model name when the stored type is still the
+          // default "llm" but the id clearly names a media model. This is what
+          // makes models from openai-compatible nodes show up in their media tab
+          // without the operator having to re-type every model by hand.
+          let kind = getModelKind(m) || LLM_KIND;
+          if (kind === LLM_KIND && !m?.type) kind = inferKindFromUnknownModelId(m.id);
           if (!kindFilter.includes(kind) && !(kind === "imageToText" && kindFilter.includes(LLM_KIND))) return false;
           const alias = m.providerAlias;
           return alias === staticAlias || alias === outputAlias || alias === providerId;
         })
         .map((m) => {
           const modelId = String(m.id).trim();
-          if (modelId) customModelKindById.set(modelId, getModelKind(m) || LLM_KIND);
+          if (modelId) {
+            let kind = getModelKind(m) || LLM_KIND;
+            if (kind === LLM_KIND && !m?.type) kind = inferKindFromUnknownModelId(modelId);
+            customModelKindById.set(modelId, kind);
+          }
           return modelId;
         })
         .filter((modelId) => modelId !== "");

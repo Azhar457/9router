@@ -13,10 +13,29 @@
 // jailbreakPayloads.js.
 
 import { readFileSync, readdirSync, existsSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const THIS_DIR = dirname(fileURLToPath(import.meta.url));
+// See jailbreakPayloads.js resolveThisDir: under a standalone bundle
+// import.meta.url may be a cross-OS build path that fileURLToPath rejects, so
+// resolve defensively and fall back to the current working directory.
+function resolveThisDir() {
+  try {
+    if (typeof import.meta !== "undefined" && import.meta.url) {
+      const p = fileURLToPath(import.meta.url);
+      if (p && (p.startsWith("/") || /^[A-Za-z]:[\\/]/.test(p))) return p;
+    }
+  } catch {
+    // cross-OS URL on a different host
+  }
+  try {
+    if (typeof __dirname === "string") return __dirname;
+  } catch {
+    // ignore
+  }
+  return process.cwd();
+}
+const THIS_DIR = resolveThisDir();
 // open-sse/rtk → open-sse → repo root
 const REPO_ROOT = join(THIS_DIR, "..", "..");
 

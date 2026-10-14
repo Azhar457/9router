@@ -5,8 +5,9 @@
 // A provider only needs an adapter when its wire format differs from that.
 import openrouter from "./openrouter.js";
 import vertex from "./vertex.js";
+import agnes from "./agnes.js";
 
-const ADAPTERS = { openrouter, vertex };
+const ADAPTERS = { openrouter, vertex, agnes };
 
 export function getVideoAdapter(provider) {
   return ADAPTERS[provider] || null;

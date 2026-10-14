@@ -108,7 +108,7 @@ AddCustomModelModal.propTypes = {
 // ── ModelsCard ─────────────────────────────────────────────────
 // Self-contained card: shows models for a provider, filtered by optional `kindFilter`.
 // kindFilter: if provided, only shows models with matching type/kinds field.
-export default function ModelsCard({ providerId, kindFilter, providerAliasOverride }) {
+export default function ModelsCard({ providerId, kindFilter, providerAliasOverride, isCustomNode = false }) {
   const { copied, copy } = useCopyToClipboard();
   const [modelAliases, setModelAliases] = useState({});
   const [customModels, setCustomModels] = useState([]);
@@ -116,6 +116,8 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
   const [testingModelId, setTestingModelId] = useState(null);
   const [testError, setTestError] = useState("");
   const [showAddCustomModel, setShowAddCustomModel] = useState(false);
+  const [autoRegisterRunning, setAutoRegisterRunning] = useState(false);
+  const [autoRegisterResult, setAutoRegisterResult] = useState(null);
 
   const providerAlias = providerAliasOverride || getProviderAlias(providerId);
   const effectiveType = kindFilter || "llm";
@@ -184,6 +186,34 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
         window.dispatchEvent(new CustomEvent("customModelChanged"));
       }
     } catch (e) { console.log("delete custom model error:", e); }
+  };
+
+  // Auto-register: scan the node's upstream /models, infer each model's media
+  // kind, ping the matching /v1 endpoint, and register only the models that
+  // pass. The ping gate is mandatory — a model that 404s upstream is skipped
+  // so the media tab never lists a broken model.
+  const handleAutoRegister = async () => {
+    setAutoRegisterRunning(true);
+    setAutoRegisterResult(null);
+    try {
+      const res = await fetch(`/api/provider-nodes/${providerId}/auto-register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ test: true }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setAutoRegisterResult(data);
+        await fetchData();
+        window.dispatchEvent(new CustomEvent("customModelChanged"));
+      } else {
+        setAutoRegisterResult({ ok: false, error: data.error || "Auto-register failed" });
+      }
+    } catch (e) {
+      setAutoRegisterResult({ ok: false, error: e.message });
+    } finally {
+      setAutoRegisterRunning(false);
+    }
   };
 
   const handleTestModel = async (modelId) => {
@@ -275,6 +305,7 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
             <span className="material-symbols-outlined text-sm">add</span>
             Add Model
           </button>
+
         </div>
       </Card>
 
@@ -286,6 +317,56 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
         }}
         onClose={() => setShowAddCustomModel(false)}
       />
+
+      {isCustomNode && (
+        <div className="flex flex-col gap-3 rounded-xl border border-dashed border-primary/30 bg-primary/5 p-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold">Auto-register media models</h3>
+            <Button
+              size="sm"
+              icon="auto_awesome"
+              onClick={() => { setShowAddCustomModel(false); handleAutoRegister(); }}
+              disabled={autoRegisterRunning}
+            >
+              {autoRegisterRunning ? "Scanning…" : "Scan & test upstream"}
+            </Button>
+          </div>
+          <p className="text-xs text-text-muted">
+            Scans this node&apos;s upstream <code>/models</code>, infers each model&apos;s media kind, pings the
+            matching endpoint, and registers only the models that pass.
+          </p>
+          {autoRegisterRunning && <p className="text-xs text-primary animate-pulse">Fetching upstream &amp; testing models…</p>}
+          {autoRegisterResult && !autoRegisterRunning && (
+            <div className="rounded-lg border border-border bg-background p-3">
+              {autoRegisterResult.error ? (
+                <p className="text-xs text-red-500">{autoRegisterResult.error}</p>
+              ) : (
+                <>
+                  <p className="mb-2 text-xs text-text-muted">
+                    Scanned {autoRegisterResult.scanned} model(s), registered {autoRegisterResult.registered}.
+                  </p>
+                  <ul className="flex flex-col gap-1">
+                    {autoRegisterResult.results.map((r) => (
+                      <li key={r.model} className="flex items-center gap-2 text-xs">
+                        <span className={`material-symbols-outlined text-sm ${r.status === "added" ? "text-green-500" : r.status === "registered" ? "text-text-muted" : "text-amber-500"}`}>
+                          {r.status === "added" ? "check_circle" : r.status === "registered" ? "task_alt" : "warning"}
+                        </span>
+                        <code className="font-mono">{r.model}</code>
+                        <span className="text-text-muted">{r.kind}</span>
+                        <span className="ml-auto text-text-muted">
+                          {r.status === "skipped-test" ? `test failed: ${r.pingError || "no response"}` :
+                           r.status === "added" ? (r.tested ? "registered (tested)" : "registered") :
+                           r.status === "registered" ? "already present" : r.status}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </>
   );
 }
@@ -294,4 +375,5 @@ ModelsCard.propTypes = {
   providerId: PropTypes.string.isRequired,
   kindFilter: PropTypes.string, // e.g. "tts", "embedding" — filters models shown
   providerAliasOverride: PropTypes.string, // override alias (e.g. for custom-embedding nodes using prefix)
+  isCustomNode: PropTypes.bool, // enables the auto-register media models button
 };

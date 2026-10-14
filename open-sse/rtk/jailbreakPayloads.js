@@ -23,7 +23,32 @@ import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const THIS_DIR = dirname(fileURLToPath(import.meta.url));
+// import.meta.url is only valid in the source tree. Under a Next.js
+// standalone bundle the chunk is minified and import.meta.url may point at a
+// Linux build path that does not exist on Windows — fileURLToPath throws
+// "File URL path must be absolute" and the whole module 500s on any request
+// that touches it. Resolve defensively: try the URL, fall back to __dirname
+// (CJS interop) or to process.cwd() so the directory walk below still works.
+function resolveThisDir() {
+  // fileURLToPath either returns a usable path or throws (Windows + a
+  // cross-OS build URL). On success we still verify it is on a platform
+  // root: a Linux path resolved on a non-Linux host is useless to the walk.
+  try {
+    if (typeof import.meta !== "undefined" && import.meta.url) {
+      const p = fileURLToPath(import.meta.url);
+      if (p && (p.startsWith("/") || /^[A-Za-z]:[\\/]/.test(p))) return p;
+    }
+  } catch {
+    // fall through — cross-OS URL on a different host
+  }
+  try {
+    if (typeof __dirname === "string") return __dirname;
+  } catch {
+    // ignore
+  }
+  return process.cwd();
+}
+const THIS_DIR = resolveThisDir();
 // open-sse/rtk → open-sse → 9router → special
 const REPO_ROOT = join(THIS_DIR, "..", "..");
 // In-repo copy takes priority; fall back to the sibling dir (local dev).

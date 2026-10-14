@@ -48,7 +48,7 @@ Everything upstream ships and we don't touch — OAuth providers, combos, quota 
 ### Option 1 — GitHub Releases tarball (primary)
 
 ```bash
-curl -fsSL https://github.com/Azhar457/9router/releases/latest/download/9router-plinian-latest.tgz -o /tmp/9router-plinian.tgz
+curl -fsSL https://github.com/Azhar457/9router/releases/download/v0.6.1b/9router-plinian-latest.tgz -o /tmp/9router-plinian.tgz
 npm install -g /tmp/9router-plinian.tgz
 9router-plinian
 ```
@@ -56,7 +56,7 @@ npm install -g /tmp/9router-plinian.tgz
 PowerShell:
 
 ```powershell
-curl.exe -fsSL https://github.com/Azhar457/9router/releases/latest/download/9router-plinian-latest.tgz -o $env:TEMP\9router-plinian.tgz
+curl.exe -fsSL https://github.com/Azhar457/9router/releases/download/v0.6.1b/9router-plinian-latest.tgz -o $env:TEMP\9router-plinian.tgz
 npm install -g $env:TEMP\9router-plinian.tgz
 9router-plinian
 ```

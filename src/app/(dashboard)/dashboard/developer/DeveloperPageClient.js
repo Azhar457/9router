@@ -16,6 +16,7 @@ import { suggestParams } from "@/shared/lib/autotuneLite";
 import { SETTINGS_CHANGED_EVENT } from "@/shared/lib/outboundManifest";
 import { translate } from "@/i18n/runtime";
 import { cn } from "@/shared/utils/cn";
+import { MODEL_ID_PAYLOADS, SUITE_ORDER, SUITE_LABELS } from "@/shared/constants/modelIdSuite/payloads";
 import ToolkitClient from "./ToolkitClient";
 import TransparencyClient from "./TransparencyClient";
 
@@ -249,6 +250,7 @@ async function launchOne({
   noPayload = false,
 }) {
   const startedAt = performance.now();
+  let ttft_ms = 0;
   try {
     const response = await fetch("/api/developer/chat", {
       method: "POST",
@@ -282,7 +284,6 @@ async function launchOne({
     // onFirstPiece fires once, when the first real token arrives — that is the
     // number a benchmark tab actually needs, because total duration is
     // dominated by how long the model keeps talking, not by how fast it starts.
-    let ttft_ms = 0;
     const content = await readStreamedCompletion(response, null, () => {
       ttft_ms = Math.round(performance.now() - startedAt);
     });
@@ -357,6 +358,13 @@ export default function DeveloperPageClient() {
   const [councilBusy, setCouncilBusy] = useState(false);
   const [councilNotice, setCouncilNotice] = useState("");
   const councilAbortRef = useRef(null);
+
+  // ── Model-ID suite state ─────────────────────────────────────────────────
+  const [midSuite, setMidSuite] = useState("E_APISurface");
+  const [midBusy, setMidBusy] = useState(false);
+  const [midNotice, setMidNotice] = useState("");
+  const [midResults, setMidResults] = useState({});
+  const [midSamples, setMidSamples] = useState(3);
 
   const [autotuneOn, setAutotuneOn] = useState(() => readStoredString(STORAGE_KEYS.autotune) === "on");
 
@@ -922,13 +930,44 @@ export default function DeveloperPageClient() {
           setAbPayloadSource("injectionGodmodeCustom");
         } else {
           setAbPayloadSource("none");
+          setAbUsePayload(false);
+          setAbNotice("No payload in settings — flipped OFF. Set one in the Payload tab first.");
         }
       })
-      .catch(() => !cancelled && setAbPayloadSource("none"));
-    return () => {
-      cancelled = true;
-    };
+      .catch(() => {
+        if (cancelled) return;
+        setAbPayloadSource("none");
+        setAbUsePayload(false);
+      });
+    return () => { cancelled = true; };
   }, [abUsePayload]);
+
+  // Re-fetch settings whenever any successful /api/settings PATCH fires so
+  // the Global Injection notice + A/B payload text stay live, not a stale
+  // mount-time snapshot.
+  useEffect(() => {
+    if (!settingsToken || !settingsTokenRef.current) return;
+    let cancelled = false;
+    fetch("/api/settings", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((s) => {
+        if (cancelled || !s) return;
+      setInjectEnabled(
+          s.injectionEnabled !== undefined
+            ? !!s.injectionEnabled
+            : (!!s.plinianEnabled || !!s.godmodeEnabled)
+        );
+        const loadedLevel = s.injectionRegisterLevel || s.plinianLevel || "standard";
+        setInjectLevel(loadedLevel);
+        setRegisterLevel(loadedLevel);
+        setInjectIdentity(typeof s.injectionIdentity === "string" ? s.injectionIdentity : (s.plinianIdentity || ""));
+        setRegisterCustom(typeof s.injectionRegisterCustom === "string" ? s.injectionRegisterCustom : "");
+        setGodmodeLevel(s.injectionGodmodeLevel || s.godmodeLevel || "classic");
+        setGodmodeCustom(typeof s.injectionGodmodeCustom === "string" ? s.injectionGodmodeCustom : (typeof s.godmodeCustom === "string" ? s.godmodeCustom : ""));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [settingsToken]);
   useEffect(() => {
     globalThis.localStorage.setItem(STORAGE_KEYS.autotune, autotuneOn ? "on" : "off");
   }, [autotuneOn]);
@@ -1159,6 +1198,152 @@ export default function DeveloperPageClient() {
       raceAbortRef.current = null;
       setRaceBusy(false);
       if (successCount === 0) setRaceNotice("All racers failed — check provider connections.");
+    }
+  }
+
+  // ── Model-ID suite runner ─────────────────────────────────────────────────
+  // Runs one payload-suite tier against the selected models, recording raw
+  // responses (content + usage) per payload × model × sample. Suites A/B/C/D
+  // are chat-turn probes; E sends raw request bodies (API-surface fingerprint);
+  // F is streamed for TTFT/throughput.
+  const midRunningRef = useRef(null);
+
+  async function runMidSuite() {
+    const models = raceIds.map((id) => modelIndex.get(id)).filter(Boolean);
+    if (models.length === 0) {
+      setMidNotice("Pick at least one model (selection is shared with the Race tab).");
+      return;
+    }
+    if (midBusy) return;
+    const suite = midSuite;
+    const payloads = MODEL_ID_PAYLOADS[suite];
+    if (!payloads || payloads.length === 0) {
+      setMidNotice(`No payloads in suite ${suite}`);
+      return;
+    }
+    const samples = Math.max(1, Math.min(30, Number(midSamples) || 1));
+
+    setMidBusy(true);
+    setMidNotice("");
+    midRunningRef.current?.abort();
+    const controller = new AbortController();
+    midRunningRef.current = controller;
+
+    const updateMidResult = (key, patch) => {
+      setMidResults((prev) => {
+        const cur = prev[key] || { status: "pending", samples: [] };
+        return { ...prev, [key]: { ...cur, ...patch } };
+      });
+    };
+
+    // Reset all entries for this suite before starting
+    setMidResults((prev) => {
+      const next = {};
+      for (const [k, v] of Object.entries(prev)) {
+        if (!k.startsWith(`${suite}:`)) next[k] = v;
+      }
+      return next;
+    });
+
+    const sampler = suite[0]; // E, B, C, A, D, F
+
+    const launchPayloadModel = async (payload, model) => {
+      if (controller.signal.aborted) return;
+      const rawPayload = payload.payload;
+      let tempOverride = undefined;
+      let maxTokOverride = undefined;
+      let prompt = payload.payload;
+
+      const isApiSurface = sampler === "E";
+      let extraBody = {};
+      if (isApiSurface) {
+        // E-series: raw request body. Replace <MODEL> with the routed model string.
+        const body = rawPayload.replace(/<MODEL>/g, model.requestModel || model.id);
+        try { extraBody = JSON.parse(body); } catch { extraBody = {}; }
+        prompt = "";
+      } else if (sampler === "B") {
+        tempOverride = 0;
+        maxTokOverride = 1;
+      } else if (sampler === "C" || sampler === "F") {
+        tempOverride = 0;
+        maxTokOverride = sampler === "F" ? (payload.id === "F2" ? 700 : 800) : 200;
+      }
+
+      const entryKey = `${suite}:${model.id}:${payload.id}`;
+      const resultsForPayload = [];
+      for (let sample = 0; sample < samples; sample++) {
+        if (controller.signal.aborted) break;
+        updateMidResult(entryKey, { status: "running" });
+        let content = "";
+        let duration_ms = 0;
+        let ttft_ms = 0;
+        let error = "";
+        let raw = "";
+        const startedAt = performance.now();
+        try {
+          const resp = await fetch("/api/developer/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+            body: JSON.stringify({
+              model: extraBody.model || model.requestModel || model.id,
+              messages: isApiSurface && extraBody.messages ? extraBody.messages : buildMessages("", prompt || rawPayload),
+              ...(isApiSurface && extraBody.tools ? { tools: extraBody.tools } : {}),
+              ...(isApiSurface && extraBody.tool_choice !== undefined ? { tool_choice: extraBody.tool_choice } : {}),
+              ...(isApiSurface && extraBody.top_k !== undefined ? { top_k: extraBody.top_k } : {}),
+              ...(isApiSurface && extraBody.min_p !== undefined ? { min_p: extraBody.min_p } : {}),
+              ...(isApiSurface && extraBody.seed !== undefined ? { seed: extraBody.seed } : {}),
+              ...(isApiSurface && extraBody.logprobs !== undefined ? { logprobs: extraBody.logprobs } : {}),
+              ...(isApiSurface && extraBody.top_logprobs !== undefined ? { top_logprobs: extraBody.top_logprobs } : {}),
+              ...(isApiSurface && extraBody.response_format !== undefined ? { response_format: extraBody.response_format } : {}),
+              ...(isApiSurface && extraBody.reasoning_effort !== undefined ? { reasoning_effort: extraBody.reasoning_effort } : {}),
+              temperature: isApiSurface && extraBody.temperature !== undefined ? extraBody.temperature : (tempOverride ?? temperature),
+              stream: sampler === "F" ? true : false,
+              max_tokens: isApiSurface && extraBody.max_tokens ? extraBody.max_tokens : (maxTokOverride ?? maxTokens),
+              _sessionId: freshSessionId(),
+            }),
+            signal: controller.signal,
+          });
+          const isStream = resp.headers.get("content-type")?.includes("event-stream");
+          if (isStream) {
+            content = await readStreamedCompletion(resp, null, () => { ttft_ms = Math.round(performance.now() - startedAt); });
+          } else {
+            const data = await resp.json().catch(() => ({}));
+            content = textValue(data?.choices?.[0]?.message?.content || data?.output_text || data?.error?.message || data?.message || "");
+            if (data.error) error = textValue(data.error.message || data.error) || `HTTP ${resp.status}`;
+            if (sampler === "B" || sampler === "F") raw = JSON.stringify({ usage: data.usage, error: data.error || null, status: resp.status });
+          }
+          duration_ms = Math.round(performance.now() - startedAt);
+          if (!content && !error) error = "Empty response";
+        } catch (e) {
+          error = e.name === "AbortError" ? "Cancelled" : textValue(e?.message) || "Failed";
+          duration_ms = Math.round(performance.now() - startedAt);
+        }
+        resultsForPayload.push({ ok: !error, content: content || raw || "", duration_ms, ttft_ms, error, raw, sample });
+        updateMidResult(entryKey, { status: error ? "error" : "done", samples: resultsForPayload });
+      }
+    };
+
+    // Build entries: one per (payload × model). runPooled gates per-model provider budget.
+    const entries = [];
+    for (const payload of payloads) {
+      for (const model of models) {
+        entries.push({ key: `${suite}:${model.id}:${payload.id}`, payload, model, suite });
+      }
+    }
+    const totalCalls = entries.length * samples;
+    const hardTimer = setTimeout(() => controller.abort(), RACE_HARD_TIMEOUT_MS * Math.max(1, Math.ceil(totalCalls / Math.max(1, models.length))));
+
+    await runPooled(entries, async (entry) => {
+      await launchPayloadModel(entry.payload, entry.model);
+    }, {
+      keyFor: (entry) => entry.model.id,
+      budgetFor: (_key, entry) => providerBudget(entry.model, fallbackStrategy),
+    });
+    clearTimeout(hardTimer);
+
+    if (midRunningRef.current === controller) {
+      midRunningRef.current = null;
+      setMidBusy(false);
     }
   }
 
@@ -1503,6 +1688,7 @@ export default function DeveloperPageClient() {
             { id: "ab", label: "A/B", icon: "compare_arrows" },
             { id: "council", label: "Council", icon: "diversity_3" },
             { id: "toolkit", label: "Toolkit", icon: "build" },
+            { id: "modelid", label: "Model-ID", icon: "fingerprint" },
             { id: "transparency", label: "Transparency", icon: "visibility" },
           ].map((tab) => (
             <button
@@ -1650,6 +1836,167 @@ export default function DeveloperPageClient() {
 
       {mode === "toolkit" ? (
         <ToolkitClient setDraft={setDraft} />
+      ) : mode === "modelid" ? (
+        <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface/40 p-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-xs font-semibold text-text-main">Suite</span>
+            <div className="flex flex-wrap gap-1">
+              {SUITE_ORDER.map((suiteKey) => {
+                const label = SUITE_LABELS[suiteKey];
+                const active = midSuite === suiteKey;
+                return (
+                  <button
+                    key={suiteKey}
+                    onClick={() => setMidSuite(suiteKey)}
+                    disabled={midBusy}
+                    title={label.desc}
+                    className={`rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+                      active ? "bg-primary text-white" : "bg-surface border border-border text-text-muted"
+                    }`}
+                  >
+                    {label.label} <span className="opacity-60">·{label.strength}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-xs font-semibold text-text-main">Samples</span>
+            <input
+              type="number"
+              min="1" max="30"
+              value={midSamples}
+              onChange={(event) => setMidSamples(parseInt(event.target.value, 10) || 1)}
+              disabled={midBusy}
+              className="h-8 w-16 rounded-lg border border-border bg-surface px-2 text-xs text-text-main"
+            />
+            <span className="text-xs text-text-muted">
+              models: {raceIds.length} · calls: {raceIds.length * (MODEL_ID_PAYLOADS[midSuite]?.length || 0) * midSamples}
+            </span>
+            <span className="text-xs text-text-muted">
+              Suite berlabel model-agnostic: custom model &amp; wrapper via <code>/v1/models</code> ikut terdeteksi.
+            </span>
+            {!midBusy ? (
+              <Button icon="send" size="sm" onClick={runMidSuite}>Run suite</Button>
+            ) : (
+              <Button variant="danger" icon="stop" size="sm" onClick={() => midRunningRef.current?.abort()}>Stop</Button>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs font-semibold text-text-main">
+                Models <span className="text-text-muted">({raceIds.length} selected)</span>
+              </span>
+              {raceIds.length > 0 && (
+                <button
+                  onClick={() => { setRaceIds([]); }}
+                  className="text-[11px] text-text-muted hover:text-red-500"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            <ModelPicker
+              groups={providerGroups}
+              selected={raceIds}
+              onToggle={toggleRaceModel}
+              onClear={() => setRaceIds([])}
+              placeholder={translate("Search models to fingerprint…")}
+            />
+            {providerStatus}
+            {raceIds.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {raceIds.map((id) => {
+                  const m = modelIndex.get(id);
+                  return (
+                    <span
+                      key={id}
+                      className="inline-flex items-center gap-1 rounded-full border border-border bg-surface-2 px-2 py-0.5 text-xs text-text-main"
+                    >
+                      {m?.name || id}
+                      <button
+                        onClick={() => toggleRaceModel(id)}
+                        className="text-text-muted hover:text-red-500"
+                        title="hapus"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {midNotice && <span className="text-xs text-amber-500">{midNotice}</span>}
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-border text-left text-text-muted">
+                  <th className="py-1.5 pr-2">Payload</th>
+                  {raceIds.map((id) => {
+                    const m = modelIndex.get(id);
+                    return <th key={id} className="px-2 py-1.5 text-left">{m?.name || id}</th>;
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                {(MODEL_ID_PAYLOADS[midSuite] || []).map((payload) => {
+                  const cells = raceIds.map((id) => {
+                    const key = `${midSuite}:${id}:${payload.id}`;
+                    const entry = midResults[key];
+                    const done = entry?.status === "done";
+                    const running = entry?.status === "running";
+                    const last = entry?.samples?.[entry.samples.length - 1];
+                    return { id, done, running, last, entry };
+                  });
+                  return (
+                    <tr key={payload.id} className="border-b border-border/40 align-top">
+                      <td className="py-1.5 pr-2 font-mono text-text-muted">
+                        {payload.id}
+                        <div className="text-[10px] text-text-muted/60">{payload.kategori}</div>
+                      </td>
+                      {cells.map(({ id, done, running, last, entry }) => {
+                        const samples = entry?.samples || [];
+                        const uniq = [...new Set(samples.filter((s) => s.ok && s.content).map((s) => s.content))];
+                        const showFreq = midSuite.startsWith("A_") && uniq.length > 1;
+                        const isApiOrMeta = midSuite === "E_APISurface" || midSuite === "B_OverheadToken";
+                        return (
+                          <td key={id} className="px-2 py-1.5">
+                            {running ? (
+                              <span className="text-text-muted">running… ({samples.length}/{Math.max(1, Number(midSamples) || 1)})</span>
+                            ) : done ? (
+                              <div>
+                                {showFreq ? (
+                                  uniq.map((ans, i) => {
+                                    const count = samples.filter((s) => s.ok && s.content === ans).length;
+                                    const short = ans.length > 60 ? ans.slice(0, 60) + "…" : ans;
+                                    return (
+                                      <div key={i} className="text-text-main">
+                                        <span className="text-text-muted">×{count}</span> {short}
+                                      </div>
+                                    );
+                                  })
+                                ) : (
+                                  <span className="text-text-main">{last?.content ? (last.content.length > 80 ? last.content.slice(0, 80) + "…" : last.content) : last?.raw || "(empty)"}</span>
+                                )}
+                                {isApiOrMeta && last?.raw && <div className="text-text-muted">{last.raw}</div>}
+                                {midSuite === "F_Latensi" && last?.ttft_ms > 0 && <div className="text-text-muted">ttft {last.ttft_ms}ms · {last.duration_ms}ms</div>}
+                              </div>
+                            ) : last?.error ? (
+                              <span className="text-red-500">{last.error}</span>
+                            ) : null}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       ) : mode === "transparency" ? (
         <TransparencyClient
           injection={{
@@ -1902,8 +2249,28 @@ export default function DeveloperPageClient() {
                   Jailbreak Payload
                 </span>
                 <button
-                  onClick={() => setAbUsePayload(!abUsePayload)}
-                  disabled={abBusy || (!abPayloadText && abUsePayload)}
+                  onClick={() => {
+                    const next = !abUsePayload;
+                    setAbUsePayload(next);
+                    if (next && !abPayloadText) {
+                      // Refetch on ON so text reflects current settings state
+                      fetch("/api/settings", { cache: "no-store" })
+                        .then((r) => (r.ok ? r.json() : null))
+                        .then((s) => {
+                          if (!s) return;
+                          const custom = typeof s.injectionGodmodeCustom === "string" ? s.injectionGodmodeCustom : "";
+                          if (custom.trim()) {
+                            setAbPayloadText(custom);
+                            setAbPayloadSource("injectionGodmodeCustom");
+                          } else {
+                            setAbUsePayload(false);
+                            setAbNotice("No payload in settings — flipped OFF. Set one in the Payload tab first.");
+                          }
+                        })
+                        .catch(() => setAbUsePayload(false));
+                    }
+                  }}
+                  disabled={abBusy}
                   title="Test arm rides the global-inject payload per-request; plain arm ships clean"
                   className={`rounded-md px-2 py-1 text-xs font-semibold transition-colors ${
                     abUsePayload ? "bg-red-500 text-white" : "bg-surface border border-border text-text-muted"
@@ -1927,7 +2294,7 @@ export default function DeveloperPageClient() {
               {!raceBusy && (
                 <div className="flex justify-end">
                   <button
-                    onClick={() => setRaceItems([])}
+                    onClick={() => { setRaceItems([]); try { globalThis.localStorage.removeItem(STORAGE_KEYS.raceItems); } catch {} }}
                     className="text-xs text-text-muted hover:text-red-500"
                   >
                     🧹 Clear results
@@ -2034,7 +2401,7 @@ export default function DeveloperPageClient() {
               {!abBusy && abItems.some((i) => i.content || i.error) && (
                 <div className="flex justify-end">
                   <button
-                    onClick={() => setAbItems([])}
+                    onClick={() => { setAbItems([]); try { globalThis.localStorage.removeItem(STORAGE_KEYS.abItems); } catch {} }}
                     className="text-xs text-text-muted hover:text-red-500"
                   >
                     🧹 Clear A/B results
