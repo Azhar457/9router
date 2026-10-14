@@ -47,19 +47,17 @@ Everything upstream ships and we don't touch — OAuth providers, combos, quota 
 
 ### Option 1 — GitHub Releases tarball (primary)
 
+**Linux / macOS:**
 ```bash
 curl -fsSL https://github.com/Azhar457/9router/releases/download/v0.6.1b/9router-plinian-0.6.1b.tgz \
-  -o /tmp/9router-plinian.tgz && npm i -g /tmp/9router-plinian.tgz
+  -o /tmp/9router-plinian.tgz && npm install -g /tmp/9router-plinian.tgz
 9router-plinian
 ```
 
-PowerShell:
+**Windows (PowerShell / Command Prompt):**
+> *Tips: Jika `npm` di PowerShell terhalang aturan ExecutionPolicy, Anda cukup buka **cmd.exe** (Command Prompt) biasa lalu jalankan perintah di bawah ini tanpa gangguan policy:*
 
 ```powershell
-# 1. Bypass ExecutionPolicy for the session (jika npm.ps1 terblokir)
-Set-ExecutionPolicy Bypass -Scope Process -Force
-
-# 2. Download dan install tarball release
 curl.exe -fsSL https://github.com/Azhar457/9router/releases/download/v0.6.1b/9router-plinian-0.6.1b.tgz -o "$env:TEMP\9router-plinian.tgz"
 npm install -g "$env:TEMP\9router-plinian.tgz"
 9router-plinian
