@@ -49,7 +49,7 @@ Everything upstream ships and we don't touch — OAuth providers, combos, quota 
 
 **Linux / macOS:**
 ```bash
-curl -fsSL https://github.com/Azhar457/9router/releases/download/v0.6.1b/9router-plinian-0.6.1b.tgz \
+curl -fsSL https://github.com/Azhar457/9router/releases/download/v0.6.2/9router-plinian-0.6.2.tgz \
   -o /tmp/9router-plinian.tgz && npm install -g /tmp/9router-plinian.tgz
 9router-plinian
 ```
@@ -58,13 +58,13 @@ curl -fsSL https://github.com/Azhar457/9router/releases/download/v0.6.1b/9router
 > *Tips: Jika `npm` di PowerShell terhalang aturan ExecutionPolicy, Anda cukup buka **cmd.exe** (Command Prompt) biasa lalu jalankan perintah di bawah ini tanpa gangguan policy:*
 
 ```powershell
-curl.exe -fsSL https://github.com/Azhar457/9router/releases/download/v0.6.1b/9router-plinian-0.6.1b.tgz -o "$env:TEMP\9router-plinian.tgz"
+curl.exe -fsSL https://github.com/Azhar457/9router/releases/download/v0.6.2/9router-plinian-0.6.2.tgz -o "$env:TEMP\9router-plinian.tgz"
 npm install -g "$env:TEMP\9router-plinian.tgz"
 9router-plinian
 ```
 
-> **SHA256 checksum (`9router-plinian-0.6.1b.tgz`):**
-> `1cd15a50e793cb39fbc8f451d81d98262b28c12fd465c359b43e9d8f57bc7677`
+> **SHA256 checksum (`9router-plinian-0.6.2.tgz`):**
+> `73953838a50ea28ee966ce90e01e8def2ac22ad5417a9477653d0c88a35a252c`
 > `npm install -g <file>` still resolves the package's few small dependencies (react, node-forge, …) from whatever registry your npm is configured to use — a mirror counts. Only the package itself is fetched from GitHub. The Red-Team payloads load at install time from the bundled `payloads.tar.gz` into `~/.9router/payloads/` (override with `9ROUTER_JAILBREAK_DIR`).
 
 > 💡 **Why not npm?** `9router-plinian` ships security-research / red-team prompt payloads (dual-use content). npm's 2026-07-28 publish-time scanner + dual-use policy blocks the version at "automated review," and staged approval requires a human 2FA on every release. The GitHub release path sidesteps that entirely and is the supported install.

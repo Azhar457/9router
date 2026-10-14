@@ -129,9 +129,8 @@ export default function Sidebar({ onClose }) {
            {["amber", "sea", "rose", "teal", "violet"].map((key) => {
              const active = palette === key;
              // Rest colors: the 3 original macOS traffic-lights + 2 new ones
-             // (teal = cyan, violet = brand). Inactive dots show the rest color.
-             const REST = { amber: "#FF5F56", sea: "#FFBD2E", rose: "#27C93F", teal: "#22d3ee", violet: "#8B5CF6" };
-             const color = active ? PALETTES[key].swatch : REST[key];
+            // Match each key directly to its actual palette swatch so visual dot == active color!
+            const color = PALETTES[key]?.swatch || "#8B5CF6";
              return (
                <button
                  key={key}

@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import { Card, Badge, Button, AddCustomEmbeddingModal, NoAuthProxyCard, ProviderInfoCard } from "@/shared/components";
 import EditCompatibleNodeModal from "@/app/(dashboard)/dashboard/providers/[id]/EditCompatibleNodeModal";
 import ProviderIcon from "@/shared/components/ProviderIcon";
-import { MEDIA_PROVIDER_KINDS, AI_PROVIDERS, isCustomEmbeddingProvider, isOpenAICompatibleProvider } from "@/shared/constants/providers";
+import { MEDIA_PROVIDER_KINDS, AI_PROVIDERS, isCustomEmbeddingProvider, isOpenAICompatibleProvider, isAnthropicCompatibleProvider } from "@/shared/constants/providers";
 import ConnectionsCard from "@/app/(dashboard)/dashboard/providers/components/ConnectionsCard";
 import ModelsCard from "@/app/(dashboard)/dashboard/providers/components/ModelsCard";
 import { KIND_EXAMPLE_CONFIG } from "./components/exampleShared";
@@ -21,8 +21,9 @@ export default function MediaProviderDetailPage() {
   const router = useRouter();
   const kindConfig = MEDIA_PROVIDER_KINDS.find((k) => k.id === kind);
   const isEmbeddingCustom = isCustomEmbeddingProvider(id) && kind === "embedding";
-  const isImageCustom = isOpenAICompatibleProvider(id) && kind === "image";
-  const isCustom = isEmbeddingCustom || isImageCustom;
+  const isOpenAICustom = isOpenAICompatibleProvider(id);
+  const isAnthropicCustom = isAnthropicCompatibleProvider(id);
+  const isCustom = isEmbeddingCustom || isOpenAICustom || isAnthropicCustom || id.startsWith("custom-");
 
   const handleDeleteCustom = async () => {
     if (!confirm("Delete this custom provider node and its connections?")) return;

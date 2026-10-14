@@ -163,20 +163,21 @@ export default function MediaProviderKindPage() {
       .then((r) => r.json())
       .then((d) => setConnections(d.connections || []))
       .catch(() => {});
-    if (isEmbedding || isImage) {
-      fetch("/api/provider-nodes", { cache: "no-store" })
-        .then((r) => r.json())
-        .then((d) =>
-          setCustomNodes(
-            (d.nodes || []).filter((n) =>
-              isEmbedding
-                ? n.type === "custom-embedding"
-                : n.type === "openai-compatible" && (n.serviceKinds || []).includes("image")
-            )
-          )
+    fetch("/api/provider-nodes", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) =>
+        setCustomNodes(
+          (d.nodes || []).filter((n) => {
+            const kinds = n.serviceKinds || [];
+            if (isEmbedding && (n.type === "custom-embedding" || kinds.includes("embedding"))) return true;
+            return (
+              (n.type === "openai-compatible" || n.type === "anthropic-compatible" || n.type === "custom-node") &&
+              kinds.includes(kind)
+            );
+          })
         )
-        .catch(() => {});
-    }
+      )
+      .catch(() => {});
     if (supportsCombo) {
       fetch("/api/combos", { cache: "no-store" })
         .then((r) => r.json())

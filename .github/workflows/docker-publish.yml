@@ -62,7 +62,7 @@ jobs:
           const { execFileSync } = require("child_process");
 
           const tag = process.env.RELEASE_TAG || "";
-          const match = /^v((?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?)$/.exec(tag);
+          const match = /^v((?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)[0-9A-Za-z-]*(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?)$/.exec(tag);
 
           if (tag.includes("+")) {
             console.error(`Build metadata is not supported in Docker release tags: ${tag}`);

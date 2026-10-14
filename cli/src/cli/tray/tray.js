@@ -318,8 +318,20 @@ function openBrowser(url) {
 
   exec(cmd);
 }
+function sendToastNotification(title, message) {
+  if (isWinTray && trayInstance && trayInstance.stdin) {
+    try {
+      trayInstance.stdin.write(JSON.stringify({ action: "notify", title, message }) + "\n");
+    } catch {}
+  } else if (process.platform === "darwin") {
+    exec(`osascript -e 'display notification "${(message || "").replace(/"/g, '\\"')}" with title "${(title || "9Router").replace(/"/g, '\\"')}"'`);
+  } else if (process.platform === "linux") {
+    exec(`notify-send "${(title || "9Router").replace(/"/g, '\\"')}" "${(message || "").replace(/"/g, '\\"')}"`);
+  }
+}
 
 module.exports = {
   initTray,
-  killTray
+  killTray,
+  sendToastNotification
 };

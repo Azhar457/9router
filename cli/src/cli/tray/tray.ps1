@@ -112,6 +112,11 @@ $script:timer.Add_Tick({
         "add-item"    { Add-MenuItem $cmd.index $cmd.title $cmd.enabled }
         "update-item" { Update-MenuItem $cmd.index $cmd.title $cmd.enabled }
         "set-tooltip" { Set-Tooltip $cmd.text }
+        "notify"      {
+          $title = if ($cmd.title) { $cmd.title } else { "9Router Update" }
+          $msg = if ($cmd.message) { $cmd.message } else { "A new update is available." }
+          $script:notifyIcon.ShowBalloonTip(5000, $title, $msg, [System.Windows.Forms.ToolTipIcon]::Info)
+        }
         "ready"       { Write-Event @{ type = "ready" } }
         "kill"        {
           $script:notifyIcon.Visible = $false

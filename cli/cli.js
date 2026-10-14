@@ -782,7 +782,12 @@ function startServer(updatePromise) {
     const latestVersion = await latestVersionPromise;
     // Start tray icon alongside TUI
     initTrayIcon();
-
+    if (latestVersion) {
+      try {
+        const { sendToastNotification } = require("./src/cli/tray/tray");
+        sendToastNotification("9Router-Plinian Update", `New version v${latestVersion} is available! Select Update from menu.`);
+      } catch {}
+    }
     try {
       while (true) {
         const choice = await showInterfaceMenu(latestVersion);

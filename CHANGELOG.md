@@ -1,3 +1,11 @@
+# v0.6.2 (2026-10-14)
+
+## Features & Improvements
+- **Media Providers Integration for Custom Nodes**: OpenAI-compatible and Anthropic-compatible custom provider nodes with configured `serviceKinds` now appear dynamically under all Media Providers tabs (Embedding, Text-to-Image, Text-to-Speech, Speech-to-Text, Video, System One, Web Fetch & Search).
+- **Palette Theme Consistency**: Fixed mismatched dot colors in Sidebar theme selector. Inactive dots now display their actual swatch colors directly (Amber is warm amber `#F2A900`, Sea is blue `#0ea5e9`, Rose is red/pink `#e11d48`, Teal is cyan `#00B7B5`, Violet is brand `#8B5CF6`).
+- **Native OS Toast Notifications**: Added cross-platform system toast/balloon notifications on Windows (`ShowBalloonTip`), macOS (`osascript`), and Linux (`notify-send`) when a newer version is detected.
+- **CI Docker Semver & Workflow Fix**: Updated Docker semver validation regex to permit suffix release tags and fixed checkout ref in GitHub Actions.
+
 # v0.6.1b (2026-10-14)
 
 ## Fixes
