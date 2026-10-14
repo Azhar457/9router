@@ -48,6 +48,8 @@ export async function POST(request, { params }) {
 
     const body = await request.json().catch(() => ({}));
     const runTest = body.test !== false; // default true — the mandatory gate
+    // Optional: only register models of a specific kind (e.g. from media provider page)
+    const kindFilter = body.kind ? String(body.kind) : null;
 
     // One active connection carries the upstream key + baseUrl.
     const conns = (await getProviderConnections({ provider: id, isActive: true })).filter((c) => c.isActive !== false);
@@ -83,6 +85,7 @@ export async function POST(request, { params }) {
       seen.add(m.id);
       const kind = inferKind(m.id);
       if (!MEDIA_KINDS.has(kind)) continue; // only auto-register media kinds
+      if (kindFilter && kind !== kindFilter) continue; // optional kind filter
       const already = existingCustom.some((e) => e.id === m.id && (e.type || "llm") === kind);
       candidates.push({ id: m.id, name: m.name, kind, alreadyRegistered: already });
     }
