@@ -91,7 +91,7 @@
 > than the new capabilities, stay on the **0.5.99 stable** line:
 >
 > ```bash
-> curl -fsSL https://github.com/Azhar457/9router/releases/download/v0.5.99/9router-plinian-0.5.99.tgz \\
+> curl -fsSL https://github.com/Azhar457/9router/releases/latest/download/9router-plinian-latest.tgz \
 >   -o /tmp/9router-plinian.tgz && npm i -g /tmp/9router-plinian.tgz
 > ```
 

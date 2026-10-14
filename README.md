@@ -49,22 +49,24 @@ Everything upstream ships and we don't touch — OAuth providers, combos, quota 
 
 **Linux / macOS:**
 ```bash
-curl -fsSL https://github.com/Azhar457/9router/releases/download/v0.6.2/9router-plinian-0.6.2.tgz \
+curl -fsSL https://github.com/Azhar457/9router/releases/latest/download/9router-plinian-latest.tgz \
   -o /tmp/9router-plinian.tgz && npm install -g /tmp/9router-plinian.tgz
 9router-plinian
-```
 
 **Windows (PowerShell / Command Prompt):**
 > *Tips: Jika `npm` di PowerShell terhalang aturan ExecutionPolicy, Anda cukup buka **cmd.exe** (Command Prompt) biasa lalu jalankan perintah di bawah ini tanpa gangguan policy:*
 
 ```powershell
-curl.exe -fsSL https://github.com/Azhar457/9router/releases/download/v0.6.2/9router-plinian-0.6.2.tgz -o "$env:TEMP\9router-plinian.tgz"
+curl.exe -fsSL https://github.com/Azhar457/9router/releases/latest/download/9router-plinian-latest.tgz -o "$env:TEMP\9router-plinian.tgz"
 npm install -g "$env:TEMP\9router-plinian.tgz"
 9router-plinian
 ```
 
-> **SHA256 checksum (`9router-plinian-0.6.2.tgz`):**
-> `32eafb9b565565ec72c8a45692b6861ba14a21e700528d884957bcdfa763380a`
+> **Verify integrity after download:**
+> ```bash
+> sha256sum /tmp/9router-plinian.tgz   # Linux/macOS
+> Get-FileHash .\9router-plinian.tgz -Algorithm SHA256   # Windows
+> ```
 
 > 💡 **Why not npm?** `9router-plinian` ships security-research / red-team prompt payloads (dual-use content). npm's 2026-07-28 publish-time scanner + dual-use policy blocks the version at "automated review," and staged approval requires a human 2FA on every release. The GitHub release path sidesteps that entirely and is the supported install.
 
