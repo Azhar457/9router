@@ -56,8 +56,12 @@ curl -fsSL https://github.com/Azhar457/9router/releases/download/v0.6.1b/9router
 PowerShell:
 
 ```powershell
-curl.exe -fsSL https://github.com/Azhar457/9router/releases/download/v0.6.1b/9router-plinian-0.6.1b.tgz \
-  -o $env:TEMP\9router-plinian.tgz; npm i -g $env:TEMP\9router-plinian.tgz
+# 1. Bypass ExecutionPolicy for the session (jika npm.ps1 terblokir)
+Set-ExecutionPolicy Bypass -Scope Process -Force
+
+# 2. Download dan install tarball release
+curl.exe -fsSL https://github.com/Azhar457/9router/releases/download/v0.6.1b/9router-plinian-0.6.1b.tgz -o "$env:TEMP\9router-plinian.tgz"
+npm install -g "$env:TEMP\9router-plinian.tgz"
 9router-plinian
 ```
 
