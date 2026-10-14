@@ -38,7 +38,6 @@ export default function MediaProviderDetailPage() {
   const [customNode, setCustomNode] = useState(null);
   const [customLoading, setCustomLoading] = useState(isCustom);
   const [showEditModal, setShowEditModal] = useState(false);
-
   // Fetch custom node info from API for custom embedding nodes
   useEffect(() => {
     if (!isCustom) return;

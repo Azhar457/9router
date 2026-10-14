@@ -64,8 +64,7 @@ npm install -g "$env:TEMP\9router-plinian.tgz"
 ```
 
 > **SHA256 checksum (`9router-plinian-0.6.2.tgz`):**
-> `73953838a50ea28ee966ce90e01e8def2ac22ad5417a9477653d0c88a35a252c`
-> `npm install -g <file>` still resolves the package's few small dependencies (react, node-forge, …) from whatever registry your npm is configured to use — a mirror counts. Only the package itself is fetched from GitHub. The Red-Team payloads load at install time from the bundled `payloads.tar.gz` into `~/.9router/payloads/` (override with `9ROUTER_JAILBREAK_DIR`).
+> `7fc09d67ca95d752d4c1603b9f23f16f2ceb3b2fc1b296c8ed71cc650047bca4`
 
 > 💡 **Why not npm?** `9router-plinian` ships security-research / red-team prompt payloads (dual-use content). npm's 2026-07-28 publish-time scanner + dual-use policy blocks the version at "automated review," and staged approval requires a human 2FA on every release. The GitHub release path sidesteps that entirely and is the supported install.
 

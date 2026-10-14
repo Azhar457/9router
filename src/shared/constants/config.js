@@ -14,7 +14,7 @@ export const GITHUB_CONFIG = {
 };
 
 // Updater configuration
-const GH_LATEST_URL = `https://github.com/Azhar457/9router/releases/latest/download/9router-plinian-v0.6.2.tgz`;
+const GH_LATEST_URL = `https://github.com/Azhar457/9router/releases/latest/download/9router-plinian-latest.tgz`;
 
 // Per-OS install command templates.
 // - bash / sh: single line with &&

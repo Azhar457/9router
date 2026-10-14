@@ -199,7 +199,7 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
       const res = await fetch(`/api/provider-nodes/${providerId}/auto-register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ test: true }),
+        body: JSON.stringify({ test: true, kind: kindFilter || undefined }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
@@ -257,6 +257,16 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
       <Card>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Models{kindFilter ? ` — ${kindFilter.toUpperCase()}` : ""}</h2>
+          {isCustomNode && (
+            <button
+              onClick={handleAutoRegister}
+              disabled={autoRegisterRunning}
+              className="inline-flex items-center gap-1.5 h-7 px-3 text-xs font-semibold rounded-[8px] bg-surface-2 hover:bg-surface-3 text-text-main border border-border transition-colors disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-[18px]">download</span>
+              {autoRegisterRunning ? "Importing…" : "Import from /models"}
+            </button>
+          )}
         </div>
         {testError && <p className="text-xs text-red-500 mb-3 break-words">{testError}</p>}
 
@@ -307,6 +317,35 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
           </button>
 
         </div>
+
+        {isCustomNode && (autoRegisterRunning || autoRegisterResult) && (
+          <div className="mt-4 rounded-lg border border-border bg-surface-2/50 p-3">
+            <p className="mb-2 text-xs text-text-muted">
+              {autoRegisterRunning ? "Scanning upstream & testing models…" :
+                autoRegisterResult.error ? "Import failed" :
+                `Scanned ${autoRegisterResult.scanned} model(s), registered ${autoRegisterResult.registered}.`}
+            </p>
+            {!autoRegisterRunning && !autoRegisterResult.error && autoRegisterResult.results?.length > 0 && (
+              <ul className="flex flex-col gap-1">
+                {autoRegisterResult.results.map((r) => (
+                  <li key={r.model} className="flex items-center gap-2 text-xs">
+                    <span className={`material-symbols-outlined text-sm ${r.status === "added" ? "text-green-500" : r.status === "registered" ? "text-text-muted" : "text-amber-500"}`}>
+                      {r.status === "added" ? "check_circle" : r.status === "registered" ? "task_alt" : "warning"}
+                    </span>
+                    <code className="font-mono">{r.model}</code>
+                    <span className="text-text-muted">{r.kind}</span>
+                    <span className="ml-auto text-text-muted">
+                      {r.status === "skipped-test" ? "test failed" : r.status === "added" ? "registered" : "already present"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {!autoRegisterRunning && autoRegisterResult.error && (
+              <p className="text-xs text-red-500">{autoRegisterResult.error}</p>
+            )}
+          </div>
+        )}
       </Card>
 
       <AddCustomModelModal
@@ -318,55 +357,6 @@ export default function ModelsCard({ providerId, kindFilter, providerAliasOverri
         onClose={() => setShowAddCustomModel(false)}
       />
 
-      {isCustomNode && (
-        <div className="flex flex-col gap-3 rounded-xl border border-dashed border-primary/30 bg-primary/5 p-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold">Auto-register media models</h3>
-            <Button
-              size="sm"
-              icon="auto_awesome"
-              onClick={() => { setShowAddCustomModel(false); handleAutoRegister(); }}
-              disabled={autoRegisterRunning}
-            >
-              {autoRegisterRunning ? "Scanning…" : "Scan & test upstream"}
-            </Button>
-          </div>
-          <p className="text-xs text-text-muted">
-            Scans this node&apos;s upstream <code>/models</code>, infers each model&apos;s media kind, pings the
-            matching endpoint, and registers only the models that pass.
-          </p>
-          {autoRegisterRunning && <p className="text-xs text-primary animate-pulse">Fetching upstream &amp; testing models…</p>}
-          {autoRegisterResult && !autoRegisterRunning && (
-            <div className="rounded-lg border border-border bg-background p-3">
-              {autoRegisterResult.error ? (
-                <p className="text-xs text-red-500">{autoRegisterResult.error}</p>
-              ) : (
-                <>
-                  <p className="mb-2 text-xs text-text-muted">
-                    Scanned {autoRegisterResult.scanned} model(s), registered {autoRegisterResult.registered}.
-                  </p>
-                  <ul className="flex flex-col gap-1">
-                    {autoRegisterResult.results.map((r) => (
-                      <li key={r.model} className="flex items-center gap-2 text-xs">
-                        <span className={`material-symbols-outlined text-sm ${r.status === "added" ? "text-green-500" : r.status === "registered" ? "text-text-muted" : "text-amber-500"}`}>
-                          {r.status === "added" ? "check_circle" : r.status === "registered" ? "task_alt" : "warning"}
-                        </span>
-                        <code className="font-mono">{r.model}</code>
-                        <span className="text-text-muted">{r.kind}</span>
-                        <span className="ml-auto text-text-muted">
-                          {r.status === "skipped-test" ? `test failed: ${r.pingError || "no response"}` :
-                           r.status === "added" ? (r.tested ? "registered (tested)" : "registered") :
-                           r.status === "registered" ? "already present" : r.status}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-      )}
     </>
   );
 }
