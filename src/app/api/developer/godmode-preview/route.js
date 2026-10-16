@@ -1,4 +1,4 @@
-import { getGodmodePrompt, pickGodmodeVariant } from "open-sse/rtk/godmodePayloads.js";
+import { getGodmodePrompt, pickGodmodeVariant } from "open-sse/payload/godmodePayloads.js";
 import { estimateTokens, formatTok } from "open-sse/rtk/tokenEstimate.js";
 
 export const dynamic = "force-dynamic";

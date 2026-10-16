@@ -1,4 +1,4 @@
-import { getPlinianPrompt } from "open-sse/rtk/plinianPrompts.js";
+import { getPlinianPrompt } from "open-sse/payload/plinianPrompts.js";
 import { estimateTokens, formatTok } from "open-sse/rtk/tokenEstimate.js";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +21,7 @@ export async function POST(request) {
   const identity = typeof body?.identity === "string" ? body.identity.trim() : "";
   const registerCustom = typeof body?.registerCustom === "string" ? body.registerCustom.trim() : "";
   // A custom register (from the UI editor) overrides the preset level — same
-  // contract as injectGlobal() in open-sse/rtk/globalInject.js.
+  // contract as injectGlobal() in open-sse/payload/globalInject.js.
    const base = preset ? getPlinianPrompt(level) : (registerCustom || getPlinianPrompt(level));
   const text = identity ? `${identity}\n\n${base}` : base;
 

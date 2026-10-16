@@ -34,7 +34,7 @@
 
 import { injectPlinian } from "./plinian.js";
 import { injectGodmode } from "./godmode.js";
-import { injectSystemPrompt } from "./systemInject.js";
+import { injectSystemPrompt } from "../rtk/systemInject.js";
 import { getGodmodePrompt } from "./godmodePayloads.js";
 import { CARRIER_SLOT, spliceCarrier, resolvePayload } from "./payloadCatalog.js";
 import { getExternalPayload } from "./jailbreakPayloads.js";

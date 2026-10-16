@@ -1,5 +1,5 @@
-import { getExternalPayload } from "open-sse/rtk/jailbreakPayloads.js";
-import { getGodmodePrompt } from "open-sse/rtk/godmodePayloads.js";
+import { getExternalPayload } from "open-sse/payload/jailbreakPayloads.js";
+import { getGodmodePrompt } from "open-sse/payload/godmodePayloads.js";
 
 export const dynamic = "force-dynamic";
 

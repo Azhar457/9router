@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { injectPlinian } from "../../open-sse/rtk/plinian.js";
-import { getPlinianPrompt, PLINIAN_LEVELS } from "../../open-sse/rtk/plinianPrompts.js";
+import { injectPlinian } from "../../open-sse/payload/plinian.js";
+import { getPlinianPrompt, PLINIAN_LEVELS } from "../../open-sse/payload/plinianPrompts.js";
 
 describe("injectPlinian", () => {
   it("appends the level prompt to an existing system message", () => {

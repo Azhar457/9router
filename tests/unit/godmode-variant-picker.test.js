@@ -6,7 +6,7 @@ import {
   getGodmodePrompt,
   GODMODE_LEVELS,
   VARIANT_ADAPTIVE_THINKING,
-} from "open-sse/rtk/godmodePayloads.js";
+} from "open-sse/payload/godmodePayloads.js";
 
 describe("pickGodmodeVariant", () => {
   it("returns classic for empty/invalid model", () => {

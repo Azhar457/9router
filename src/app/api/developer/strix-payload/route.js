@@ -1,5 +1,5 @@
 import { assertPayloadAuth } from "@/lib/auth/payloadAuth";
-import { getStrixPayload, getStrixPayloads } from "open-sse/rtk/strixPayloads.js";
+import { getStrixPayload, getStrixPayloads } from "open-sse/penetration/strixPayloads.js";
 
 export const dynamic = "force-dynamic";
 

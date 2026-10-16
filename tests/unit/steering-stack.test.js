@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { injectCaveman } from "../../open-sse/rtk/caveman.js";
 import { injectPonytail } from "../../open-sse/rtk/ponytail.js";
-import { injectPlinian } from "../../open-sse/rtk/plinian.js";
+import { injectPlinian } from "../../open-sse/payload/plinian.js";
 
 // Proves the full steering stack coexists in ONE system message without any
 // layer clobbering another — the regression the audit was worried about.

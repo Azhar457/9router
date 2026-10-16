@@ -3,7 +3,7 @@
 // same mechanics as caveman.js / ponytail.js. Fail-open: any error leaves the
 // body untouched.
 
-import { injectSystemPrompt } from "./systemInject.js";
+import { injectSystemPrompt } from "../rtk/systemInject.js";
 import { getPlinianPrompt } from "./plinianPrompts.js";
 
 export function injectPlinian(body, format, level, identityText = "") {

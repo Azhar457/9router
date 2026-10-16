@@ -12,7 +12,7 @@
 // agents_graph, threat_model) ada di catatan ponytail di agentRuntime.js.
 
 import { runInSandbox } from "@/shared/lib/pentestSandbox.js";
-import { getStrixPayload, getStrixPayloads } from "open-sse/rtk/strixPayloads.js";
+import { getStrixPayload, getStrixPayloads } from "open-sse/penetration/strixPayloads.js";
 
 const STRIX_INDEX = getStrixPayloads()
   .map((p) => `${p.cat}/${p.name}`)

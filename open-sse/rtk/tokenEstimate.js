@@ -26,10 +26,10 @@ export function formatTok(n) {
 // Aggregate estimate of the Global Injection payload set, independent of
 // any request: register (plinian preset or custom) + identity + godmode
 // variant. Same text selection as injectGlobal() in globalInject.js.
-import { getPlinianPrompt } from "./plinianPrompts.js";
-import { getGodmodePrompt, pickGodmodeVariant } from "./godmodePayloads.js";
-import { getExternalPayload } from "./jailbreakPayloads.js";
-import { CARRIER_SLOT, spliceCarrier } from "./payloadCatalog.js";
+import { getPlinianPrompt } from "../payload/plinianPrompts.js";
+import { getGodmodePrompt, pickGodmodeVariant } from "../payload/godmodePayloads.js";
+import { getExternalPayload } from "../payload/jailbreakPayloads.js";
+import { CARRIER_SLOT, spliceCarrier } from "../payload/payloadCatalog.js";
 
 export function estimateGlobalInjection({
   registerLevel = "standard",

@@ -3,7 +3,7 @@
 // mechanics as caveman.js / ponytail.js / plinian.js.
 // Fail-open: any error leaves the body untouched.
 
-import { injectSystemPrompt } from "./systemInject.js";
+import { injectSystemPrompt } from "../rtk/systemInject.js";
 import { getGodmodePrompt, pickGodmodeVariant } from "./godmodePayloads.js";
 
 export function injectGodmode(body, format, level = "classic", customText = "", model = "") {

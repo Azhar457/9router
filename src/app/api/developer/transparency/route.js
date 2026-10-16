@@ -1,6 +1,6 @@
-import { getGodmodePrompt, pickGodmodeVariant } from "open-sse/rtk/godmodePayloads.js";
-import { getPlinianPrompt } from "open-sse/rtk/plinianPrompts.js";
-import { spliceCarrier } from "open-sse/rtk/payloadCatalog.js";
+import { getGodmodePrompt, pickGodmodeVariant } from "open-sse/payload/godmodePayloads.js";
+import { getPlinianPrompt } from "open-sse/payload/plinianPrompts.js";
+import { spliceCarrier } from "open-sse/payload/payloadCatalog.js";
 import { detect, estimateTokenSaver, classifyPrompt } from "@/shared/lib/injectionDetect.js";
 
 export const runtime = "nodejs";

@@ -1,6 +1,6 @@
-import { getGodmodePrompt, pickGodmodeVariant } from "open-sse/rtk/godmodePayloads.js";
-import { getExternalPayload } from "open-sse/rtk/jailbreakPayloads.js";
-import { CARRIER_SLOT, spliceCarrier } from "open-sse/rtk/payloadCatalog.js";
+import { getGodmodePrompt, pickGodmodeVariant } from "open-sse/payload/godmodePayloads.js";
+import { getExternalPayload } from "open-sse/payload/jailbreakPayloads.js";
+import { CARRIER_SLOT, spliceCarrier } from "open-sse/payload/payloadCatalog.js";
 import { estimateTokens, formatTok } from "open-sse/rtk/tokenEstimate.js";
 
 export const dynamic = "force-dynamic";

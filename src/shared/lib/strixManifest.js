@@ -5,7 +5,7 @@
 // Phase 1). This file is imported by client components, so it must stay a
 // plain data module — no node:fs, no dynamic reads. The live text of each
 // payload is fetched on demand from /api/developer/strix-payload (server-side,
-// backed by open-sse/rtk/strixPayloads.js which walks the real files).
+// backed by open-sse/penetration/strixPayloads.js which walks the real files).
 //
 // No fetch at module load; no I/O.
 
