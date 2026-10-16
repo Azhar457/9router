@@ -1,3 +1,5 @@
+import { normalizeNousFreeModels } from "open-sse/services/nous.js";
+
 // Free OpenCode models that don't use the "-free" id suffix
 const KNOWN_FREE_OPENCODE_MODELS = ["big-pickle"];
 
@@ -33,6 +35,20 @@ export const FILTERS = {
       .filter((m) => m.id?.startsWith("mimo") || m.name?.toLowerCase().includes("mimo"))
       .map((m) => ({ id: m.id, name: m.name || m.id })),
 
+  // MiniMax Code (mcode) live catalog: {providers:[{providerId:"minimax",
+  // config:{models:{<id>:{name, limit, modalities, thinking_config}}}}]} —
+  // arrives wrapped in a single-element array (see route normalization).
+  "minimax-code": (raw) => {
+    const env = Array.isArray(raw) ? raw[0] : raw;
+    const p = (Array.isArray(env?.providers) ? env.providers : []).find((x) => x?.providerId === "minimax");
+    const ms = p?.config?.models;
+    if (!ms || typeof ms !== "object") return [];
+    return Object.entries(ms)
+      .filter(([id, m]) => typeof id === "string" && id.trim() !== "" && m && typeof m === "object")
+      .map(([id, m]) => ({ id, name: m?.name || id, contextLength: Number(m?.limit?.context) || undefined }))
+      .sort((a, b) => (b.contextLength || 0) - (a.contextLength || 0));
+  },
+
   "airforce-free": (models) =>
     (Array.isArray(models) ? models : [])
       .filter((m) => (m.tier === "free" || m.id?.endsWith(":free")) && m.supports_chat === true && (!m.media_type || m.media_type === "chat" || m.media_type === "text"))
@@ -40,7 +56,6 @@ export const FILTERS = {
       .sort((a, b) => String(a.id).localeCompare(String(b.id))),
   // Raw pass-through: return every entry the endpoint lists, unfiltered.
   // Used by "Import from /models" with a custom URL (e.g. a gateway's /v1/models).
-  // Raw pass-through: return every entry the endpoint lists, unfiltered.
   // Preserves the free signal (pricing / isFree) so the dashboard preview can
   // compute an accurate free count and the "free-only" import works. OpenAI-style
   // gateways mark free models with pricing.prompt/completion === "0".
@@ -53,4 +68,6 @@ export const FILTERS = {
         contextLength: m.context_length || m.contextLength,
         isFree: m.isFree ?? ((m.pricing?.prompt === "0" && m.pricing?.completion === "0") || m.id?.endsWith(":free")),
       })),
+
+  "nous-free": normalizeNousFreeModels,
 };

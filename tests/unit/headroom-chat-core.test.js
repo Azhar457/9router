@@ -291,9 +291,9 @@ describe("handleChatCore Headroom diagnostics", () => {
 
     expect(log.warn).toHaveBeenCalledWith(
       "HEADROOM",
-      expect.stringMatching(
-        /reported token delta, but messages and outbound JSON shrank <5%[\s\S]*reported savings but shrink <5% \(rolled back\)/
-      )
+      // Plinian fork: reported savings with <5% real shrink are rolled back and
+      // surfaced in the skip path (the refusal diagnostic carries the reason).
+      expect.stringContaining("skipped: rejected: reported savings but shrink <5% (rolled back)")
     );
   });
 

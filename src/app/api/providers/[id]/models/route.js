@@ -13,37 +13,36 @@ import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 import { resolveCursorModels } from "open-sse/services/cursorModels.js";
 import { resolveZedModels } from "open-sse/shared/zedAuth.js";
 import { resolveClineModels, resolveClinepassModels } from "open-sse/services/clinepassModels.js";
- // In-memory cache for provider model lists. The dashboard re-hits this route on
- // every open / "Import" / "Get Models" click; the provider APIs are the slow
- // part, so we cache the *remote-fetch* results for a short TTL. Static
- // built-in lists and per-connection secrets are keyed into the cache key.
- const MODELS_CACHE_TTL_MS = 5 * 60 * 1000;
- const modelsCache = new Map(); // key -> { data, expiresAt }
- function modelsCacheGet(key) {
-   const hit = modelsCache.get(key);
-   if (!hit) return undefined;
-   if (Date.now() >= hit.expiresAt) {
-     modelsCache.delete(key);
-     return undefined;
-   }
-   return hit.data;
- }
- function modelsCacheSet(key, data) {
-   modelsCache.set(key, { data, expiresAt: Date.now() + MODELS_CACHE_TTL_MS });
-   if (modelsCache.size > 512) {
-     // Drop the oldest entry (Map preserves insertion order).
-     const firstKey = modelsCache.keys().next().value;
-     modelsCache.delete(firstKey);
-   }
- }
+import { NOUS_MODELS_URL, normalizeNousModels } from "open-sse/services/nous.js";
+import codexProvider from "open-sse/providers/registry/codex.js";
+
+// In-memory cache for provider model lists. The dashboard re-hits this route on
+// every open / "Import" / "Get Models" click; the provider APIs are the slow
+// part, so we cache the *remote-fetch* results for a short TTL. Static
+// built-in lists and per-connection secrets are keyed into the cache key.
+const MODELS_CACHE_TTL_MS = 5 * 60 * 1000;
+const modelsCache = new Map(); // key -> { data, expiresAt }
+function modelsCacheGet(key) {
+  const hit = modelsCache.get(key);
+  if (!hit) return undefined;
+  if (Date.now() >= hit.expiresAt) {
+    modelsCache.delete(key);
+    return undefined;
+  }
+  return hit.data;
+}
+function modelsCacheSet(key, data) {
+  modelsCache.set(key, { data, expiresAt: Date.now() + MODELS_CACHE_TTL_MS });
+  if (modelsCache.size > 512) {
+    // Drop the oldest entry (Map preserves insertion order).
+    const firstKey = modelsCache.keys().next().value;
+    modelsCache.delete(firstKey);
+  }
+}
 
 
-// The /codex/models endpoint gates each entry by minimal_client_version against this
-// value, and codex CLI's own manifest (openai/codex codex-rs/models-manager/models.json)
-// already requires 0.144.0 for its newest models, so a stale client_version here comes
-// back 200 with those entries quietly missing instead of erroring.
-const CODEX_CLIENT_VERSION = "0.144.6";
-const CODEX_MODELS_URL = `https://chatgpt.com/backend-api/codex/models?client_version=${CODEX_CLIENT_VERSION}`;
+// Model discovery must identify as the same Codex CLI version as inference.
+const CODEX_MODELS_URL = `https://chatgpt.com/backend-api/codex/models?client_version=${codexProvider.transport.cliVersion}`;
 
 const parseOpenAIStyleModels = (data) => {
   if (Array.isArray(data)) return data;
@@ -102,6 +101,15 @@ const createOpenAIModelsConfig = (url) => ({
   authPrefix: "Bearer ",
   parseResponse: parseOpenAIStyleModels
 });
+
+const normalizeRoutedNousModels = (data) => normalizeNousModels(data).map((model) => ({
+  ...model,
+  // Live upstream IDs include a vendor namespace (for example,
+  // stepfun/step-5-preview:free). Prefix the owning 9router provider so Basic
+  // Chat does not parse that namespace as the provider itself.
+  id: `nous/${model.id}`,
+  upstreamModelId: model.id,
+}));
 
 const getStaticProviderModels = (providerId) =>
   getModelsByProviderId(providerId).map((model) => ({
@@ -194,6 +202,14 @@ function buildQoderModelsResolver(providerId) {
 
 // Provider models endpoints configuration
 const PROVIDER_MODELS_CONFIG = {
+  "muse": {
+    url: "https://api.meta.ai/v1/models",
+    method: "GET",
+    headers: { "Content-Type": "application/json", "x-api-version": "1.0.0" },
+    authHeader: "Authorization",
+    authPrefix: "Bearer ",
+    parseResponse: (data) => data.data || [],
+  },
   claude: {
     url: "https://api.anthropic.com/v1/models",
     method: "GET",
@@ -265,6 +281,10 @@ const PROVIDER_MODELS_CONFIG = {
   },
   openai: createOpenAIModelsConfig("https://api.openai.com/v1/models"),
   openrouter: createOpenAIModelsConfig("https://openrouter.ai/api/v1/models"),
+  nous: {
+    ...createOpenAIModelsConfig(NOUS_MODELS_URL),
+    parseResponse: normalizeRoutedNousModels,
+  },
   anthropic: {
     url: "https://api.anthropic.com/v1/models",
     method: "GET",

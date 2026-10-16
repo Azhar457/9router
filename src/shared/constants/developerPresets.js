@@ -96,7 +96,7 @@ export const RACE_HARD_TIMEOUT_MS = 120000;
 // time, so they appear as a separate "📦 Carrier warp" optgroup in the
 // Persona dropdown. The Persona text (injectionIdentity) IS the carrier:
 // splicing into [YOUR JAILBREAK HERE] happens at injection time
-// (open-sse/rtk/globalInject.js) when the text carries the slot marker.
+// (open-sse/payload/globalInject.js) when the text carries the slot marker.
 export const PERSONA_TEMPLATES = [
   {
     id: "tpl-plinian-default",

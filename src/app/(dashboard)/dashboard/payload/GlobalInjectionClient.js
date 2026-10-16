@@ -46,7 +46,7 @@ const PAYLOAD_CATEGORIES_UI = [
 ];
 
 // Slot marker that carriers use to splice the main payload — matches
-// CARRIER_SLOT in open-sse/rtk/payloadCatalog.js (keeps the seam highlight
+// CARRIER_SLOT in open-sse/payload/payloadCatalog.js (keeps the seam highlight
 // in sync with what the injection pipeline checks).
 const CARRIER_SLOT_MARK = "[YOUR JAILBREAK HERE]";
 
