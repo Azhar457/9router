@@ -1,7 +1,18 @@
-# v0.6.3 (2026-10-16)
+# v0.6.3 (2026-10-17)
 
 ## Rebase
 - Plinian fork rebased onto upstream 9Router v0.5.104 — all fork features retained (see v0.6.x entries below and upstream v0.5.92–v0.5.104 entries above)
+
+## Features & Improvements
+- **Go reverse proxy** (`go/`): client-IP stamping, access log, graceful shutdown; zero behavior change — Next.js keeps all app logic
+- **Import Config route** (`POST /api/provider-nodes/[id]/import-config`): merge built-in provider media serviceKinds into a custom node; auto-set baseUrl when empty or default OpenAI URL
+- **deriveBaseUrl** (`src/shared/utils/deriveBaseUrl.js`): strip media-endpoint suffixes (/images/generations, /videos, /embeddings, /tts) to base URL
+- **OpenCode free tier**: route to `/inference/v1` with v2 client fingerprint (#4842); attested free-tier identity for `-free` models on keyed lane (#4784); `claude-haiku-5-5` pinned to `/messages` with adaptive thinking (#4727)
+- **OpenCode Zen**: reasoning_content placeholder for multi-turn chats (#4805); inverted-timestamp session ID encoding (#4780)
+- **DeepSeek**: dedupe same-name tool entries — upstream rejects duplicates with 400 "Tool names must be unique" (#3333)
+- **chatCore**: fall back to declared targetFormat transport when source format is unsupported
+- **CLI tools**: replace `sk_9router` placeholder with first active dashboard API key
+- **RTK/Payload split**: `open-sse/rtk/` (token-saver + compressor only), `open-sse/payload/` (globalInject, godmode, jailbreak), `open-sse/penetration/` (strix payloads, skill router)
 
 # v0.5.104 (2026-10-15)
 
