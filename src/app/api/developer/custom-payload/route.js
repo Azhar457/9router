@@ -88,21 +88,29 @@ export async function POST(request) {
           }
           return out;
         };
-        const files = walk(tmp).slice(0, MAX_FILES);
-        if (!files.length) {
+        const files = walk(tmp);
+        const totalFiles = files.length;
+        const kept = files.slice(0, MAX_FILES);
+        if (!kept.length) {
           return Response.json({ error: "No .md/.txt payloads found in that repo" }, { status: 400 });
         }
         const saved = [];
-        for (const f of files) {
+        let skipped = 0;
+        for (const f of kept) {
           const text = readFileSync(join(tmp, f.base, f.name), "utf8");
-          if (!text.trim() || Buffer.byteLength(text) > MAX_FILE) continue;
+          if (!text.trim() || Buffer.byteLength(text) > MAX_FILE) { skipped++; continue; }
           const target = repoFileTarget(dir, f.base, f.name);
-          if (!target) continue;
+          if (!target) { skipped++; continue; }
           writeFileSync(target.abs, text);
           saved.push(target.rel);
         }
         if (saved.length) refreshCustomPayloadRegistry();
-        return Response.json({ saved: saved.length, names: saved });
+        const response = { saved: saved.length, names: saved };
+        if (totalFiles > MAX_FILES) response.truncated = true;
+        response.note = totalFiles > MAX_FILES
+          ? `Imported ${saved.length} of ${totalFiles} files (limit ${MAX_FILES} reached)`
+          : (skipped ? `Imported ${saved.length}, skipped ${skipped} (empty or too large)` : undefined);
+        return Response.json(response);
       } catch (e) {
         return Response.json({ error: `Import failed: ${String(e.message).slice(0, 120)}` }, { status: 400 });
       } finally {

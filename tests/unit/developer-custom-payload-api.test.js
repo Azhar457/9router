@@ -107,23 +107,31 @@ vi.mock("open-sse/payload/jailbreakPayloads.js", async () => {
 // Fake the repo-import shell pipeline (now just `curl -sL … | tar -xz -C tmp
 // --strip-components=1` — the mkdir/cleanup are plain fs calls in production)
 // without any network.
+// The execSync mock: writes a set of fixture files into the "extracted"
+// codeload tarball dir. `big` flag → 201+ files to exercise the cap.
+const execMock = vi.hoisted(() => ({ big: false }));
 vi.mock("node:child_process", async () => {
   const fs = await import("node:fs");
+  const path = await import("node:path");
   return {
     execSync: (cmd) => {
       const dir = JSON.parse(cmd.match(/tar -xz -C ("[^"]+")/)[1]);
-      fs.mkdirSync(path.join(dir, "sub"), { recursive: true });
-      fs.writeFileSync(path.join(dir, "README.md"), "# readme junk");
-      fs.writeFileSync(path.join(dir, "LICENSE.txt"), "MIT");
-      fs.writeFileSync(path.join(dir, "My Payload!.md"), "custom repo payload");
-      fs.writeFileSync(path.join(dir, "sub", "nested.txt"), "nested repo payload");
-      // Windows portability cases: reserved dir name, reserved file stem,
-      // trailing-dot dir name.
-      fs.mkdirSync(path.join(dir, "con"), { recursive: true });
-      fs.mkdirSync(path.join(dir, "sub", "sub dir."), { recursive: true });
-      fs.writeFileSync(path.join(dir, "con", "aux.txt"), "inside windows-nuke dir");
-      fs.writeFileSync(path.join(dir, "nul.txt"), "windows-nuke file");
-      fs.writeFileSync(path.join(dir, "sub", "sub dir.", "deep.txt"), "trailing-dot dir");
+      if (execMock.big) {
+        for (let i = 0; i < 201; i++) fs.writeFileSync(path.join(dir, `bulk-${i}.txt`), `bulk ${i}`);
+      } else {
+        fs.mkdirSync(path.join(dir, "sub"), { recursive: true });
+        fs.writeFileSync(path.join(dir, "README.md"), "# readme junk");
+        fs.writeFileSync(path.join(dir, "LICENSE.txt"), "MIT");
+        fs.writeFileSync(path.join(dir, "My Payload!.md"), "custom repo payload");
+        fs.writeFileSync(path.join(dir, "sub", "nested.txt"), "nested repo payload");
+        // Windows portability cases: reserved dir name, reserved file stem,
+        // trailing-dot dir name.
+        fs.mkdirSync(path.join(dir, "con"), { recursive: true });
+        fs.mkdirSync(path.join(dir, "sub", "sub dir."), { recursive: true });
+        fs.writeFileSync(path.join(dir, "con", "aux.txt"), "inside windows-nuke dir");
+        fs.writeFileSync(path.join(dir, "nul.txt"), "windows-nuke file");
+        fs.writeFileSync(path.join(dir, "sub", "sub dir.", "deep.txt"), "trailing-dot dir");
+      }
     },
   };
 });
@@ -249,6 +257,23 @@ describe("POST — import URL", () => {
     );
     // temp tar dir dibersihkan di finally (dir route = `9r-custom-<timestamp>`, full digit)
     expect(readdirSync(os.tmpdir()).filter((d) => /^9r-custom-\d+$/.test(d))).toEqual([]);
+  });
+
+  it("repo URL > 200 file → cap 200, flag truncated + note", async () => {
+    execMock.big = true;
+    const res = await route.POST(post({ url: "https://github.com/o/r" }));
+    execMock.big = false;
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.saved).toBe(200);
+    expect(body.truncated).toBe(true);
+    expect(body.note).toMatch(/Imported 200 of 201 files \(limit 200 reached\)/);
+  });
+
+  it("repo import tanpa cap → tanpa flag truncated", async () => {
+    const res = await route.POST(post({ url: "https://github.com/o/r" }));
+    const body = await res.json();
+    expect(body.truncated).toBeUndefined();
   });
 });
 

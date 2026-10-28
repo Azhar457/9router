@@ -73,7 +73,7 @@ export default function CustomPayloadsClient() {
       });
       const d = await r.json();
       if (d.error) setMsg("Import failed: " + d.error);
-      else setMsg(`Imported ${d.saved} file(s).`);
+      else setMsg(d.note ? `Imported ${d.saved} file(s). ${d.note}.` : `Imported ${d.saved} file(s).`);
       setImportUrl("");
     } catch (e) {
       setMsg("Import failed: " + e.message);
