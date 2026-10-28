@@ -7,7 +7,7 @@
 //                      repo (codeload tarball, .md/.txt only, README/LICENSE
 //                      skipped, ≤512 KB/file, ≤200 files)
 // DELETE ?id=        → delete by id
-import { readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
@@ -51,6 +51,7 @@ export async function POST(request) {
   }
 
   const dir = getCustomDir();
+  mkdirSync(dir, { recursive: true });
 
   // Single file import from a GitHub raw/plain URL.
   if (body?.url && !body?.text) {
