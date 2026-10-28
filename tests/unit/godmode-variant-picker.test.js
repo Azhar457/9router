@@ -75,4 +75,26 @@ describe("getGodmodePrompt with adaptive level", () => {
     const prompt = getGodmodePrompt("nonexistent-level");
     expect(prompt).toContain("𝔾𝟘𝔻𝕄𝟘𝔻𝟛");
   });
+
+  // Regression: EXTERNAL_VARIANTS is a module-load snapshot, so an f:* payload
+  // imported after process start (custom-payloads CRUD) must still resolve via
+  // the live registry instead of silently falling back to the classic text.
+  it("resolves freshly-registered f:* ids from the live registry", async () => {
+    const { getExternalPayload, refreshCustomPayloadRegistry, getCustomDir } =
+      await import("open-sse/payload/jailbreakPayloads.js");
+    const { writeFileSync, rmSync, existsSync, mkdirSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const id = "f:custom:regression-live-lookup";
+    const abs = join(getCustomDir(), "regression-live-lookup.md");
+    mkdirSync(getCustomDir(), { recursive: true });
+    writeFileSync(abs, "LIVE REGRESSION MARKER");
+    refreshCustomPayloadRegistry();
+    try {
+      expect(getExternalPayload(id)).toBe("LIVE REGRESSION MARKER");
+      expect(getGodmodePrompt(id)).toBe("LIVE REGRESSION MARKER");
+    } finally {
+      if (existsSync(abs)) rmSync(abs);
+      refreshCustomPayloadRegistry();
+    }
+  });
 });

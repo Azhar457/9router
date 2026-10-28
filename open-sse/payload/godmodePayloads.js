@@ -670,9 +670,18 @@ export function getGodmodePrompt(level, customText = "") {
     return custom || GODMODE_VARIANTS[GODMODE_LEVELS.CLASSIC];
   }
   // Look up via VARIANT_ID_TO_PAYLOAD (includes "adaptive", GODMODE_VARIANTS
-  // keys, and lazily-resolved file-based ids "f:*").
+  // keys, and lazily-resolved file-based ids "f:*"). EXTERNAL_VARIANTS is a
+  // module-load snapshot, so file-based ids that were imported *after* the
+  // process started (custom payloads, freshly-synced collections) are missing
+  // from it — resolve those lazily against the live registry instead.
   const resolver = VARIANT_ID_TO_PAYLOAD[level];
-  if (resolver) return typeof resolver === "function" ? (resolver() || GODMODE_VARIANTS[GODMODE_LEVELS.CLASSIC]) : resolver;
+  if (resolver) {
+    const text = typeof resolver === "function" ? resolver() : resolver;
+    if (text) return text;
+  }
+  // Live-registry fallback for f:* ids unknown to the snapshot.
+  const live = level.startsWith("f:") ? getExternalPayload(level) : null;
+  if (live) return live;
   return GODMODE_VARIANTS[GODMODE_LEVELS.CLASSIC];
 }
 
