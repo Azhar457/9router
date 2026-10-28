@@ -8,6 +8,7 @@
 //                      skipped, ≤512 KB/file, ≤200 files)
 // DELETE ?id=        → delete by id
 import { mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { execSync } from "node:child_process";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
