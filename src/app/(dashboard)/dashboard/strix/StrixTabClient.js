@@ -10,7 +10,35 @@ import { useCallback, useEffect, useState } from "react";
 import { Badge, Button, Card } from "@/shared/components";
 import { cn } from "@/shared/utils/cn";
 import { STRIX_FLAT, STRIX_GROUPS } from "@/shared/lib/strixManifest";
+import { useCopyToClipboard } from "@/shared/hooks/useCopyToClipboard";
 import { onLocaleChange, translate } from "@/i18n/runtime";
+
+function IntegrateCard() {
+  const { copied, copy } = useCopyToClipboard(2000);
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const skillIndexUrl = `${origin}/api/developer/skill-raw`;
+  const prompt = `Read this skill index and use it when you need a security-testing methodology: ${skillIndexUrl}`;
+  return (
+    <Card padding="md" elev>
+      <div className="text-xs text-text-muted mb-2">Paste this into your AI agent to give it Strix skill access:</div>
+      <div className="px-3 py-2 rounded bg-surface-2 font-mono text-[12px] text-text-main break-all">
+        {prompt}
+      </div>
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <p className="text-[11px] text-text-muted">
+          {translate("The agent fetches individual skills on demand via the gateway — no full catalog inlined into every prompt.")}
+        </p>
+        <button
+          onClick={() => copy(prompt)}
+          className="px-3 py-1.5 rounded-md bg-primary text-white text-[12px] font-medium hover:bg-primary/90 transition-colors inline-flex items-center gap-1 shrink-0"
+        >
+          <span className="material-symbols-outlined text-[14px]">{copied ? "check" : "content_copy"}</span>
+          {copied ? "Copied!" : "Copy prompt"}
+        </button>
+      </div>
+    </Card>
+  );
+}
 
 export default function StrixTabClient() {
   const [selected, setSelected] = useState("");
@@ -72,6 +100,8 @@ export default function StrixTabClient() {
         <h1 className="text-xl font-bold text-text-main">Strix Skills</h1>
         <Badge variant="info" dot>Security-testing skill catalog</Badge>
       </div>
+
+      <IntegrateCard />
 
       <Card
         title="Strix Security Payloads"
