@@ -54,15 +54,19 @@ function siblings() {
   return null;
 }
 
-// Remote candidates from user config (~/.9router/payloads.json):
-// [{"name":"origin","url":"https://.../9router-payloads/archive/refs/heads/main.tar.gz"}]
+// Remote candidates: default is the public payloads repo tarball; user config
+// (~/.9router/payloads.json [{"name","url"}]) can override or add more.
 function remotes() {
+  const defaults = [{
+    name: "origin",
+    url: "https://codeload.github.com/Azhar457/9router-payloads/tar.gz/refs/heads/main",
+  }];
   const p = join(DATA_DIR, "payloads.json");
-  if (!existsSync(p)) return [];
+  if (!existsSync(p)) return defaults;
   try {
     const list = JSON.parse(readFileSync(p, "utf8"));
-    return Array.isArray(list) ? list.filter((r) => r && r.url) : [];
-  } catch { return []; }
+    return Array.isArray(list) ? list.filter((r) => r && r.url) : defaults;
+  } catch { return defaults; }
 }
 
 async function downloadTar(tarUrl, dest) {
