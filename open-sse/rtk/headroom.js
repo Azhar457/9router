@@ -420,6 +420,7 @@ export async function compressWithHeadroom(body, opts = {}) {
 }
 
 async function compressWithHeadroomInner(body, { enabled, url, model, format, compressUserMessages, timeoutMs = DEFAULT_TIMEOUT_MS, diagnostics = null } = {}) {
+  timeoutMs = normalizeTimeout(timeoutMs);
   if (!enabled) {
     setDiagnostic(diagnostics, "disabled");
     return null;

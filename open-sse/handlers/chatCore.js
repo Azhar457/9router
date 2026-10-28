@@ -26,7 +26,7 @@ import { takeRenamedToolNames } from "../utils/opencodeFingerprint.js";
 import { injectCaveman } from "../rtk/caveman.js";
 import { injectPonytail } from "../rtk/ponytail.js";
 import { injectGlobal } from "../payload/globalInject.js";
-import { estimateGlobalInjection, formatTok } from "../rtk/tokenEstimate.js";
+import { estimateGlobalInjection, formatTok, formatRtkLog } from "../rtk/index.js";
 import { injectCustomPrompt } from "../rtk/customPrompt.js";
 import { compressMessagesAuto } from "../rtk/sidecar.js";
 import { compressWithHeadroom, formatHeadroomLog, formatHeadroomSizeLog, isHeadroomPhantomSavings } from "../rtk/headroom.js";

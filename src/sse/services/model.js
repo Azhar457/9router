@@ -43,7 +43,9 @@ export async function getModelInfo(modelStr) {
     // provider ids/aliases such as `cf`, `cloudflare-ai`, `openai`, or `hf`.
     if (!RESERVED_PROVIDER_PREFIXES.has(parsed.providerAlias)) {
       const openaiNodes = await getProviderNodes({ type: "openai-compatible" });
-      const matchedOpenAI = openaiNodes.find((node) => node.prefix === parsed.providerAlias);
+      const matchedOpenAI = openaiNodes.find(
+        (node) => node.prefix === parsed.providerAlias || node.id === parsed.providerAlias
+      );
       if (matchedOpenAI) {
         return { provider: matchedOpenAI.id, model: parsed.model };
       }
@@ -69,8 +71,8 @@ export async function getModelInfo(modelStr) {
     //     and it's not in that provider's static model list → route via
     //     OpenRouter instead of failing with "No active credentials".
     if (
-      !RESERVED_PROVIDER_PREFIXES.has(parsed.providerAlias) &&
-      !RESERVED_PROVIDER_PREFIXES.has(parsed.provider) &&
+      !RESERVED_PROVIDER_PREFIXES.has(parsed.providerAlias?.toLowerCase()) &&
+      !RESERVED_PROVIDER_PREFIXES.has(parsed.provider?.toLowerCase()) &&
       typeof parsed.model === "string" &&
       parsed.model.length > 0
     ) {

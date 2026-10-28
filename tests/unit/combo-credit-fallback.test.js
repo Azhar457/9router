@@ -3,9 +3,10 @@ import { handleComboChat } from "../../open-sse/services/combo.js";
 
 describe("combo credit fallback", () => {
   it.each([
+    // Generic 4xx wording is request-scoped (rotates the combo without locking
+    // accounts); only credit/quota text must consume the fallback before it.
     ["You have insufficient credits to make this request.", true],
     ["Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.", true],
-    ["Bad request", false],
   ])("routes a 400 response correctly: %s", async (message, shouldContinue) => {
     const body = { messages: [{ role: "user", content: "Hello" }] };
     const models = ["cmc/deepseek/deepseek-v4-pro", "mistral/mistral-medium-latest"];

@@ -48,11 +48,14 @@ describe("compressWithHeadroom openai-responses format (#1998)", () => {
     expect(typeof body.input[0].content).not.toBe("string");
   });
 
-  it("skips Responses tool/reasoning history instead of collapsing it into a message (#2132)", async () => {
+  it("compresses plain tool outputs but keeps protocol items and user text intact (#2132, refined by #4070)", async () => {
+    // After upstream a440ef43, tool-output projection compresses ONLY the plain
+    // tool-output strings ("ok" -> "compact", still a valid function_call_output);
+    // everything else (user message, function_call args, reasoning) is untouched.
     global.fetch = vi.fn(async () => ({
       ok: true,
       json: async () => ({
-        messages: [{ role: "user", content: "compressed tool history" }],
+        messages: [{ role: "tool", tool_call_id: "headroom-tool-0", content: "compact" }],
         tokens_saved: 10,
       }),
     }));
@@ -72,7 +75,7 @@ describe("compressWithHeadroom openai-responses format (#1998)", () => {
       {
         type: "function_call_output",
         call_id: "call_apply_patch_123",
-        output: "ok",
+        output: "verbose uncompressed tool result",
       },
       {
         type: "reasoning",
@@ -99,9 +102,14 @@ describe("compressWithHeadroom openai-responses format (#1998)", () => {
       diagnostics,
     });
 
-    expect(data).toBeNull();
-    expect(global.fetch).not.toHaveBeenCalled();
-    expect(body.input).toEqual(input);
-    expect(diagnostics.reason).toBe("skipped: openai-responses tool/reasoning input is not safe to compress");
+    expect(data).not.toBeNull();
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const sent = JSON.parse(global.fetch.mock.calls[0][1].body).messages;
+    expect(sent).toEqual([{ role: "tool", tool_call_id: "headroom-tool-0", content: "verbose uncompressed tool result" }]);
+    // Only the tool output text was swapped back into place.
+    expect(body.input[2]).toEqual({ type: "function_call_output", call_id: "call_apply_patch_123", output: "compact" });
+    expect(body.input[0]).toEqual(input[0]);
+    expect(body.input[1]).toEqual(input[1]);
+    expect(body.input[3]).toEqual(input[3]);
   });
 });

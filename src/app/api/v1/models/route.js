@@ -437,6 +437,10 @@ export async function buildModelsList(kindFilter, options = {}) {
   //
   // Nested combos (a combo referencing another combo) resolve recursively with
   // cycle protection, since combos can reference each other in a loop.
+  // Providers removed from the public registry (hidden entries like devin-cli)
+  // can still have live connections; their UI aliases must stay combo-routable.
+  const UNLISTED_PROVIDER_ALIASES = { "devin-cli": ["dv", "devin"] };
+
   const liveAliases = new Set();
   for (const [providerId, conn] of activeConnectionByProvider.entries()) {
     const outputAlias = (
@@ -448,6 +452,7 @@ export async function buildModelsList(kindFilter, options = {}) {
     liveAliases.add(outputAlias);
     liveAliases.add(PROVIDER_ID_TO_ALIAS[providerId] || providerId);
     liveAliases.add(providerId);
+    for (const extra of UNLISTED_PROVIDER_ALIASES[providerId] || []) liveAliases.add(extra);
   }
 
   // A model id is "routable" when its alias/provider prefix is live. Web
@@ -541,7 +546,7 @@ export async function buildModelsList(kindFilter, options = {}) {
   if (connections.length === 0) {
     // DB unavailable -> return static models, filtered by per-model kind
     for (const [alias, providerModels] of Object.entries(PROVIDER_MODELS)) {
-      const providerId = aliasToProviderId[alias] || alias;
+      const providerId = ALIAS_TO_PROVIDER_ID[alias] || alias;
       if (!providerMatchesKinds(providerId, kindFilter, customNodeKinds)) continue;
       for (const model of providerModels) {
         if (!kindFilter.includes(modelKind(model))) continue;
