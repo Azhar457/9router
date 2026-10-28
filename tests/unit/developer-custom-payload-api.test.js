@@ -17,33 +17,41 @@ const lib = vi.hoisted(() => ({ dir: "" }));
 vi.mock("open-sse/payload/jailbreakPayloads.js", async () => {
   const fs = await import("node:fs");
   const pathMod = await import("node:path");
-  const files = () => {
-    if (!fs.existsSync(lib.dir)) return [];
-    return fs.readdirSync(lib.dir).filter((f) => /\.(md|txt)$/i.test(f)).sort();
+  // nested dir umum (meniru walkAutoscan + slugify produksi: id = slug path relatif)
+  const walk = (d, rel = []) => {
+    const out = [];
+    if (!fs.existsSync(d)) return out;
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      const sub = rel.concat(e.name);
+      if (e.isDirectory()) out.push(...walk(pathMod.join(d, e.name), sub));
+      else if (/\.(md|txt)$/i.test(e.name)) out.push({ rel: sub.join("/") });
+    }
+    return out;
   };
+  const slug = (p) => p.replace(/\.(md|txt)$/i, "").split("/").join("-").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const rows = () =>
-    files()
-      .map((f) => pathMod.join(lib.dir, f))
-      .filter((abs) => fs.readFileSync(abs, "utf8").trim())
-      .map((abs) => {
-        const f = pathMod.basename(abs);
-        return {
-          id: `f:custom:${f.replace(/\.(md|txt)$/i, "")}`,
-          file: f,
-          chars: fs.readFileSync(abs, "utf8").length,
-          updated: fs.statSync(abs).mtimeMs,
-        };
-      });
+    walk(lib.dir)
+      .map(({ rel }) => ({
+        abs: pathMod.join(lib.dir, ...rel.split("/")),
+        rel,
+      }))
+      .filter(({ abs }) => fs.readFileSync(abs, "utf8").trim())
+      .map(({ abs, rel }) => ({
+        id: `f:custom:${slug(rel)}`,
+        file: rel,
+        chars: fs.readFileSync(abs, "utf8").length,
+        updated: fs.statSync(abs).mtimeMs,
+      }));
   return {
     getCustomDir: () => lib.dir,
     getCustomPayloads: rows,
     // Production helper menambahkan full text ke row.
-    getCustomPayload: (id) => { const r = rows().find((x) => x.id === id); return r && { ...r, text: fs.readFileSync(pathMod.join(lib.dir, r.file), "utf8") }; },
+    getCustomPayload: (id) => { const r = rows().find((x) => x.id === id); return r && { ...r, text: fs.readFileSync(pathMod.join(lib.dir, ...r.file.split("/")), "utf8") }; },
     deleteCustomPayload: (id) => {
       if (!String(id).startsWith("f:custom:")) return false;
       const row = rows().find((r) => r.id === id);
       if (!row) return false;
-      try { fs.unlinkSync(pathMod.join(lib.dir, row.file)); return true; } catch { return false; }
+      try { fs.unlinkSync(pathMod.join(lib.dir, ...row.file.split("/"))); return true; } catch { return false; }
     },
   };
 });
@@ -162,12 +170,17 @@ describe("POST — import URL", () => {
     expect(readFileSync(path.join(lib.dir, body.names[0]), "utf8")).toBe("raw import text");
   });
 
-  it("repo URL → codeload tarball: skip README/LICENSE, walk rekursif", async () => {
+  it("repo URL → codeload tarball: skip README/LICENSE, preserve subfolder", async () => {
     const res = await route.POST(post({ url: "https://github.com/o/r" }));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.saved).toBe(2);
-    expect(body.names.sort()).toEqual(["my-payload.md", "sub-nested.md"]);
+    expect(body.names.sort()).toEqual(["my-payload.md", "sub/nested.txt"]);
+    // struktur folder repo dipertahankan di bawah custom dir
+    expect(readFileSync(path.join(lib.dir, "sub", "nested.txt"), "utf8")).toBe("nested repo payload");
+    // loader mock (diagram produksi) memberi id slug path: sub/nested.txt → sub-nested
+    const list = await (await route.GET(get())).json();
+    expect(list.rows.map((r) => r.id).sort()).toEqual(["f:custom:my-payload", "f:custom:sub-nested"]);
     // temp tar dir dibersihkan di finally (dir route = `9r-custom-<timestamp>`, full digit)
     expect(readdirSync(os.tmpdir()).filter((d) => /^9r-custom-\d+$/.test(d))).toEqual([]);
   });

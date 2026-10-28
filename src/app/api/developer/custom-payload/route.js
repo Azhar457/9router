@@ -9,7 +9,7 @@
 // DELETE ?id=        → delete by id
 import { mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { execSync } from "node:child_process";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { tmpdir } from "node:os";
 import {
   assertPayloadAuth,
@@ -86,10 +86,10 @@ export async function POST(request) {
         for (const f of files) {
           const text = readFileSync(join(tmp, f.base, f.name), "utf8");
           if (!text.trim() || Buffer.byteLength(text) > MAX_FILE) continue;
-          const safe = sanitizeName(`${f.base}${f.name}`.slice(-60));
-          if (!safe) continue;
-          writeFileSync(join(dir, safe), text);
-          saved.push(safe);
+          const target = repoFileTarget(dir, f.base, f.name);
+          if (!target) continue;
+          writeFileSync(target, text);
+          saved.push(relative(dir, target));
         }
         return Response.json({ saved: saved.length, names: saved });
       } catch (e) {
@@ -141,4 +141,27 @@ function sanitizeName(raw) {
     .replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 72);
   if (!base || !/[a-z0-9]/i.test(base)) return null;
   return `${base}.md`;
+}
+
+// Repo import preserves the repo's own folder structure:
+//   AI-Jailbreaks/Deepseek/deepseek.txt → <dir>/ai-jailbreaks/deepseek/deepseek.txt
+// The loader (walkAutoscan) already walks recursive dirs and slugs the whole
+// relative path into the payload id, so nested files get ids like
+// `f:custom:ai-jailbreaks-deepseek-deepseek`. Max 4 dir levels, each ≤48 chars.
+function repoFileTarget(dir, base, name) {
+  const segs = base.replace(/\/+$/, "")
+    .split("/").map(sanitizeSeg).filter(Boolean).slice(0, 4);
+  if (base.replace(/\/+$/, "").split("/").length > 4) return null;
+  const stem = sanitizeSeg(name.replace(/\.(md|txt)$/i, ""));
+  if (!stem || !/[a-z0-9]/i.test(stem)) return null;
+  const ext = (name.match(/\.(md|txt)$/i)?.[0] || ".md").toLowerCase();
+  const target = join(dir, ...segs, `${stem}${ext}`);
+  mkdirSync(join(dir, ...segs), { recursive: true });
+  return target;
+}
+
+// Path segment cleaner: lowercase, safe chars only, no traversal.
+function sanitizeSeg(raw) {
+  return raw === ".." ? ""
+    : raw.toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48);
 }
