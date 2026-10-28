@@ -175,8 +175,35 @@ const COLLECTIONS = [
       { id: "s-dan", path: "s-dan-jailbreak.md", cat: "pentest" },
       // (nsfw roleplay gpts removed — focus is attacking / building / pentest)
     ],
+  },  {
+    // JailbreakHub-novel — imported novel payloads (from Jalil's JailbreakHub
+    // dedupe). Auto-scanned recursively; ids derived from the file path.
+    prefix: "jh",
+    root: join(BASE_DIR, "JailbreakHub-novel"),
+    autoscan: true,
+    files: [],
   },
 ];
+
+// "Claude/Opus 4.7/tut.txt" → "claude-opus-4-7-tut"
+function slugify(rel) {
+  return rel
+    .replace(/\.(md|txt)$/i, "")
+    .split("/")
+    .join("-")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function walkAutoscan(dir, rel = [], out) {
+  for (const name of readdirSync(dir, { withFileTypes: true })) {
+    const sub = rel.concat(name.name);
+    if (name.isDirectory()) walkAutoscan(join(dir, name.name), sub, out);
+    else if (/\.md|\.txt/i.test(name.name) && !/^readme|license|^1#$/i.test(name.name)) out.push({ path: sub.join("/"), id: slugify(sub.join("/")) });
+  }
+  return out;
+}
 
 const registry = new Map(); // id → payload string
 const categories = new Map(); // id → category key
@@ -196,7 +223,8 @@ function loadRegistry() {
   if (process.env["9ROUTER_JAILBREAK_DISABLE"] === "1") return;
   for (const coll of COLLECTIONS) {
     if (!existsSync(coll.root)) continue;
-    for (const entry of coll.files) {
+    const files = coll.autoscan ? walkAutoscan(coll.root, [], []) : coll.files;
+    for (const entry of files) {
       const abs = join(coll.root, entry.path);
       const text = readPayload(abs);
       if (text) {

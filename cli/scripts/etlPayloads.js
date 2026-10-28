@@ -27,7 +27,17 @@ const { createHash } = require("crypto");
 const cliDir = path.resolve(__dirname, "..");
 const appOutDir = path.join(cliDir, "app");
 const repoRoot = path.resolve(cliDir, "..");
-const COLLECTIONS = ["AI-Jailbreaks", "BlackFriday-GPTs-Prompts"];
+const COLLECTIONS = ["AI-Jailbreaks", "BlackFriday-GPTs-Prompts", "JailbreakHub-novel"];
+// Collections can live at this repo root (in-repo fallback) or in the sibling
+// payloads repo (canonical home, Azhar457/9router-payloads). First match wins.
+const SIBLING_REPO = path.join(repoRoot, "..", "9router-payloads");
+function findCollection(name) {
+  for (const base of [repoRoot, SIBLING_REPO, appOutDir]) {
+    const dir = path.join(base, name);
+    if (fs.existsSync(dir)) return dir;
+  }
+  return null;
+}
 
 function sha256(buf) {
   return createHash("sha256").update(buf).digest("hex");
@@ -41,9 +51,8 @@ function buildManifest() {
     collections: {},
   };
   for (const name of COLLECTIONS) {
-    const rootCollDir = path.join(repoRoot, name);
-    const collDir = fs.existsSync(rootCollDir) ? rootCollDir : path.join(appOutDir, name);
-    if (!fs.existsSync(collDir)) {
+    const collDir = findCollection(name);
+    if (!collDir) {
       manifest.collections[name] = { files: [], missing: true };
       continue;
     }
@@ -102,10 +111,7 @@ function pack() {
     fs.rmSync(stageDir, { recursive: true, force: true });
     fs.mkdirSync(stageDir, { recursive: true });
     for (const name of present) {
-      const src = fs.existsSync(path.join(repoRoot, name))
-        ? path.join(repoRoot, name)
-        : path.join(appOutDir, name);
-      fs.cpSync(src, path.join(stageDir, name), { recursive: true });
+      fs.cpSync(findCollection(name), path.join(stageDir, name), { recursive: true });
     }
     execSync(`tar -czf "${tgzPath}" -C "${stageDir}" ${present.join(" ")}`, { stdio: "pipe" });
   } catch (e) {
