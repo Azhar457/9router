@@ -25,6 +25,8 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
   const [customBaseUrl, setCustomBaseUrl] = useState("");
   const [selectedModels, setSelectedModels] = useState([]);
   const [activeModel, setActiveModel] = useState("");
+  const [testingModels, setTestingModels] = useState(false);
+  const [modelTestResults, setModelTestResults] = useState({});
   const selectedModelsRef = useRef([]);
 
   useEffect(() => {
@@ -132,6 +134,29 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
     setChecking(false);
   }
 }
+
+  async function handleTestModels() {
+    if (!selectedModels.length || testingModels) return;
+    setTestingModels(true);
+    const results = {};
+    await Promise.all(selectedModels.map(async (m) => {
+      try {
+        const res = await fetch("/api/models/test", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ model: m })
+        });
+        const data = await res.json();
+        results[m] = data.ok
+          ? { ok: true, latencyMs: data.latencyMs, note: data.note }
+          : { ok: false, error: data.error || `HTTP ${res.status}` };
+      } catch (error) {
+        results[m] = { ok: false, error: error.message };
+      }
+    }));
+    setModelTestResults(results);
+    setTestingModels(false);
+  }
 
   async function handleApply() {
   setApplying(true);
@@ -396,6 +421,18 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
                           >
                             {model === activeModel && <span className="material-symbols-outlined text-[10px]">star</span>}
                             {model}
+                            {modelTestResults[model] && (
+                              <span
+                                title={modelTestResults[model].ok
+                                  ? `OK${modelTestResults[model].latencyMs ? ` · ${modelTestResults[model].latencyMs}ms` : ""}${modelTestResults[model].note ? ` · ${modelTestResults[model].note}` : ""}`
+                                  : modelTestResults[model].error}
+                                className={modelTestResults[model].ok ? "text-green-500" : "text-red-500"}
+                              >
+                                <span className="material-symbols-outlined text-[12px]">
+                                  {modelTestResults[model].ok ? "check_circle" : "error"}
+                                </span>
+                              </span>
+                            )}
                             <button
                               onClick={async (e) => {
                                 e.stopPropagation();
@@ -422,7 +459,13 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
                       )}
                     </div>
                     <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[8rem_auto_1fr_auto] sm:items-center sm:gap-2">
-                      <button onClick={() => setModalOpen(true)} disabled={!activeProviders?.length} className={`px-2 py-1 rounded border text-xs transition-colors ${activeProviders?.length ? "bg-surface border-border text-text-main hover:border-primary cursor-pointer" : "opacity-50 cursor-not-allowed border-border"}`}>Add Model</button>
+                      <div className="flex items-center gap-1.5">
+                        <button onClick={() => setModalOpen(true)} disabled={!activeProviders?.length} className={`px-2 py-1 rounded border text-xs transition-colors ${activeProviders?.length ? "bg-surface border-border text-text-main hover:border-primary cursor-pointer" : "opacity-50 cursor-not-allowed border-border"}`}>Add Model</button>
+                        <button onClick={handleTestModels} disabled={!selectedModels.length || testingModels} className={`px-2 py-1 rounded border text-xs transition-colors inline-flex items-center gap-1 ${selectedModels.length && !testingModels ? "bg-surface border-border text-text-main hover:border-primary cursor-pointer" : "opacity-50 cursor-not-allowed border-border"}`} title="Send a test request through the gateway for every selected model">
+                          <span className={`material-symbols-outlined text-[14px] ${testingModels ? "animate-spin" : ""}`}>{testingModels ? "progress_activity" : "network_check"}</span>
+                          {testingModels ? "Testing…" : "Test Models"}
+                        </button>
+                      </div>
                       <span className="text-xs text-text-muted">
                         {selectedModels.length > 0 && activeModel ? (
                           <>Active: <span className="text-primary">{activeModel}</span></>
