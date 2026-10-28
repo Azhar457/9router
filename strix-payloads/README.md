@@ -137,7 +137,7 @@ Examples:
 
 - **Full Audit:** `../STRIX_AUDIT.md` — Complete analysis of Strix capabilities and integration plan
 - **Integration Manifest:** `INTEGRATION.md` — File mapping and RTK conversion roadmap
-- **Strix Source:** `/mnt/data_d/Projects/strix/` — Original Strix repository
+- **Strix Source:** upstream strix repository (out of tree)
 
 ---
 

@@ -16,7 +16,7 @@
 #    plain `npm i -g` overwrote it), fall back to searching nvm for the installed
 #    package so `make` always installs to the right global prefix.
 # 3. Final fallback: the running node's prefix (best-effort).
-TRAY_BIN ?= /home/jars/.local/bin/9router
+TRAY_BIN ?= $(HOME)/.local/bin/9router
 # `case ... in pattern)` has an unbalanced `)` from Make's point of view: make
 # scans `$(shell ...)` counting parens, cuts the command short at that `)`,
 # /bin/sh then dies on the fragment, and the captured "output" is the shell's

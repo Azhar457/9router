@@ -58,10 +58,10 @@ npm install -g ./9router-plinian-<version>.tgz
 ```
 
 > ⚠️ **Prefix gotcha:** the tray launches the package from the nvm-node global
-> prefix (`/home/jars/.nvm/.../lib/node_modules/9router-plinian`), but a plain
+> prefix, but a plain
 > `npm install -g` may install to `~/.local` instead. If the tray doesn't change
 > after install, install to the tray's prefix explicitly:
-> `npm install -g --prefix "$(readlink -f /home/jars/.local/bin/9router | sed -E 's#/lib/node_modules/9router-plinian(/cli\.js)?##')" ./9router-plinian-<version>.tgz`
+> `npm install -g --prefix "$(readlink -f ~/.local/bin/9router | sed -E 's#/lib/node_modules/9router-plinian(/cli\.js)?##')" ./9router-plinian-<version>.tgz`
 > — or just use `make 9router-plinian`, which does this automatically.
 
 ## Route C — nightly/dev straight from your working tree

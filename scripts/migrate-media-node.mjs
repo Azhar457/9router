@@ -23,7 +23,7 @@
 //
 // Contoh:
 //   # 1. Dry-run dari backup
-//   node scripts/migrate-media-node.mjs --from /mnt/data_d/9router-backup-new.json
+//   node scripts/migrate-media-node.mjs --from <backup.json>
 //
 //   # 2. Tulis via API (server harus jalan + log in)
 //   node scripts/migrate-media-node.mjs --force --http http://127.0.0.1:20128 --node ag-ai

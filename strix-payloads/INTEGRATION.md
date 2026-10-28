@@ -103,4 +103,4 @@ Examples:
 ## Source Reference
 
 Full audit documentation: `../STRIX_AUDIT.md`  
-Strix source root: `/mnt/data_d/Projects/strix/`
+Strix source root: upstream strix repo (out of tree)
