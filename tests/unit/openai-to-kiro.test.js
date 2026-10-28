@@ -11,15 +11,17 @@ import { openaiToKiroRequest } from "../../open-sse/translator/request/openai-to
 
 const contentOf = (result) =>
   result.conversationState.currentMessage.userInputMessage.content;
-// Since upstream 1fc2a81d the Kiro payload no longer carries a top-level
-// `systemPrompt`; system content is embedded in the session-start user turn.
-const systemPromptOf = (result) =>
-  [
-    ...(result.conversationState?.history || []),
-    result.conversationState?.currentMessage,
-  ]
-    .map((m) => m?.userInputMessage?.content || "")
-    .join("\n");
+// Kiro rejects a top-level systemPrompt (400 REQUEST_BODY_INVALID; 1892ed77), so the
+// system prompt, thinking tags and agentic prompt travel at the start of the first user
+// turn, ahead of the "[Context: Current time …]" line. This returns that prompt part.
+const kiroPromptOf = (out) => {
+  const cs = out?.conversationState || {};
+  const content = (cs.history || []).find((t) => t.userInputMessage)?.userInputMessage?.content
+    ?? cs.currentMessage?.userInputMessage?.content ?? "";
+  const at = content.indexOf("[Context: Current time");
+  return (at >= 0 ? content.slice(0, at) : content).trim();
+};
+const systemPromptOf = kiroPromptOf;
 
 describe("openaiToKiroRequest", () => {
   describe("basic message conversion", () => {
@@ -540,7 +542,8 @@ describe("openaiToKiroRequest", () => {
       const result = openaiToKiroRequest("claude-sonnet-4.6", body, true, {});
 
       expect(systemPromptOf(result)).toContain("<max_thinking_length>32000</max_thinking_length>");
-      expect(result.additionalModelRequestFields?.output_config?.effort).toBe("high");
+      // 4.6 models accept max on Kiro (7894f3d3); only xhigh clamps to high there.
+      expect(result.additionalModelRequestFields?.output_config?.effort).toBe("max");
     });
 
     it("clamps OpenAI Responses reasoning.effort xhigh to max_thinking_length 32000", () => {
@@ -576,7 +579,7 @@ describe("openaiToKiroRequest", () => {
       expect(systemPromptOf(result)).toContain("<max_thinking_length>16000</max_thinking_length>");
     });
 
-    it("keeps the session-start (system) message stable across turns", () => {
+    it("keeps the prompt stable across turns and never sends a top-level systemPrompt", () => {
       const credentials = {
         connectionId: "kiro-system-stability-openai",
         rawHeaders: { "x-session-id": "kiro-system-stability-openai" },
@@ -594,12 +597,11 @@ describe("openaiToKiroRequest", () => {
         credentials
       );
 
-      // Session replay freezes msg0 (which carries the system content) and
-      // replays it verbatim as history[0] on later turns.
-      expect(second.conversationState.history[0].userInputMessage.content).toBe(
-        first.conversationState.currentMessage.userInputMessage.content
-      );
-      expect(second.conversationState.currentMessage.userInputMessage.content).toContain("Current time");
+      expect(first).not.toHaveProperty("systemPrompt");
+      expect(kiroPromptOf(first)).toContain("<thinking_mode>enabled</thinking_mode>");
+      expect(kiroPromptOf(first)).toBe(kiroPromptOf(second));
+      expect(kiroPromptOf(first)).not.toContain("Current time");
+      expect(first.conversationState.currentMessage.userInputMessage.content).toContain("Current time");
     });
 
     it("replays frozen msg0 for explicit Kiro sessions while keeping current time fresh", () => {

@@ -39,10 +39,10 @@ describe("provider baseUrl const (full path, no trailing slash)", () => {
   });
 });
 
-describe("antigravity retry (429/503 attempts)", () => {
+// 429 was 6 after the June registry migration; the maintainer lowered it to 3 in
+// 3f9382de ("Fix AG, Kiro, Xiaomi Provider"); it has been 3 since.
+describe("antigravity retry (429=3, 503=3)", () => {
   it("429 attempts = 3", () => {
-    // Upstream reverted the earlier 429=6 experiment back to the default 3;
-    // this test now guards the current registry values.
     expect(antigravity.transport.retry["429"].attempts).toBe(3);
   });
   it("503 attempts = 3", () => {

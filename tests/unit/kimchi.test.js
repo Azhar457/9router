@@ -1,5 +1,3 @@
-// Converted from node:test to vitest so the suite runs under the same runner
-// as the rest of tests/ (raw `node --test` cannot resolve the open-sse alias).
 import { describe, it, beforeAll as before } from "vitest";
 import assert from "node:assert/strict";
 
@@ -13,10 +11,12 @@ describe("kimchi registry entry", () => {
     kimchiEntry = (await import("../../open-sse/providers/registry/kimchi.js")).default;
   });
 
-  it("is a freeTier oauth-capable provider auto-listed via byCategory", () => {
+  // 6d96e24b moved kimchi into the freeTier category; it still signs in with OAuth
+  // (and API keys since e02bde4a).
+  it("is a freeTier provider auto-listed via byCategory, with OAuth sign-in", () => {
     assert.equal(kimchiEntry.id, "kimchi");
     assert.equal(kimchiEntry.category, "freeTier");
-    assert.ok(kimchiEntry.authModes.includes("oauth"));
+    assert.deepEqual(kimchiEntry.authModes, ["oauth", "apikey"]);
   });
 
   it("points at the OpenAI-compatible gateway with an authenticated UA", () => {

@@ -6,8 +6,9 @@ import { useState, useEffect } from "react";
 import { Card, Badge, Button, AddCustomEmbeddingModal, NoAuthProxyCard, ProviderInfoCard } from "@/shared/components";
 import EditCompatibleNodeModal from "@/app/(dashboard)/dashboard/providers/[id]/EditCompatibleNodeModal";
 import ProviderIcon from "@/shared/components/ProviderIcon";
-import { MEDIA_PROVIDER_KINDS, AI_PROVIDERS, isCustomEmbeddingProvider, isOpenAICompatibleProvider, isAnthropicCompatibleProvider } from "@/shared/constants/providers";
+import { MEDIA_PROVIDER_KINDS, AI_PROVIDERS, OAUTH_PROVIDERS, isCustomEmbeddingProvider, isOpenAICompatibleProvider, isAnthropicCompatibleProvider } from "@/shared/constants/providers";
 import ConnectionsCard from "@/app/(dashboard)/dashboard/providers/components/ConnectionsCard";
+import { WEB_LOGIN_PROVIDERS } from "@/app/(dashboard)/dashboard/providers/components/WebLoginButton";
 import ModelsCard from "@/app/(dashboard)/dashboard/providers/components/ModelsCard";
 import { KIND_EXAMPLE_CONFIG } from "./components/exampleShared";
 import { EmbeddingExampleCard } from "./components/EmbeddingExampleCard";
@@ -165,8 +166,17 @@ export default function MediaProviderDetailPage() {
       {/* Connections */}
       {!isCustom && provider.noAuth ? (
         <NoAuthProxyCard providerId={id} />
+      ) : kind === "stt" && OAUTH_PROVIDERS[id] ? (
+        <Card>
+          <p className="text-sm text-text-muted mb-3">This service shares your existing OAuth connections.</p>
+          <Link href={`/dashboard/providers/${id}`} className="text-primary hover:underline">Manage OAuth connections →</Link>
+        </Card>
       ) : (
-        <ConnectionsCard providerId={id} isOAuth={false} />
+        <ConnectionsCard
+          providerId={id}
+          isOAuth={false}
+          loginProviderId={!isCustom && WEB_LOGIN_PROVIDERS.has(id) ? id : null}
+        />
       )}
 
       {/* Models - hidden for tts/webSearch/webFetch (provider IS the model); custom uses prefix as alias */}

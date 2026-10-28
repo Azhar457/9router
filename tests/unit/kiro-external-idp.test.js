@@ -105,8 +105,9 @@ describe("Kiro external_idp (CLIProxyAPI) import and refresh", () => {
     expect(headers.TokenType).toBe("EXTERNAL_IDP");
     expect(headers.tokentype).toBeUndefined();
 
-    // getOrderedBaseUrls puts the q. surface first (CLIRO parity) — see
-    // executors/kiro.js; the stale upstream test expected codewhisperer first.
+    // The q surface comes first for every auth method since 16cb40fd / 35b950be (#3776):
+    // kiro.dev must never be first, and Amazon surfaces reject foreign tokens with
+    // 401/403, which fall through to the next one.
     expect(executor.buildUrl("claude-sonnet-4.5", true, 0, credentials)).toBe(
       "https://q.us-east-1.amazonaws.com/generateAssistantResponse"
     );
