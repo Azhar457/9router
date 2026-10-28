@@ -33,6 +33,7 @@ const navItems = [
   { href: "/dashboard/developer", label: "Developer", icon: "developer_mode" },
   { href: "/dashboard/penetration", label: "Penetration", icon: "scanner" },
   { href: "/dashboard/payload", label: "Jailbreaks", icon: "gavel" },
+  { href: "/dashboard/custom-payloads", label: "Custom Payloads", icon: "add_circle" },
 ];
 
 const debugItems = [

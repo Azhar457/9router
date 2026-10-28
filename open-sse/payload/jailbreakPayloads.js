@@ -19,7 +19,7 @@
 
 
 import os from "node:os";
-import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync, statSync, unlinkSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -230,14 +230,78 @@ function loadRegistry() {
       if (text) {
         const id = `f:${coll.prefix}:${entry.id}`;
         registry.set(id, text);
-        categories.set(id, entry.cat || "general");
+        categories.set(id, entry.cat || coll.cat || "general");
       }
     }
+  }
+  // User-managed custom payloads: <dataDir>/custom-payloads/**.md|.txt
+  // Optional per-file category via first line `cat: pentest` (default general).
+  const customDir = getCustomDir();
+  try {
+    if (existsSync(customDir)) {
+      for (const f of walkAutoscan(customDir, [], [])) {
+        const text = readPayload(join(customDir, f.path));
+        if (!text) continue;
+        const m = text.split(/\r?\n/, 3).find((l) => /^cat:\s*\w+/i.test(l));
+        const id = `f:custom:${f.id}`;
+        registry.set(id, text);
+        categories.set(id, m?.toLowerCase().match(/cat:\s*(\w+)/)?.[1] || "general");
+      }
+    }
+  } catch {
+    // custom dir unreadable — keep shipped payloads only
   }
 }
 
 loadRegistry();
 
+// Directory for user-managed custom payloads (this module also registers
+// them, same lifecycle as the shipped collections).
+function resolveDataDir() {
+  if (process.env["DATA_DIR"]) return process.env["DATA_DIR"];
+  if (process.platform === "win32") {
+    return join(process.env["APPDATA"] || join(os.homedir(), "AppData", "Roaming"), "9router");
+  }
+  return join(os.homedir(), ".9router");
+}
+export function getCustomDir() {
+  return join(resolveDataDir(), "custom-payloads");
+}
+export { slugify as customSlugify };
+
+
+// id -> file row for the /api/developer/custom-payload list endpoint
+export function getCustomPayloads() {
+  const dir = getCustomDir();
+  if (!existsSync(dir)) return [];
+  const out = [];
+  for (const f of walkAutoscan(dir, [], [])) {
+    const abs = join(dir, f.path);
+    let text = "";
+    try { text = readPayload(abs) || ""; } catch { continue; }
+    if (!text) continue;
+    out.push({
+      id: `f:custom:${f.id}`,
+      file: f.path,
+      chars: text.length,
+      updated: statSync(abs).mtimeMs,
+    });
+  }
+  return out.sort((a, b) => a.id.localeCompare(b.id));
+}
+
+export function getCustomPayload(id) {
+  const row = getCustomPayloads().find((r) => r.id === id);
+  if (!row) return null;
+  return { ...row, text: readPayload(join(getCustomDir(), row.file)) || "" };
+}
+
+export function deleteCustomPayload(id) {
+  if (!String(id).startsWith("f:custom:")) return false;
+  const row = getCustomPayloads().find((r) => r.id === id);
+  if (!row) return false;
+  try { unlinkSync(join(getCustomDir(), row.file)); return true; } catch { return false; }
+}
 export function getExternalPayloads() {
   return Array.from(registry.entries()).map(([id, text]) => ({
     id,
