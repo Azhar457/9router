@@ -19,7 +19,7 @@
 
 
 import os from "node:os";
-import { readFileSync, existsSync, readdirSync, statSync, unlinkSync } from "node:fs";
+import { readFileSync, existsSync, readdirSync, statSync, unlinkSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -255,6 +255,34 @@ function loadRegistry() {
 
 loadRegistry();
 
+// Re-scan just <dataDir>/custom-payloads/ after the dashboard writes/renames/
+// categorizes a custom payload, so the running process picks up CRUD changes
+// without a restart. Same fail-open contract as loadRegistry above: custom-
+// payloads-only — the shipped collections keep whatever they loaded at import.
+export function refreshCustomPayloadRegistry() {
+  const customDir = getCustomDir();
+  for (const id of Array.from(registry.keys())) {
+    if (id.startsWith("f:custom:")) {
+      registry.delete(id);
+      categories.delete(id);
+    }
+  }
+  try {
+    if (existsSync(customDir)) {
+      for (const f of walkAutoscan(customDir, [], [])) {
+        const text = readPayload(join(customDir, f.path));
+        if (!text) continue;
+        const m = text.split(/\r?\n/, 3).find((l) => /^cat:\s*\w+/i.test(l));
+        const id = `f:custom:${f.id}`;
+        registry.set(id, text);
+        categories.set(id, m?.toLowerCase().match(/cat:\s*(\w+)/)?.[1] || "general");
+      }
+    }
+  } catch {
+    // custom dir unreadable — registry keeps whatever scanned before
+  }
+}
+
 // Directory for user-managed custom payloads (this module also registers
 // them, same lifecycle as the shipped collections).
 function resolveDataDir() {
@@ -280,11 +308,14 @@ export function getCustomPayloads() {
     let text = "";
     try { text = readPayload(abs) || ""; } catch { continue; }
     if (!text) continue;
+    const m = text.split(/\r?\n/, 3).find((l) => /^cat:\s*\w+/i.test(l));
     out.push({
       id: `f:custom:${f.id}`,
       file: f.path,
       chars: text.length,
       updated: statSync(abs).mtimeMs,
+      // Category = first-line `cat: <key>` (loader metadata), else general.
+      cat: m?.toLowerCase().match(/cat:\s*(\w+)/)?.[1] || "general",
     });
   }
   return out.sort((a, b) => a.id.localeCompare(b.id));
@@ -326,4 +357,70 @@ export function isExternalPayloadCarrier(id, detect) {
   const marker = detect(registry.get(id) || "");
   carrierFlags.set(id, marker);
   return marker;
+}
+
+// ── Custom payload edit helpers (dashboard /dashboard/custom-payloads) ──
+//
+// The id IS the filename slug, so "rename" = rename the file. Keeps the
+// extension, slugifies the stem with the same rules as the upload path
+// (the label shown in the Global Injection dropdown is derived from the id).
+// All filesystem work is plain Node — portable across Linux/macOS/Windows.
+const CUSTOM_WIN_RESERVED = /^(con|prn|aux|nul|com[1-9]\d*|lpt[1-9]\d*)$/i;
+
+const CUSTOM_CATS = new Set(Object.keys(PAYLOAD_CATEGORIES));
+
+function findCustomFile(id) {
+  const row = getCustomPayloads().find((r) => r.id === id);
+  if (!row) return null;
+  return { row, abs: join(getCustomDir(), ...row.file.split("/")) };
+}
+
+// Rename f:custom:<x> → f:custom:<new>. Returns the new id, or null when the
+// payload is unknown / the name is unusable / the target already exists.
+export function renameCustomPayload(id, rawName) {
+  const hit = findCustomFile(id);
+  if (!hit) return null;
+  const stem = String(rawName || "").replace(/\.(md|txt)?$/i, "").toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|[-.]+$/g, "").slice(0, 72);
+  if (!stem || !/[a-z0-9]/.test(stem)) return null;
+  const safe = CUSTOM_WIN_RESERVED.test(stem) ? `${stem}-file` : stem;
+  const ext = (hit.row.file.match(/\.(md|txt)$/i)?.[0] || ".md").toLowerCase();
+  // The new file may live in a different subfolder than the old one — build
+  // the target from the old relative path so nesting is preserved.
+  const segs = hit.row.file.split("/");
+  segs[segs.length - 1] = `${safe}${ext}`;
+  const nextRel = segs.join("/");
+  const nextAbs = join(getCustomDir(), ...nextRel.split("/"));
+  if (nextAbs === hit.abs) return hit.row.id; // noop rename — same name
+  if (existsSync(nextAbs)) return null; // id would collide
+  try {
+    renameSync(hit.abs, nextAbs);
+  } catch {
+    return null;
+  }
+  // renameSync is atomic-ish but on Windows a failed rename can leave the old
+  // file behind — verify before reporting the new id.
+  return existsSync(nextAbs) ? `f:custom:${slugify(nextRel)}` : null;
+}
+
+// Set the loader category by (re)writing the first-line `cat: <key>` flag the
+// registry already parses (see loadRegistry). Default when unset: general.
+export function setCustomPayloadCat(id, cat) {
+  const hit = findCustomFile(id);
+  if (!hit) return null;
+  const key = String(cat || "").toLowerCase().trim();
+  if (!CUSTOM_CATS.has(key)) return null;
+  const marker = `cat: ${key}`;
+  const lines = hit.row.text.split(/\r?\n/);
+  const existing = lines.findIndex((l) => /^cat:\s*\w+/.test(l));
+  if (existing === 0) lines[0] = marker; // replace in place
+  else if (existing > 0) lines.splice(existing, 1); // remove misplaced marker…
+  const body = lines.join("\n").replace(/^\s*\n+/, ""); // …no leading blank run
+  const next = existing === 0 ? body : `${marker}\n${body}`;
+  try {
+    writeFileSync(hit.abs, next);
+    return key;
+  } catch {
+    return null;
+  }
 }

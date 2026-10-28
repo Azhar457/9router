@@ -3,6 +3,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 const API = "/api/developer/custom-payload";
 
+// Same category set as the loader registry (jailbreakPayloads.PAYLOAD_CATEGORIES).
+// Default when a file has no `cat:` flag: general.
+const CATS = [
+  { key: "general",  label: "⚙ General" },
+  { key: "coding",   label: "💻 Coding" },
+  { key: "pentest",  label: "🛡 Red-Team" },
+  { key: "creative", label: "✍️ Creative / RP" },
+  { key: "nsfw",     label: "🔥 NSFW" },
+];
+
 function fmtDate(ms) {
   if (!ms) return "—";
   const d = new Date(ms);
@@ -15,6 +25,12 @@ export default function CustomPayloadsClient() {
   const [loading, setLoading] = useState(true);
   const fileRef = useRef(null);
 
+  // selection + edit + view state
+  const [selected, setSelected] = useState({});
+  const [editId, setEditId] = useState(null);
+  const [editName, setEditName] = useState("");
+  const [viewRow, setViewRow] = useState(null); // { id, text, chars }
+
   const refresh = useCallback(async () => {
     setLoading(true);
     setMsg("");
@@ -22,13 +38,22 @@ export default function CustomPayloadsClient() {
       const r = await fetch(API);
       const d = await r.json();
       setRows(d.rows || []);
+      setSelected({});
     } catch {
       setMsg("Failed to load payload list");
     }
     setLoading(false);
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  // Initial load after mount. Deferred off the effect body (queueMicrotask)
+  // so no state-set happens synchronously within the effect — the refresh
+  // itself flips loading/messages asynchronously.
+  useEffect(() => {
+    let cancelled = false;
+    const go = () => { if (!cancelled) refresh(); };
+    const t = setTimeout(go, 0);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [refresh]);
 
   // import from GitHub URL (repo URL or raw file URL)
   const importUrl = async (urlStr) => {
@@ -80,12 +105,93 @@ export default function CustomPayloadsClient() {
     refresh();
   };
 
+  // Batch delete — selected ids perish in one request.
+  const deleteSelected = async () => {
+    const ids = Object.keys(selected).filter((k) => selected[k]);
+    if (!ids.length) return;
+    if (!confirm(`Delete ${ids.length} payload(s)?`)) return;
+    setMsg(`Deleting ${ids.length} payload(s) …`);
+    try {
+      const r = await fetch(API, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      const d = await r.json();
+      setMsg(
+        d.deleted
+          ? `Deleted ${d.deleted} payload(s)${d.missing?.length ? `, ${d.missing.length} not found` : ""}.`
+          : (d.error || "Nothing deleted."),
+      );
+    } catch (e) {
+      setMsg("Batch delete failed: " + e.message);
+    }
+    refresh();
+  };
+
+  const toggle = (id) => setSelected((s) => ({ ...s, [id]: !s[id] }));
+  const toggleAll = () => {
+    if (!rows?.length) return;
+    const all = rows.every((r) => selected[r.id]);
+    setSelected(all ? {} : Object.fromEntries(rows.map((r) => [r.id, true])));
+  };
+  const selectedCount = rows ? rows.filter((r) => selected[r.id]).length : 0;
+
+  // view — in-page modal (window.open dengan body text rusak di beberapa engine)
   const preview = async (id) => {
-    const r = await fetch(API + "?id=" + encodeURIComponent(id));
-    const d = await r.json();
-    if (d.error) return setMsg(d.error);
-    // read-only modal via native
-    window.open(d.text, "_blank", "width=800,height=520");
+    setViewRow({ id, text: "", chars: 0 });
+    try {
+      const r = await fetch(API + "?id=" + encodeURIComponent(id));
+      const d = await r.json();
+      if (d.error) { setViewRow(null); setMsg(d.error); return; }
+      setViewRow({ id: d.id || id, text: d.text || "", chars: d.chars || (d.text || "").length });
+    } catch {
+      setViewRow(null);
+      setMsg("Failed to load payload text");
+    }
+  };
+
+  // rename → the id IS the filename slug, so the row id changes after PATCH
+  const startRename = (r) => { setEditId(r.id); setEditName(r.file); };
+  const submitRename = async () => {
+    if (!editId) return;
+    const oldId = editId;
+    const next = editName.trim();
+    setEditId(null);
+    if (!next) return;
+    try {
+      const r = await fetch(API, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: oldId, name: next }),
+      });
+      const d = await r.json();
+      if (d.error) setMsg(d.error);
+      else {
+        setMsg(`Renamed ${oldId} → ${d.id}. Dropdown / Global Injection menunjuk id baru.`);
+        if (selected[oldId]) setSelected((s) => ({ ...s, [d.id]: true }));
+      }
+    } catch (e) {
+      setMsg("Rename failed: " + e.message);
+    }
+    refresh();
+  };
+
+  // category — first-line `cat:` flag; the payload selector groups by this
+  const setCat = async (id, cat) => {
+    try {
+      const r = await fetch(API, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, cat }),
+      });
+      const d = await r.json();
+      if (d.error) setMsg(d.error);
+      else setMsg(`${id} → ${cat}`);
+    } catch (e) {
+      setMsg("Category update failed: " + e.message);
+    }
+    refresh();
   };
 
   return (
@@ -102,7 +208,7 @@ export default function CustomPayloadsClient() {
             onBlur={(e) => { if (e.target.value.trim()) importUrl(e.target.value); }}
           />
           <p className="text-text-muted text-[11px] mt-1">
-            Whole-repo URL imports all .md/.txt at the root+1 level (≤512 KB/file, ≤200 files; README/LICENSE skipped).
+            Whole-repo URL imports all .md/.txt recursively, preserving folder structure (≤512 KB/file, ≤200 files; README/LICENSE skipped).
             Or paste a raw file URL to import just that one.
           </p>
         </div>
@@ -128,7 +234,7 @@ export default function CustomPayloadsClient() {
 
       {/* table */}
       {msg && (
-        <div className={`px-3 py-2 rounded text-sm border ${/failed|too large|error/i.test(msg) ? "bg-danger text-white border-danger" : "bg-bg-subtle text-text-main border-border"}`}>
+        <div className={`px-3 py-2 rounded text-sm border ${/failed|too large|error|not found/i.test(msg) ? "bg-danger text-white border-danger" : "bg-bg-subtle text-text-main border-border"}`}>
           {msg}
         </div>
       )}
@@ -137,7 +243,19 @@ export default function CustomPayloadsClient() {
         <table className="w-full text-sm">
           <thead>
             <tr className="text-text-muted uppercase text-[11px] bg-bg-base border-b border-border">
+              <th className="px-3 py-2 w-8" title="Select for batch delete">
+                <input
+                  type="checkbox"
+                  className="size-3.5 accent-primary align-middle"
+                  checked={!!rows?.length && selectedCount === rows.length}
+                  ref={(el) => {
+                    if (el) el.indeterminate = selectedCount > 0 && rows ? selectedCount < rows.length : false;
+                  }}
+                  onChange={toggleAll}
+                />
+              </th>
               <th className="px-3 py-2 text-left font-semibold">Name</th>
+              <th className="px-3 py-2 text-left font-semibold">Category</th>
               <th className="px-3 py-2 text-right font-semibold">Chars</th>
               <th className="px-3 py-2 text-left font-semibold">Added</th>
               <th className="px-3 py-2 text-right font-semibold">Actions</th>
@@ -145,31 +263,100 @@ export default function CustomPayloadsClient() {
           </thead>
           <tbody className="divide-y divide-border">
             {loading && (
-              <tr><td colSpan={4} className="px-3 py-6 text-text-muted text-center">Loading…</td></tr>
+              <tr><td colSpan={6} className="px-3 py-6 text-text-muted text-center">Loading…</td></tr>
             )}
             {!loading && (!rows || rows.length === 0) && (
-              <tr><td colSpan={4} className="px-3 py-8 text-text-muted text-center">
+              <tr><td colSpan={6} className="px-3 py-8 text-text-muted text-center">
                 No custom payloads yet. Import one above.
               </td></tr>
             )}
             {(rows || []).map((r) => (
               <tr key={r.id} className="hover:bg-bg-hover/50">
-                <td className="px-3 py-2 text-text-main font-mono text-[12px]">{r.id}</td>
+                <td className="px-3 py-2">
+                  <input
+                    type="checkbox"
+                    className="size-3.5 accent-primary align-middle"
+                    checked={!!selected[r.id]}
+                    onChange={() => toggle(r.id)}
+                    aria-label={`Select ${r.id}`}
+                  />
+                </td>
+                <td className="px-3 py-2 text-text-main font-mono text-[12px]">
+                  {editId === r.id ? (
+                    <span className="inline-flex items-center gap-2">
+                      <input
+                        autoFocus
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") submitRename();
+                          if (e.key === "Escape") setEditId(null);
+                        }}
+                        className="w-64 px-2 py-1 rounded border border-border bg-bg-base text-text-main focus:outline-none focus:border-primary"
+                      />
+                      <button onClick={submitRename} className="text-primary hover:text-primary/70 text-xs transition-colors">save</button>
+                      <button onClick={() => setEditId(null)} className="text-text-muted hover:text-text-main text-xs transition-colors">cancel</button>
+                    </span>
+                  ) : r.id}
+                </td>
+                <td className="px-3 py-2">
+                  <select
+                    value={CATS.some((c) => c.key === r.cat) ? r.cat : "general"}
+                    onChange={(e) => setCat(r.id, e.target.value)}
+                    className="px-2 py-1 rounded border border-border bg-bg-base text-[11px] text-text-main focus:outline-none focus:border-primary"
+                    title="Kategori dropdown Global Injection (default general)"
+                  >
+                    {CATS.map((c) => (
+                      <option key={c.key} value={c.key}>{c.label}</option>
+                    ))}
+                  </select>
+                </td>
                 <td className="px-3 py-2 text-right text-text-muted">{r.chars.toLocaleString()}</td>
                 <td className="px-3 py-2 text-text-muted">{fmtDate(r.updated)}</td>
                 <td className="px-3 py-2 text-right space-x-2">
                   <button onClick={() => preview(r.id)} className="text-text-muted hover:text-primary text-xs transition-colors">view</button>
+                  <button onClick={() => startRename(r)} className="text-text-muted hover:text-primary text-xs transition-colors">rename</button>
                   <button onClick={() => del(r.id)} className="text-danger hover:text-danger/70 text-xs transition-colors">delete</button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+        {rows?.length > 0 && (
+          <div className="flex items-center justify-between px-3 py-2 border-t border-border bg-bg-base">
+            <span className="text-text-muted text-[11px]">
+              {selectedCount} selected
+            </span>
+            <button
+              onClick={deleteSelected}
+              disabled={!selectedCount}
+              className="px-3 py-1.5 rounded border border-border text-xs font-semibold text-text-main hover:bg-bg-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              Delete selected ({selectedCount})
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* view modal — isi payload, read-only */}
+      {viewRow && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true">
+          <div className="w-full max-w-3xl max-h-[80vh] flex flex-col rounded-lg border border-border bg-bg-base shadow-2xl">
+            <div className="flex items-center justify-between border-b border-border px-4 py-2">
+              <span className="font-mono text-xs text-text-main">{viewRow.id}</span>
+              <button onClick={() => setViewRow(null)} className="text-text-muted hover:text-text-main text-sm transition-colors">✕</button>
+            </div>
+            <pre className="flex-1 overflow-auto px-4 py-3 text-[11px] font-mono text-text-main whitespace-pre-wrap break-words">{viewRow.text || "…"}</pre>
+            <div className="border-t border-border px-4 py-2 text-text-muted text-[11px]">
+              {viewRow.chars.toLocaleString()} chars — read-only
+            </div>
+          </div>
+        </div>
+      )}
 
       <p className="text-text-muted text-xs">
         Payloads appear under the Global Injection menu with id <code className="font-mono">f:custom:&lt;name&gt;</code>.
-        Optional per-file category: first line <code className="font-mono">cat: pentest|coding|creative|general</code>.
+        Optional per-file category: first line <code className="font-mono">cat: pentest|coding|creative|general|nsfw</code> — atau pakai dropdown Category di atas (default general).
       </p>
     </div>
   );

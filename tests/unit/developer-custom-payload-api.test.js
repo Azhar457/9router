@@ -29,6 +29,10 @@ vi.mock("open-sse/payload/jailbreakPayloads.js", async () => {
     return out;
   };
   const slug = (p) => p.replace(/\.(md|txt)$/i, "").split("/").join("-").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const readCat = (text) => {
+    const line = text.split(/\r?\n/, 3).find((l) => /^cat:\s*\w+/i.test(l));
+    return line?.toLowerCase().match(/cat:\s*(\w+)/)?.[1] || "general";
+  };
   const rows = () =>
     walk(lib.dir)
       .map(({ rel }) => ({
@@ -36,12 +40,17 @@ vi.mock("open-sse/payload/jailbreakPayloads.js", async () => {
         rel,
       }))
       .filter(({ abs }) => fs.readFileSync(abs, "utf8").trim())
-      .map(({ abs, rel }) => ({
-        id: `f:custom:${slug(rel)}`,
-        file: rel,
-        chars: fs.readFileSync(abs, "utf8").length,
-        updated: fs.statSync(abs).mtimeMs,
-      }));
+      .map(({ abs, rel }) => {
+        const text = fs.readFileSync(abs, "utf8");
+        return {
+          id: `f:custom:${slug(rel)}`,
+          file: rel,
+          chars: text.length,
+          updated: fs.statSync(abs).mtimeMs,
+          cat: readCat(text),
+        };
+      });
+  const refreshCount = { n: 0 };
   return {
     getCustomDir: () => lib.dir,
     getCustomPayloads: rows,
@@ -52,6 +61,45 @@ vi.mock("open-sse/payload/jailbreakPayloads.js", async () => {
       const row = rows().find((r) => r.id === id);
       if (!row) return false;
       try { fs.unlinkSync(pathMod.join(lib.dir, ...row.file.split("/"))); return true; } catch { return false; }
+    },
+    // CRUD-nya harus mega-kipas registry agar dropdown fresh tanpa restart.
+    refreshCustomPayloadRegistry: vi.fn(() => { refreshCount.n += 1; }),
+    refreshCount,
+    renameCustomPayload: (id, rawName) => {
+      const row = rows().find((r) => r.id === id);
+      if (!row) return null;
+      const stem = String(rawName || "").replace(/\.(md|txt)?$/i, "").toLowerCase()
+        .replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|[-.]+$/g, "").slice(0, 72);
+      if (!stem || !/[a-z0-9]/.test(stem)) return null;
+      const segs = row.file.split("/");
+      const ext = (row.file.match(/\.(md|txt)$/i)?.[0] || ".md").toLowerCase();
+      segs[segs.length - 1] = `${stem}${ext}`;
+      const nextRel = segs.join("/");
+      const nextAbs = pathMod.join(lib.dir, ...nextRel.split("/"));
+      if (nextAbs === pathMod.join(lib.dir, ...row.file.split("/"))) return row.id;
+      if (fs.existsSync(nextAbs)) return null;
+      fs.renameSync(pathMod.join(lib.dir, ...row.file.split("/")), nextAbs);
+      return `f:custom:${slug(nextRel)}`;
+    },
+    setCustomPayloadCat: (id, cat) => {
+      const row = rows().find((r) => r.id === id);
+      if (!row) return null;
+      if (!["coding", "pentest", "creative", "general", "nsfw"].includes(cat)) return null;
+      const abs = pathMod.join(lib.dir, ...row.file.split("/"));
+      const text = fs.readFileSync(abs, "utf8");
+      const lines = text.split(/\r?\n/);
+      const first = lines.findIndex((l) => /^cat:\s*\w+/.test(l));
+      if (first === 0) lines[0] = `cat: ${cat}`;
+      const body = lines.join("\n").replace(/^\s*\n+/, "");
+      fs.writeFileSync(abs, first === 0 ? body : `cat: ${cat}\n${body}`);
+      return cat;
+    },
+    PAYLOAD_CATEGORIES: {
+      coding: { label: "Coding" },
+      pentest: { label: "Red-Team" },
+      creative: { label: "Creative / RP" },
+      general: { label: "General" },
+      nsfw: { label: "RP / NSFW" },
     },
   };
 });
@@ -89,6 +137,16 @@ const post = (payload, id = "f:custom:x") =>
   });
 const get = (id = "") => toReq(`http://x/api/developer/custom-payload${id ? `?id=${id}` : ""}`);
 const del = (id = "") => toReq(`http://x/api/developer/custom-payload${id ? `?id=${id}` : ""}`, { method: "DELETE" });
+const delBatch = (ids) => toReq("http://x/api/developer/custom-payload", {
+  method: "DELETE",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify({ ids }),
+});
+const patch = (body) => toReq("http://x/api/developer/custom-payload", {
+  method: "PATCH",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify(body),
+});
 
 let route;
 let tmpRoot;
@@ -206,5 +264,67 @@ describe("DELETE", () => {
   it("unknown id → 404; tanpa id → 400", async () => {
     expect((await route.DELETE(del("f:custom:none"))).status).toBe(404);
     expect((await route.DELETE(del())).status).toBe(400);
+  });
+
+  it("batch {ids} → hapus semua yang match, lapor yang unknown", async () => {
+    await route.POST(post({ name: "batch-a.md", text: "a" }));
+    await route.POST(post({ name: "batch-b.md", text: "b" }));
+    const res = await route.DELETE(delBatch(["f:custom:batch-a", "f:custom:ghost"]));
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body).toMatchObject({ ok: false, deleted: 1, missing: ["f:custom:ghost"] });
+    expect(existsSync(path.join(lib.dir, "batch-a.md"))).toBe(false);
+    expect(existsSync(path.join(lib.dir, "batch-b.md"))).toBe(true);
+  });
+
+  it("batch kosong → 400; batch yang valid → deleted hitung", async () => {
+    expect((await route.DELETE(delBatch([]))).status).toBe(400);
+    await route.POST(post({ name: "batch-c.md", text: "c" }));
+    const res = await route.DELETE(delBatch(["f:custom:batch-c"]));
+    expect(res.status).toBe(200);
+    expect((await res.json()).deleted).toBe(1);
+  });
+});
+
+describe("PATCH — rename & kategori", () => {
+  it("{name} → file & id ikut berubah; 409 saat tabrakan", async () => {
+    await route.POST(post({ name: "old-name.md", text: "payload" }));
+    const res = await route.PATCH(patch({ id: "f:custom:old-name", name: "New Name!" }));
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    expect(body.id).toBe("f:custom:new-name");
+    expect(existsSync(path.join(lib.dir, "old-name.md"))).toBe(false);
+    expect(existsSync(path.join(lib.dir, "new-name.md"))).toBe(true);
+    // tabrakan dengan payload lain
+    await route.POST(post({ name: "taker.md", text: "t" }));
+    expect((await route.PATCH(patch({ id: "f:custom:taker", name: "new-name" }))).status).toBe(409);
+  });
+
+  it("{cat} → flag baris pertama di file; invalid → 400", async () => {
+    await route.POST(post({ name: "catty.md", text: "body text" }));
+    const res = await route.PATCH(patch({ id: "f:custom:catty", cat: "pentest" }));
+    expect(await res.json()).toMatchObject({ ok: true, cat: "pentest" });
+    expect(readFileSync(path.join(lib.dir, "catty.md"), "utf8").split("\n")[0]).toBe("cat: pentest");
+    const list = await (await route.GET(get())).json();
+    expect(list.rows.find((r) => r.id === "f:custom:catty").cat).toBe("pentest");
+    expect((await route.PATCH(patch({ id: "f:custom:catty", cat: "nope" }))).status).toBe(400);
+  });
+
+  it("rename & cat sekaligus; unknown id → 404; tanpa field → 400", async () => {
+    await route.POST(post({ name: "combo.md", text: "hello" }));
+    const res = await route.PATCH(patch({ id: "f:custom:combo", name: "Combo X", cat: "coding" }));
+    const body = await res.json();
+    expect(body).toMatchObject({ id: "f:custom:combo-x", cat: "coding" });
+    expect(readFileSync(path.join(lib.dir, "combo-x.md"), "utf8").split("\n")[0]).toBe("cat: coding");
+    expect((await route.PATCH(patch({ id: "f:custom:none", name: "x" }))).status).toBe(404);
+    expect((await route.PATCH(patch({ id: "f:custom:combo-x" }))).status).toBe(400);
+  });
+
+  it("tiap mutasi memicu refreshCustomPayloadRegistry (dropdown fresh tanpa restart)", async () => {
+    await route.POST(post({ name: "rf.md", text: "t" }));
+    await route.PATCH(patch({ id: "f:custom:rf", cat: "general" }));
+    await route.DELETE(del("f:custom:rf"));
+    const jPayloads = await import("open-sse/payload/jailbreakPayloads.js");
+    expect(jPayloads.refreshCount.n).toBeGreaterThanOrEqual(3);
   });
 });

@@ -9,8 +9,11 @@ export const dynamic = "force-dynamic";
 // Without a cache every dashboard mount re-ran buildPayloadCatalog(), and that
 // function re-scans each registered payload's full text to resolve its carrier
 // flag. Memoizing in the route keeps the first load honest and makes every
-// reload after it instant.
-const CATALOG_CACHE_TTL_MS = 60_000;
+// reload after it instant. TTL is kept short (10s) so custom payload uploads /
+// renames / category changes surface in the picker within seconds — the
+// loader registry refreshes on each CRUD write, and a 60s cache would show
+// the stale list until the process effectively forgets it.
+const CATALOG_CACHE_TTL_MS = 10_000;
 let catalogCache = { at: 0, body: null };
 
 // GET /api/developer/payload-catalog
@@ -23,7 +26,7 @@ export async function GET() {
   const now = Date.now();
   if (catalogCache.body && now - catalogCache.at < CATALOG_CACHE_TTL_MS) {
     return Response.json(catalogCache.body, {
-      headers: { "Cache-Control": "private, max-age=60" },
+      headers: { "Cache-Control": "private, max-age=10" },
     });
   }
 
@@ -54,7 +57,7 @@ export async function GET() {
     };
     catalogCache = { at: Date.now(), body };
     return Response.json(body, {
-      headers: { "Cache-Control": "private, max-age=60" },
+      headers: { "Cache-Control": "private, max-age=10" },
     });
   } catch (e) {
     return Response.json({ error: String(e?.message || e) }, { status: 500 });

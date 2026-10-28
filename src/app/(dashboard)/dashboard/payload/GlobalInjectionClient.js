@@ -9,7 +9,7 @@
 // localStorage keys as before the move (developer.godmodePresets /
 // developer.registerPresets / developer.personas) — data stays readable.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/shared/components";
 import { getPersonaTemplate, PERSONA_TEMPLATES } from "@/shared/constants/developerPresets";
 import { SETTINGS_CHANGED_EVENT } from "@/shared/lib/outboundManifest";
@@ -97,6 +97,8 @@ const GODMODE_VARIANTS = [
   { id: "f:ai:mistral",              label: "📄 Mistral (AI-Jailbreaks)", cat: "general", new: true },
   { id: "f:ai:qwen-3.8-max-preview", label: "📄 Qwen 3.8 Max Preview (AI-Jailbreaks)", cat: "general", new: true },
   { id: "custom",  label: "Custom — your own payload", cat: "general" },
+  // user-managed f:custom:* rows from /dashboard/custom-payloads are appended
+  // dynamically at runtime → ALL_GODMODE_VARIANTS in the component below.
 ];
 
 const SORT_KEYS = [
@@ -156,10 +158,38 @@ export default function GlobalInjectionClient({ payloadCatalog }) {
   const [godmodePreview, setGodmodePreview] = useState({ chars: 0, estTokens: 0, text: "" });
   const [savedGodmodePresets, setSavedGodmodePresets] = useState({});
 
+  // User-managed payloads (/dashboard/custom-payloads → <dataDir>/custom-
+  // payloads/**) arrive dynamically through the catalog server route, appended
+  // to the static GODMODE_VARIANTS above. The loader registry already
+  // registered them as f:custom:* variants (getGodmodePrompt resolves the ids
+  // lazily), so selecting one works end-to-end once the catalog carries it.
+  // Category comes from the loader flag (first line `cat: <key>`), defaulting
+  // to general — the same grouping the payload editor uses below.
+  const customVariants = useMemo(() => {
+    const known = new Set(GODMODE_VARIANTS.map((v) => v.id));
+    return (payloadCatalog || [])
+      .filter((r) => r && typeof r.id === "string" && r.id.startsWith("f:custom:"))
+      .filter((r) => !known.has(r.id))
+      .map((r) => ({
+        id: r.id,
+        label: `🧩 Custom — ${r.id.slice("f:custom:".length).split("-").join(" ")}${r.isCarrier ? " (carrier)" : ""}`,
+        cat: r.cat || "general",
+      }));
+  }, [payloadCatalog]);
+  // Unified list — every GODMODE_VARIANTS lookup below uses this so the
+  // selector, the status line, and the editor readout all agree on what the
+  // dropdown offered.
+  const ALL_GODMODE_VARIANTS = useMemo(
+    () => [...GODMODE_VARIANTS, ...customVariants],
+    [customVariants],
+  );
+
+
   // i18n: re-render when the locale changes so translate() picks up the
   // current translation map.
   const [, setLocaleTick] = useState(0);
   useEffect(() => onLocaleChange(() => setLocaleTick((v) => v + 1)), []);
+  // ── Persona carrier warp presets (v0.6.0 rework) ──────────────────────
   const [gmPresetSource, setGmPresetSource] = useState("");
   const [gmPresetName, setGmPresetName] = useState("");
   // Payload sort — "default" keeps the optgroup order; other options sort
@@ -691,7 +721,7 @@ export default function GlobalInjectionClient({ payloadCatalog }) {
           <span className="text-sm font-medium text-text-main">Global Injection</span>
           <span className="text-xs text-text-muted">
             {injectEnabled
-              ? translate(`Active for all tabs & all clients — register ${injectLevel} + payload ${godmodeLevel === "custom" ? "Custom" : (GODMODE_VARIANTS.find((v) => v.id === godmodeLevel)?.label || godmodeLevel)} · ${(godmodePreview.chars || 0).toLocaleString("en-US")} chars`)
+              ? translate(`Active for all tabs & all clients — register ${injectLevel} + payload ${godmodeLevel === "custom" ? "Custom" : (ALL_GODMODE_VARIANTS.find((v) => v.id === godmodeLevel)?.label || godmodeLevel)} · ${(godmodePreview.chars || 0).toLocaleString("en-US")} chars`)
               : translate("OFF — no payload added to any request")}
           </span>
         </div>
@@ -826,7 +856,7 @@ export default function GlobalInjectionClient({ payloadCatalog }) {
                     className="h-8 min-w-[280px] rounded-lg border border-border bg-surface px-2 text-xs text-text-main"
                   >
                     {PAYLOAD_CATEGORIES_UI.map((cat) => {
-                      const items = sortVariants(GODMODE_VARIANTS.filter((v) => v.cat === cat.key));
+                      const items = sortVariants(ALL_GODMODE_VARIANTS.filter((v) => v.cat === cat.key));
                       if (!items.length) return null;
                       return (
                         <optgroup key={cat.key} label={cat.label}>
@@ -894,7 +924,7 @@ export default function GlobalInjectionClient({ payloadCatalog }) {
                   className="w-full resize-y rounded-lg border border-border bg-surface px-3 py-2 font-mono text-xs text-text-main outline-none focus:border-primary/50 read-only:cursor-not-allowed read-only:opacity-60"
                 />
                 <p className="text-[10px] text-text-muted">
-                  Effective payload: <span className="font-semibold text-text-main">{godmodeLevel === "custom" ? "Custom" : GODMODE_VARIANTS.find((v) => v.id === godmodeLevel)?.label || godmodeLevel}</span>{GODMODE_VARIANTS.find((v) => v.id === godmodeLevel)?.new && <span className="ml-1 text-primary">🆕 new</span>}
+                  Effective payload: <span className="font-semibold text-text-main">{godmodeLevel === "custom" ? "Custom" : ALL_GODMODE_VARIANTS.find((v) => v.id === godmodeLevel)?.label || godmodeLevel}</span>{GODMODE_VARIANTS.find((v) => v.id === godmodeLevel)?.new && <span className="ml-1 text-primary">🆕 new</span>}
                   {" · "}{godmodePreview.chars.toLocaleString("en-US")} chars{godmodePreview.estTokens ? ` · ≈${(godmodePreview.estTokens >= 1000 ? (godmodePreview.estTokens / 1000).toFixed(1) + "k" : godmodePreview.estTokens)} tok` : ""}
                 </p>
               </section>
@@ -1003,7 +1033,7 @@ export default function GlobalInjectionClient({ payloadCatalog }) {
                   </li>
                   <li>
                     <span className="font-semibold text-text-main">2. Jailbreak payload</span> —{" "}
-                    {godmodeLevel === "custom" ? "Custom" : GODMODE_VARIANTS.find((v) => v.id === godmodeLevel)?.label || godmodeLevel}
+                    {godmodeLevel === "custom" ? "Custom" : ALL_GODMODE_VARIANTS.find((v) => v.id === godmodeLevel)?.label || godmodeLevel}
                     {GODMODE_VARIANTS.find((v) => v.id === godmodeLevel)?.new && <span className="ml-1 text-primary">🆕 new</span>}
                   </li>
                   {injectIdentity.includes(CARRIER_SLOT_MARK) && (

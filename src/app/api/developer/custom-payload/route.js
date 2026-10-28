@@ -1,12 +1,16 @@
 // /api/developer/custom-payload — user-managed custom payloads.
 //
-// GET               → list all custom payloads (id, file, chars, updated)
+// GET               → list all custom payloads (id, file, chars, cat, updated)
 // GET ?id=f:custom:x → full text
 // POST {name, text}  → save one .md/.txt file (name ≤80 chars sanitized)
 // POST {url}         → import from GitHub: raw .md file or a whole public
 //                      repo (codeload tarball, .md/.txt only, README/LICENSE
 //                      skipped, ≤512 KB/file, ≤200 files)
+// PATCH {id, name?}  → rename file (id = filename slug, so id changes)
+// PATCH {id, cat?}   → set category (coding|pentest|creative|general|nsfw;
+//                      default general — first-line `cat:` flag)
 // DELETE ?id=        → delete by id
+// DELETE {ids:[..]}  → batch delete (dashboard checkbox multi-select)
 import { mkdirSync, readdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { join } from "node:path";
@@ -16,6 +20,8 @@ import {
 } from "@/lib/auth/payloadAuth";
 import {
   getCustomDir, getCustomPayload, getCustomPayloads, deleteCustomPayload,
+  refreshCustomPayloadRegistry, renameCustomPayload, setCustomPayloadCat,
+  PAYLOAD_CATEGORIES,
 } from "open-sse/payload/jailbreakPayloads.js";
 
 export const dynamic = "force-dynamic";
@@ -95,6 +101,7 @@ export async function POST(request) {
           writeFileSync(target.abs, text);
           saved.push(target.rel);
         }
+        if (saved.length) refreshCustomPayloadRegistry();
         return Response.json({ saved: saved.length, names: saved });
       } catch (e) {
         return Response.json({ error: `Import failed: ${String(e.message).slice(0, 120)}` }, { status: 400 });
@@ -112,6 +119,7 @@ export async function POST(request) {
       }
       const name = sanitizeName(decodeURIComponent(u.pathname.split("/").pop()) || `import-${Date.now()}.md`);
       writeFileSync(join(dir, name), text);
+      refreshCustomPayloadRegistry();
       return Response.json({ saved: 1, names: [name] });
     } catch (e) {
       return Response.json({ error: `fetch failed: ${e.message}` }, { status: 400 });
@@ -125,17 +133,84 @@ export async function POST(request) {
   if (!text.trim()) return Response.json({ error: "text cannot be empty" }, { status: 400 });
   if (Buffer.byteLength(text) > MAX_FILE) return Response.json({ error: "too large (>512 KB)" }, { status: 400 });
   writeFileSync(join(dir, name), text);
+  refreshCustomPayloadRegistry();
   return Response.json({ saved: 1, names: [name] });
+}
+
+// PATCH {id, name?}  → rename the file (id IS the filename slug, so the
+//                       dropdown/source id changes with it)
+// PATCH {id, cat?}   → set loader category (coding|pentest|creative|general|
+//                       nsfw), default general when never set
+// 409 when a renamed id collides with an existing payload.
+export async function PATCH(request) {
+  if (!(await assertPayloadAuth(request))) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  let body;
+  try { body = await request.json(); } catch {
+    return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+  const id = String(body?.id || "");
+  if (!id) return Response.json({ error: "id is required" }, { status: 400 });
+  if (getCustomPayloads().every((r) => r.id !== id)) {
+    return Response.json({ error: `Unknown payload: ${id}` }, { status: 404 });
+  }
+
+  const out = {};
+  if (typeof body.name === "string" && body.name.trim()) {
+    const nextId = renameCustomPayload(id, body.name);
+    if (!nextId) {
+      return Response.json({ error: `Rename failed: name unusable or already taken` }, { status: 409 });
+    }
+    out.id = nextId;
+  }
+  if (typeof body.cat === "string" && body.cat.trim()) {
+    const cat = setCustomPayloadCat(body.name && out.id ? out.id : id, body.cat);
+    if (!cat) {
+      return Response.json(
+        { error: `cat must be one of: ${Object.keys(PAYLOAD_CATEGORIES).join(" | ")}` },
+        { status: 400 },
+      );
+    }
+    out.cat = cat;
+  }
+  if (!out.id && !out.cat) {
+    return Response.json({ error: "nothing to update — provide name and/or cat" }, { status: 400 });
+  }
+  refreshCustomPayloadRegistry();
+  const row = getCustomPayload(out.id || id);
+  return Response.json({ ok: true, ...out, chars: row?.chars, file: row?.file });
 }
 
 export async function DELETE(request) {
   if (!(await assertPayloadAuth(request))) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
+  // Batch form: DELETE body {ids:[…]} — dashboard checkbox multi-select.
+  if (request.headers.get("content-type")?.includes("application/json")) {
+    let body;
+    try { body = await request.json(); } catch {
+      return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
+    const idsList = Array.isArray(body?.ids) ? body.ids.map(String).filter(Boolean) : [];
+    if (!idsList.length) return Response.json({ error: "ids array is required" }, { status: 400 });
+    const deleted = [];
+    const missing = [];
+    for (const one of idsList) {
+      (deleteCustomPayload(one) ? deleted : missing).push(one);
+    }
+    if (deleted.length) refreshCustomPayloadRegistry();
+    return Response.json(
+      { ok: missing.length === 0, deleted: deleted.length, missing },
+      { status: deleted.length ? 200 : 404 },
+    );
+  }
+  // Single form kept for backward compatibility (CLI / scripts).
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
   if (!id) return Response.json({ error: "id is required" }, { status: 400 });
   const ok = deleteCustomPayload(id);
+  if (ok) refreshCustomPayloadRegistry();
   return Response.json({ ok }, { status: ok ? 200 : 404 });
 }
 
