@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --port 20127",
+    "payloads:sync": "node scripts/etl-payloads.mjs",
     "dev:webpack": "next dev --webpack --port 20127",
     "build": "next build --webpack",
     "postbuild": "node scripts/copy-standalone-assets.mjs",

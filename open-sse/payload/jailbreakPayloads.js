@@ -82,6 +82,16 @@ function resolveBaseDir() {
     if (existsSync(join(dir, "AI-Jailbreaks"))) return dir;
     dir = join(dir, "..");
   }
+  // Payload collections live in a sibling repo (special/9router-payloads),
+  // not in this repo. Fall back to it so a plain dev checkout of both
+  // siblings resolves without env overrides.
+  dir = REPO_ROOT;
+  for (let i = 0; i < 2; i++) {
+    dir = join(dir, "..");
+    if (existsSync(join(dir, "9router-payloads", "AI-Jailbreaks"))) {
+      return join(dir, "9router-payloads");
+    }
+  }
   return REPO_ROOT;
 }
 const BASE_DIR = resolveBaseDir();

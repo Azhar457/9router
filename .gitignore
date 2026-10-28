@@ -147,3 +147,7 @@ start-dev-silent.cjs
 debug.log
 .scratch/
 /AGENTS.md
+
+# payload collections live in the sibling repo / special/9router-payloads (or ~/.9router/payloads via payloads:sync)
+/AI-Jailbreaks/
+/BlackFriday-GPTs-Prompts/
