@@ -411,8 +411,9 @@ export function setCustomPayloadCat(id, cat) {
   const key = String(cat || "").toLowerCase().trim();
   if (!CUSTOM_CATS.has(key)) return null;
   const marker = `cat: ${key}`;
-  const lines = hit.row.text.split(/\r?\n/);
-  const existing = lines.findIndex((l) => /^cat:\s*\w+/.test(l));
+  const text = readPayload(hit.abs) || "";
+  const lines = text.split(/\r?\n/);
+  const existing = lines.findIndex((l) => /^cat:\s*\w+/i.test(l));
   if (existing === 0) lines[0] = marker; // replace in place
   else if (existing > 0) lines.splice(existing, 1); // remove misplaced marker…
   const body = lines.join("\n").replace(/^\s*\n+/, ""); // …no leading blank run

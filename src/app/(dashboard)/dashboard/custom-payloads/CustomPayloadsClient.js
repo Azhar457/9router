@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import Modal from "@/shared/components/Modal";
 
 const API = "/api/developer/custom-payload";
 
@@ -30,6 +31,8 @@ export default function CustomPayloadsClient() {
   const [editId, setEditId] = useState(null);
   const [editName, setEditName] = useState("");
   const [viewRow, setViewRow] = useState(null); // { id, text, chars }
+  const [importUrl, setImportUrl] = useState("");
+  const [importing, setImporting] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -55,22 +58,27 @@ export default function CustomPayloadsClient() {
     return () => { cancelled = true; clearTimeout(t); };
   }, [refresh]);
 
-  // import from GitHub URL (repo URL or raw file URL)
-  const importUrl = async (urlStr) => {
-    if (!urlStr.trim()) return;
-    setMsg("Importing from " + urlStr + " …");
+  // import from GitHub URL (repo URL or raw file URL) — explicit button click,
+  // not Enter/blur, so the intent is unambiguous
+  const runImport = async () => {
+    const urlStr = importUrl.trim();
+    if (!urlStr || importing) return;
+    setImporting(true);
+    setMsg("Importing " + urlStr + " …");
     try {
       const r = await fetch(API, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: urlStr.trim() }),
+        body: JSON.stringify({ url: urlStr }),
       });
       const d = await r.json();
       if (d.error) setMsg("Import failed: " + d.error);
       else setMsg(`Imported ${d.saved} file(s).`);
+      setImportUrl("");
     } catch (e) {
       setMsg("Import failed: " + e.message);
     }
+    setImporting(false);
     refresh();
   };
 
@@ -197,38 +205,49 @@ export default function CustomPayloadsClient() {
   return (
     <div className="space-y-6">
       {/* import / upload */}
-      <div className="flex items-end gap-3 flex-wrap">
-        <div className="flex-1 min-w-[260px]">
-          <label className="text-text-muted text-xs font-semibold uppercase tracking-wider block mb-1">Import from GitHub</label>
-          <input
-            type="url"
-            placeholder="https://github.com/you/payloads or https://raw.githubusercontent.com/you/payloads/main/x.md"
-            className="w-full px-3 py-2 bg-bg-subtle border border-border rounded text-sm text-text-main focus:outline-none focus:border-primary"
-            onKeyDown={(e) => { if (e.key === "Enter") importUrl(e.target.value); e.target.value = ""; }}
-            onBlur={(e) => { if (e.target.value.trim()) importUrl(e.target.value); }}
-          />
-          <p className="text-text-muted text-[11px] mt-1">
-            Whole-repo URL imports all .md/.txt recursively, preserving folder structure (≤512 KB/file, ≤200 files; README/LICENSE skipped).
-            Or paste a raw file URL to import just that one.
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="px-3 py-3 rounded border border-border bg-bg-subtle">
+          <label className="text-text-muted text-xs font-semibold uppercase tracking-wider block mb-2">Import from GitHub</label>
+          <div className="flex gap-2">
+            <input
+              type="url"
+              value={importUrl}
+              onChange={(e) => setImportUrl(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") runImport(); }}
+              placeholder="github.com/you/repo or raw.githubusercontent.com/…/x.md"
+              className="flex-1 min-w-0 px-3 py-2 bg-bg-base border border-border rounded text-sm text-text-main focus:outline-none focus:border-primary"
+            />
+            <button
+              onClick={runImport}
+              disabled={!importUrl.trim() || importing}
+              className="shrink-0 px-4 py-2 rounded bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {importing ? "…" : "Import"}
+            </button>
+          </div>
+          <p className="text-text-muted text-[11px] mt-1.5">
+            Repo URL imports all .md/.txt recursively (≤4 folder levels, ≤512 KB/file, ≤200 files; README/LICENSE skipped).
+            A raw file URL imports just that one.
           </p>
         </div>
-        <div>
-          <label className="text-text-muted text-xs font-semibold uppercase tracking-wider block mb-1 cursor-pointer">
-            Upload local file
+        <div className="px-3 py-3 rounded border border-border bg-bg-subtle">
+          <label className="text-text-muted text-xs font-semibold uppercase tracking-wider block mb-2">Upload local file</label>
+          <div>
             <input
               ref={fileRef}
               type="file"
               accept=".md,.txt"
               className="hidden"
-              onChange={(e) => onFile(e.target.files?.[0])}
+              onChange={(e) => { onFile(e.target.files?.[0]); e.target.value = ""; }}
             />
-          </label>
-          <button
-            onClick={() => fileRef.current?.click()}
-            className="px-4 py-2 bg-bg-subtle border border-border rounded text-sm text-text-main hover:bg-bg-hover transition-colors"
-          >
-            Browse file…
-          </button>
+            <button
+              onClick={() => fileRef.current?.click()}
+              className="w-full px-4 py-2 rounded border border-border bg-bg-base text-sm text-text-main hover:bg-bg-hover transition-colors"
+            >
+              Browse .md / .txt file…
+            </button>
+          </div>
+          <p className="text-text-muted text-[11px] mt-1.5">Saves to the local custom-payloads store; max 512 KB.</p>
         </div>
       </div>
 
@@ -339,20 +358,26 @@ export default function CustomPayloadsClient() {
       </div>
 
       {/* view modal — isi payload, read-only */}
-      {viewRow && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true">
-          <div className="w-full max-w-3xl max-h-[80vh] flex flex-col rounded-lg border border-border bg-bg-base shadow-2xl">
-            <div className="flex items-center justify-between border-b border-border px-4 py-2">
-              <span className="font-mono text-xs text-text-main">{viewRow.id}</span>
-              <button onClick={() => setViewRow(null)} className="text-text-muted hover:text-text-main text-sm transition-colors">✕</button>
-            </div>
-            <pre className="flex-1 overflow-auto px-4 py-3 text-[11px] font-mono text-text-main whitespace-pre-wrap break-words">{viewRow.text || "…"}</pre>
-            <div className="border-t border-border px-4 py-2 text-text-muted text-[11px]">
+      <Modal
+        isOpen={!!viewRow}
+        onClose={() => setViewRow(null)}
+        title={viewRow ? viewRow.id : ""}
+        size="xl"
+        showTrafficLights={false}
+        footer={
+          viewRow && (
+            <span className="text-xs text-text-muted">
               {viewRow.chars.toLocaleString()} chars — read-only
-            </div>
-          </div>
-        </div>
-      )}
+            </span>
+          )
+        }
+      >
+        {viewRow && (
+          <pre className="overflow-auto text-[11px] font-mono text-text-main whitespace-pre-wrap break-words max-h-[60vh]">
+            {viewRow.text || "…"}
+          </pre>
+        )}
+      </Modal>
 
       <p className="text-text-muted text-xs">
         Payloads appear under the Global Injection menu with id <code className="font-mono">f:custom:&lt;name&gt;</code>.
