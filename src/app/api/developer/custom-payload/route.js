@@ -7,9 +7,7 @@
 //                      repo (codeload tarball, .md/.txt only, README/LICENSE
 //                      skipped, ≤512 KB/file, ≤200 files)
 // DELETE ?id=        → delete by id
-import { unlinkSync, writeFileSync } from "node:fs";
-import { execSync } from "node:child_process";
-import { statSync } from "node:fs";
+import { readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
@@ -72,7 +70,7 @@ export async function POST(request) {
         execSync(`curl -sL ${JSON.stringify(`https://codeload.github.com${u.pathname}/tar.gz/refs/heads/main`)} | tar -xz -C ${JSON.stringify(tmp)} --strip-components=1`, { stdio: "pipe" });
         const walk = (d, base = "") => {
           const out = [];
-          for (const e of require("node:fs").readdirSync(d, { withFileTypes: true })) {
+          for (const e of readdirSync(d, { withFileTypes: true })) {
             if (e.isDirectory()) out.push(...walk(join(d, e.name), base + e.name + "/"));
             else if (/\.md$|\.txt$/i.test(e.name) && !/^readme|license|^.#$/i.test(e.name)) out.push({ base, name: e.name });
           }
@@ -84,7 +82,7 @@ export async function POST(request) {
         }
         const saved = [];
         for (const f of files) {
-          const text = require("node:fs").readFileSync(join(tmp, f.base, f.name), "utf8");
+          const text = readFileSync(join(tmp, f.base, f.name), "utf8");
           if (!text.trim() || Buffer.byteLength(text) > MAX_FILE) continue;
           const safe = sanitizeName(`${f.base}${f.name}`.slice(-60));
           if (!safe) continue;
