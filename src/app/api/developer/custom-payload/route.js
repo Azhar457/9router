@@ -7,9 +7,9 @@
 //                      repo (codeload tarball, .md/.txt only, README/LICENSE
 //                      skipped, ≤512 KB/file, ≤200 files)
 // DELETE ?id=        → delete by id
-import { mkdirSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { execSync } from "node:child_process";
-import { join, relative } from "node:path";
+import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
   assertPayloadAuth,
@@ -68,7 +68,11 @@ export async function POST(request) {
     if (isRepo) {
       const tmp = join(tmpdir(), `9r-custom-${Date.now()}`);
       try {
-        execSync(`rm -rf ${JSON.stringify(tmp)} && mkdir -p ${JSON.stringify(tmp)}`, { stdio: "pipe" });
+        // Filesystem ops via Node (portable); only the download+untar runs in a
+        // shell — `curl | tar` works in cmd.exe (Win10+ ships curl.exe + tar.exe
+        // in System32) and on macOS/Linux sh. JSON.stringify provides safe
+        // quoting for both (backslashes need no escaping inside cmd.exe quotes).
+        mkdirSync(tmp, { recursive: true });
         execSync(`curl -sL ${JSON.stringify(`https://codeload.github.com${u.pathname}/tar.gz/refs/heads/main`)} | tar -xz -C ${JSON.stringify(tmp)} --strip-components=1`, { stdio: "pipe" });
         const walk = (d, base = "") => {
           const out = [];
@@ -88,14 +92,14 @@ export async function POST(request) {
           if (!text.trim() || Buffer.byteLength(text) > MAX_FILE) continue;
           const target = repoFileTarget(dir, f.base, f.name);
           if (!target) continue;
-          writeFileSync(target, text);
-          saved.push(relative(dir, target));
+          writeFileSync(target.abs, text);
+          saved.push(target.rel);
         }
         return Response.json({ saved: saved.length, names: saved });
       } catch (e) {
         return Response.json({ error: `Import failed: ${String(e.message).slice(0, 120)}` }, { status: 400 });
       } finally {
-        try { execSync(`rm -rf ${JSON.stringify(tmp)}`, { stdio: "pipe" }); } catch {}
+        try { rmSync(tmp, { recursive: true, force: true }); } catch {}
       }
     }
     // single-file URL
@@ -148,20 +152,36 @@ function sanitizeName(raw) {
 // The loader (walkAutoscan) already walks recursive dirs and slugs the whole
 // relative path into the payload id, so nested files get ids like
 // `f:custom:ai-jailbreaks-deepseek-deepseek`. Max 4 dir levels, each ≤48 chars.
+// Returns { rel, abs } — rel is always platform-neutral ("/" separators) so it
+// matches walkAutoscan's id scheme on every OS (path.relative would emit "\\"
+// on Windows).
 function repoFileTarget(dir, base, name) {
   const segs = base.replace(/\/+$/, "")
     .split("/").map(sanitizeSeg).filter(Boolean).slice(0, 4);
   if (base.replace(/\/+$/, "").split("/").length > 4) return null;
-  const stem = sanitizeSeg(name.replace(/\.(md|txt)$/i, ""));
+  let stem = cleanSeg(name.replace(/\.(md|txt)$/i, ""));
   if (!stem || !/[a-z0-9]/i.test(stem)) return null;
+  if (WIN_RESERVED.test(stem)) stem = `${stem}-file`;
   const ext = (name.match(/\.(md|txt)$/i)?.[0] || ".md").toLowerCase();
-  const target = join(dir, ...segs, `${stem}${ext}`);
+  const rel = [...segs, `${stem}${ext}`].join("/");
+  if (!rel) return null;
   mkdirSync(join(dir, ...segs), { recursive: true });
-  return target;
+  return { rel, abs: join(dir, ...rel.split("/")) };
 }
 
-// Path segment cleaner: lowercase, safe chars only, no traversal.
+// Windows-reserved filenames — `con`, `nul`, `com1`, … make mkdir/write fail
+// on Windows (case-insensitive, digit suffixes included). Folder segments that
+// match are dropped; file stems get a "-file" suffix.
+const WIN_RESERVED = /^(con|prn|aux|nul|com[1-9]\d*|lpt[1-9]\d*)$/i;
+
+function cleanSeg(raw) {
+  if (raw === "..") return "";
+  return raw.toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|[-.]+$/g, "").slice(0, 48);
+}
+
+// Folder segment cleaner: lowercase, safe chars only, no traversal, and no
+// Windows-nuke names ("con", "nul", trailing dots — mkdir/write fail on Windows).
 function sanitizeSeg(raw) {
-  return raw === ".." ? ""
-    : raw.toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48);
+  const seg = cleanSeg(raw);
+  return WIN_RESERVED.test(seg) || !seg ? "" : seg;
 }

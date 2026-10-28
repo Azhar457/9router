@@ -56,26 +56,26 @@ vi.mock("open-sse/payload/jailbreakPayloads.js", async () => {
   };
 });
 
-// Fake the repo-import shell pipeline: `rm -rf tmp && mkdir -p tmp`,
-// `curl -sL … | tar -xz -C tmp --strip-components=1`, `rm -rf tmp` — without network.
+// Fake the repo-import shell pipeline (now just `curl -sL … | tar -xz -C tmp
+// --strip-components=1` — the mkdir/cleanup are plain fs calls in production)
+// without any network.
 vi.mock("node:child_process", async () => {
   const fs = await import("node:fs");
   return {
     execSync: (cmd) => {
-      if (cmd.includes("mkdir -p")) {
-        const dir = JSON.parse(cmd.slice(cmd.indexOf("mkdir -p") + 9).trim());
-        fs.mkdirSync(dir, { recursive: true });
-      } else if (cmd.includes("curl -sL")) {
-        const dir = JSON.parse(cmd.match(/tar -xz -C ("[^"]+")/)[1]);
-        fs.mkdirSync(path.join(dir, "sub"), { recursive: true });
-        fs.writeFileSync(path.join(dir, "README.md"), "# readme junk");
-        fs.writeFileSync(path.join(dir, "LICENSE.txt"), "MIT");
-        fs.writeFileSync(path.join(dir, "My Payload!.md"), "custom repo payload");
-        fs.writeFileSync(path.join(dir, "sub", "nested.txt"), "nested repo payload");
-      } else if (cmd.includes("rm -rf")) {
-        const dir = JSON.parse(cmd.slice(cmd.indexOf("rm -rf") + 7).trim());
-        fs.rmSync(dir, { recursive: true, force: true });
-      }
+      const dir = JSON.parse(cmd.match(/tar -xz -C ("[^"]+")/)[1]);
+      fs.mkdirSync(path.join(dir, "sub"), { recursive: true });
+      fs.writeFileSync(path.join(dir, "README.md"), "# readme junk");
+      fs.writeFileSync(path.join(dir, "LICENSE.txt"), "MIT");
+      fs.writeFileSync(path.join(dir, "My Payload!.md"), "custom repo payload");
+      fs.writeFileSync(path.join(dir, "sub", "nested.txt"), "nested repo payload");
+      // Windows portability cases: reserved dir name, reserved file stem,
+      // trailing-dot dir name.
+      fs.mkdirSync(path.join(dir, "con"), { recursive: true });
+      fs.mkdirSync(path.join(dir, "sub", "sub dir."), { recursive: true });
+      fs.writeFileSync(path.join(dir, "con", "aux.txt"), "inside windows-nuke dir");
+      fs.writeFileSync(path.join(dir, "nul.txt"), "windows-nuke file");
+      fs.writeFileSync(path.join(dir, "sub", "sub dir.", "deep.txt"), "trailing-dot dir");
     },
   };
 });
@@ -172,15 +172,23 @@ describe("POST — import URL", () => {
 
   it("repo URL → codeload tarball: skip README/LICENSE, preserve subfolder", async () => {
     const res = await route.POST(post({ url: "https://github.com/o/r" }));
+    if (res.status !== 200) console.log("import body:", await res.clone().text());
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.saved).toBe(2);
-    expect(body.names.sort()).toEqual(["my-payload.md", "sub/nested.txt"]);
-    // struktur folder repo dipertahankan di bawah custom dir
+    expect(body.saved).toBe(5);
+    expect(body.names.sort()).toEqual([
+      "aux-file.txt",                 // segmen `con` dibuang (reserved Windows), stem `aux` → `-file`
+      "my-payload.md",
+      "nul-file.txt",                 // stem `nul` reserved Windows → akhiran `-file`
+      "sub/nested.txt",
+      "sub/sub-dir/deep.txt",         // folder `sub dir.` → trailing dot di-strip → `sub-dir`
+    ]);
+    // struktur folder repo dipertahankan di bawah custom dir (rel path “/” di semua OS)
     expect(readFileSync(path.join(lib.dir, "sub", "nested.txt"), "utf8")).toBe("nested repo payload");
-    // loader mock (diagram produksi) memberi id slug path: sub/nested.txt → sub-nested
     const list = await (await route.GET(get())).json();
-    expect(list.rows.map((r) => r.id).sort()).toEqual(["f:custom:my-payload", "f:custom:sub-nested"]);
+    expect(list.rows.map((r) => r.id).sort().join(",")).toBe(
+      "f:custom:aux-file,f:custom:my-payload,f:custom:nul-file,f:custom:sub-nested,f:custom:sub-sub-dir-deep"
+    );
     // temp tar dir dibersihkan di finally (dir route = `9r-custom-<timestamp>`, full digit)
     expect(readdirSync(os.tmpdir()).filter((d) => /^9r-custom-\d+$/.test(d))).toEqual([]);
   });

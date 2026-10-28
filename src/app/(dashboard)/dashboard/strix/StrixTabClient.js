@@ -51,12 +51,9 @@ export default function StrixTabClient() {
   // from this gateway when it decides it needs the methodology, so a skill
   // costs tokens only on the turns where it's actually used.
   const copyFetchUrl = useCallback(async (skill) => {
-    if (!skill?.id) return;
-    const base =
-      typeof window !== "undefined" && "location" in window
-        ? window.location.origin
-        : "http://localhost:20128";
-    const url = `${base}/api/developer/skill-raw?skill=${encodeURIComponent(skill.id)}`;
+    // Browser-only handler — window.location.origin is always available here.
+    if (!skill?.id || typeof window === "undefined") return;
+    const url = `${window.location.origin}/api/developer/skill-raw?skill=${encodeURIComponent(skill.id)}`;
     try {
       await navigator.clipboard.writeText(url);
       setNotice(translate("Fetch URL copied — paste it into your agent."));
