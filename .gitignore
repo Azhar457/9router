@@ -146,3 +146,4 @@ tests/__baseline__/current.json
 start-dev-silent.cjs
 debug.log
 .scratch/
+/AGENTS.md
