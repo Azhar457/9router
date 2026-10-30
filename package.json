@@ -1,6 +1,6 @@
 {
   "name": "9router-app",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "description": "9Router-Plinian web dashboard (based on 9Router 0.5.112)",
   "private": true,
   "scripts": {

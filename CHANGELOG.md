@@ -1,3 +1,9 @@
+# v0.6.4 (2026-10-30)
+
+## Release
+- Plinian fork: sync upstream 9Router v0.5.112 (14 commits cherry-picked onto fork master).
+- No fork behavior changes; all v0.5.112 upstream features/fixes above are now included in this build.
+
 # v0.5.112 (2026-10-28)
 
 ## Features
