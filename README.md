@@ -18,7 +18,7 @@
 
 This repository is **not** the original 9Router project. It is an independent fork of [`decolua/9router`](https://github.com/decolua/9router), maintained separately with its own roadmap, its own releases, and its own GitHub Releases (the npm package `9router-plinian` is deprecated — see Install).
 
-- **Why it exists:** the upstream project moves slowly on the things this fork needs — jailbreak payload research, model-aware payload routing, deeper UI theming, and a Go-based entry proxy for performance work.
+- **Why it exists:** the upstream project moves slowly on the things this fork needs — jailbreak payload research, a curated payload registry, deeper UI theming, and a Go-based entry proxy for performance work.
 - **What stays the same:** the core routing engine (40+ providers, format translation, combos, quota tracking, RTK token saver) is inherited from upstream and still credits it everywhere it matters.
 - **What you should use:** the GitHub Releases install below. `npm install -g 9router-plinian` has been deprecated on the npm registry (dual-use scanner) and is frozen — it will not get you current releases. Use the GitHub tarball.
 
@@ -61,6 +61,16 @@ curl.exe -fsSL https://github.com/Azhar457/9router/releases/latest/download/9rou
 npm install -g "$env:TEMP\9router-plinian.tgz"
 9router-plinian
 ```
+
+**If you hit problems on Windows:**
+
+| Symptom | Fix |
+|---|---|
+| `npm install -g` fails with `EBUSY` / `EPERM` on a running tray binary | Close the tray app (right-click the system-tray icon → Quit) before reinstalling, then re-run `npm install -g`. |
+| `curl` command not found / downloads nothing | Use `curl.exe` explicitly (Windows 10/11 ships it, but `curl.ps1` shadowing on some PS setups breaks the non-`.exe` alias). |
+| PowerShell blocks `npm install` with `ExecutionPolicy` error | Run from **cmd.exe** instead of PowerShell, or: `Set-ExecutionPolicy -Scope Process Bypass` then retry. |
+| Dashboard doesn't update after install (old version still running) | The tray launches the package from your Node global prefix, not wherever `npm install -g` landed. Check which prefix the tray actually uses (`npm config get prefix`) and install there explicitly: `npm install -g --prefix <that-prefix> ./9router-plinian.tgz`, then restart the tray. |
+| Payload extraction warning during install | Harmless — the runtime auto-falls-back to the bundled classic payload. To fix: manually run `node "$(npm root -g)/9router-plinian/hooks/postinstall.js"` to re-trigger extraction. |
 
 > **Verify integrity after download:**
 > ```bash
@@ -122,7 +132,7 @@ One endpoint in, every tool and every provider out. Full architecture: [`docs/AR
 Fork-only feature set for red-team / security-research workflows:
 
 - **Global Injection** — one master toggle drives a register prompt + payload into the same system message (payload appended last, closest to the user query). Levels, identity, and custom payload configurable; legacy settings keys still honored.
-- **External jailbreak payload registry** — file-based payload variants ingested from sibling `AI-Jailbreaks/` + `BlackFriday-GPTs-Prompts/` collections (NYX V4, Cronus, Bladwin 67, Opus 4.8, GPT 5.6, GLM RAGE, DAN, Dev Mode, …) with model-aware auto-routes (`claude-*` → one variant, `gpt-*` → another, `grok` → another). Fail-open: missing file → classic payload.
+- **External jailbreak payload registry** — file-based payload variants ingested from sibling `AI-Jailbreaks/` + `BlackFriday-GPTs-Prompts/` collections (NYX V4, Cronus, Bladwin 67, Opus 4.8, GPT 5.6, GLM RAGE, DAN, Dev Mode, …). Selection is explicit: the chosen variant is exactly what ships (no per-model auto-routing). Fail-open: missing file → classic payload.
   - `9ROUTER_JAILBREAK_DIR=/path/to/collections` — override collection dir
   - `9ROUTER_JAILBREAK_DISABLE=1` — disable the registry
 - **Transparency console** — signature rules detect injections (`G0DM0D3`, `VEIL`, Plinian register, collection markers); the developer console renders register + payload in live injection order.
@@ -154,9 +164,8 @@ anchor — which is deliberate and the right order:
 
 **But** the payload must stay **byte-stable** for the cache to hit. Any change
 to the system prefix — swapping `godmodeLevel`, toggling the carrier, editing
-the custom register text, changing the model that auto-picks a different
-variant, or letting a saver reshape the system message — **invalidates the
-whole prefix** and you pay a full uncached rewrite. The README's "estimate ≈ N
+the custom register text, or letting a saver reshape the system message —
+**invalidates the whole prefix** and you pay a full uncached rewrite. The README's "estimate ≈ N
 tok" number (`estimateGlobalInjection`) is the *steady-state uncached* figure;
 the real billed cost is much lower **if** the cache holds.
 
