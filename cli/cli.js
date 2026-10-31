@@ -677,7 +677,7 @@ function startServer(updatePromise) {
   function spawnServer() {
     serverStartTime = Date.now();
     crashLog = [];
-    const child = spawn(RUNTIME, ["--dns-result-order=ipv4first", "--max-old-space-size=6144", serverPath], {
+    const child = spawn(RUNTIME, ["--max-old-space-size=6144", serverPath], {
       cwd: standaloneDir,
       stdio: showLog ? "inherit" : ["ignore", "ignore", "pipe"],
       detached: true,
@@ -876,7 +876,7 @@ function startServer(updatePromise) {
           let trayLogFd = -1;
           try { trayLogFd = fs.openSync(trayLogPath, "a"); } catch (e) { }
 
-          const bgArgs = ["--dns-result-order=ipv4first", __filename, "--tray", "--skip-update", "-p", port.toString(), "--host", host];
+          const bgArgs = [__filename, "--tray", "--skip-update", "-p", port.toString(), "--host", host];
           const bgProcess = spawn(process.execPath, bgArgs, {
             detached: true,
             stdio: trayLogFd >= 0 ? ["ignore", trayLogFd, trayLogFd] : "ignore",
