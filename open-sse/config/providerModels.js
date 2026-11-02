@@ -26,7 +26,11 @@ export function getDefaultModel(aliasOrId) {
 const DOT_VERSION_PROVIDERS = new Set(["kr", "kiro"]);
 
 // Find a registry entry by id. For Kiro models, tolerates dash/dot version separators
-// ("claude-sonnet-4-5" ~= "claude-sonnet-4.5"). Other providers use exact match only.
+// ("claude-sonnet-4-5" ~= "claude-sonnet-4.5"). Other providers use exact match only,
+// except for a case fallback and a publisher-segment fallback: some registries list
+// upstream ids WITH a publisher prefix while clients send the bare name, in either
+// case ("poolside/laguna-s-2.1" registry ↔ client "poolside/Laguna-S-2.1" or
+// "ps/laguna-s-2.1"). Exact ids and pre-existing behaviors are unaffected.
 function findModel(models, modelId, aliasOrId) {
   if (!models) return undefined;
   const baseModelId = typeof modelId === "string"
@@ -34,7 +38,17 @@ function findModel(models, modelId, aliasOrId) {
     : modelId;
   const found = models.find(m => m.id === modelId || m.id === baseModelId);
   if (found) return found;
-  if (!DOT_VERSION_PROVIDERS.has(aliasOrId)) return undefined;
+  if (!DOT_VERSION_PROVIDERS.has(aliasOrId)) {
+    // Case/publisher-tolerant fallback (only when no exact match exists).
+    if (typeof baseModelId !== "string" || !baseModelId) return undefined;
+    const lc = baseModelId.toLowerCase();
+    return models.find(m => {
+      const mi = String(m.id).toLowerCase();
+      if (mi === lc) return true;
+      const slash = mi.indexOf("/");
+      return slash !== -1 && mi.slice(slash + 1) === lc;
+    });
+  }
   const normalized = normalizeModelId(baseModelId);
   if (normalized === baseModelId) return undefined;
   return models.find(m => m.id === normalized);

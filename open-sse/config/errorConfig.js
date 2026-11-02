@@ -65,6 +65,9 @@ export const ERROR_RULES = [
   // Upstream model degraded / unavailable — not account-scoped, don't lock.
   { text: "function cannot be invoked", noFallback: true },
   { text: "degraded",                   noFallback: true },
+  // Replicate-style deactivated model version (poolside proxies Replicate):
+  // affects every account/credential identically — rotate accounts won't help.
+  { text: "is deactivated. it needs to be activated", noFallback: true },
   { provider: "codex", text: "model is not supported when using codex with a chatgpt account", cooldownMs: MAX_RATE_LIMIT_COOLDOWN_MS },
   // Intl gateway blocks affect the account/IP, so let the connection back off.
   { provider: "codebuddy-intl", text: "request illegal", backoff: true },
