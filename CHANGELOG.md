@@ -1,3 +1,16 @@
+# v0.6.5 (2026-11-07)
+
+## Features
+- **CLI Tools (OpenCode)**: add a **Test Models** button to the OpenCode card — sends a one-shot probe through the gateway for every assigned model and shows per-model pass/fail with latency (reuses `/api/models/test`, injection disabled so probes do not burn tokens).
+
+## Fixes
+- **CLI Tools**: **Select All / Deselect All** in the add-model dialog now adds/removes every filtered model in one click. The dialog fell back to per-model `onSelect` calls that each read a stale state snapshot, so only the last model survived; the OpenCode and GitHub Copilot cards now pass proper batch handlers.
+- **Poolside**: tolerate case and publisher-segment mismatches when resolving model ids (`ps/Laguna-S-2.1`, `poolside/Laguna-S-2.1`, `laguna-s-2.1` all resolve to the canonical upstream `poolside/laguna-s-2.1`), fixing the misleading `404 please check the model you provided`.
+- **Poolside**: treat the upstream `Model version … is deactivated` error as non-retryable — it affects every account identically, so the gateway now returns the real upstream error immediately instead of rotating five credentials and locking each for 120s.
+
+## Docs
+- **README**: Windows install troubleshooting table (EBUSY, `curl.exe`, ExecutionPolicy, tray prefix, payload extraction).
+
 # v0.6.4 (2026-10-30)
 
 ## Release
