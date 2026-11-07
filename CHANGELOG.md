@@ -1,3 +1,15 @@
+# v0.6.7 (2026-11-07)
+
+## Features
+- **Custom payloads — repo-scan import tree.** Paste a GitHub repo URL and it scans every .md/.txt at any depth into a file-explorer-style tree with per-file checkboxes and folder select-all. Folders are collapsible: top-level open by default, deeper levels closed, and only expanded nodes render — a ~9k-file repo paints ~20 rows instead of thousands.
+
+## Performance
+- **Custom-payloads tree: no more O(n²) repaint.** The tree is built once per scan (memoized) and each node pre-rolls its importable-descendant list, replacing a per-node O(n) walk that made a 9k-file repo lag on every checkbox tick.
+
+## Fixes
+- **Custom-payloads: sanitize collisions.** Two repo files that normalize to the same target (`Opus 4.7` vs `Opus-4.7`, or names truncated at 48 chars) now get a short source-hash suffix so each keeps a unique path; import writes the exact path the preview showed (no drift).
+- **Custom-payloads: raw-file import rejects README/LICENSE** — they would save but never surface in any list (the loader skips them).
+
 # v0.6.6 (2026-11-07)
 
 ## Features
