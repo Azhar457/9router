@@ -203,7 +203,10 @@ export async function pingModelByKind(model, kind, baseUrl = `http://127.0.0.1:$
       stream: false,
       messages: [{ role: "user", content: "hi" }],
     }),
-    signal: AbortSignal.timeout(15000),
+    // Reasoning models can think for a minute before the first token (NVIDIA
+    // minimax-m3 measured ~65s with max_tokens 1024); 15s flagged healthy
+    // models as failures. Other probe kinds stay at 15s.
+    signal: AbortSignal.timeout(90000),
   });
   const latencyMs = Date.now() - start;
 
