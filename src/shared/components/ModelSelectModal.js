@@ -581,6 +581,78 @@ export default function ModelSelectModal({
     return visibleModels.filter((m) => addedModelValues.includes(m.value));
   }, [visibleModels, addedModelValues]);
 
+  // Gateway probes are opt-in per click; results are kept keyed by model id so a
+  // test survives filtering. Probes reuse /api/models/test (injection disabled
+  // there), so testing never ships the Global Injection payload.
+  const [modelTestResults, setModelTestResults] = useState({});
+  const [testingVisible, setTestingVisible] = useState(false);
+
+  const runModelTest = async (value) => {
+    setModelTestResults((prev) => ({ ...prev, [value]: { loading: true } }));
+    try {
+      const res = await fetch("/api/models/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model: value }),
+      });
+      const data = await res.json();
+      setModelTestResults((prev) => ({
+        ...prev,
+        [value]: data.ok
+          ? { ok: true, latencyMs: data.latencyMs, note: data.note }
+          : { ok: false, error: data.error || `HTTP ${res.status}` },
+      }));
+    } catch (error) {
+      setModelTestResults((prev) => ({ ...prev, [value]: { ok: false, error: error.message } }));
+    }
+  };
+
+  const handleTestAllVisible = async () => {
+    const targets = visibleModels.map((m) => m.value);
+    if (!targets.length || testingVisible) return;
+    setTestingVisible(true);
+    // Bounded parallelism: a filtered "Test All" can span hundreds of models.
+    let next = 0;
+    const worker = async () => {
+      while (next < targets.length) {
+        const value = targets[next++];
+        await runModelTest(value);
+      }
+    };
+    await Promise.all(
+      Array.from({ length: Math.min(4, targets.length) }, worker)
+    );
+    setTestingVisible(false);
+  };
+
+  const testResultBadge = (value) => {
+    const result = modelTestResults[value];
+    if (!result) return null;
+    const title = result.loading
+      ? "Testing…"
+      : result.ok
+        ? `OK${result.latencyMs ? ` · ${result.latencyMs}ms` : ""}${result.note ? ` · ${result.note}` : ""}`
+        : result.error;
+    return (
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          if (!result.loading) runModelTest(value);
+        }}
+        title={title}
+        className={`shrink-0 p-0.5 rounded text-text-muted hover:text-primary cursor-pointer ${result.loading ? "opacity-100" : ""}`}
+      >
+        <span
+          className={`material-symbols-outlined leading-none ${result.loading ? "animate-spin" : result.ok ? "text-green-500" : "text-red-500"}`}
+          style={{ fontSize: "13px" }}
+        >
+          {result.loading ? "progress_activity" : result.ok ? "check_circle" : "error"}
+        </span>
+      </button>
+    );
+  };
+
   const handleSelectAllVisible = () => {
     if (visibleUnadded.length === 0) return;
     if (onSelectBatch) {
@@ -678,16 +750,28 @@ export default function ModelSelectModal({
           </div>
         </div>
 
-        {!closeOnSelect && visibleModels.length > 0 && (
+        {visibleModels.length > 0 && (
           <div className="flex items-center justify-between px-1 text-[11px] text-text-muted">
             <span className="flex items-center gap-1.5">
               <span>{visibleModels.length} models</span>
-              {addedModelValues.length > 0 && (
+              {!closeOnSelect && addedModelValues.length > 0 && (
                 <span className="text-primary font-medium">({addedModelValues.length} selected)</span>
               )}
             </span>
             <div className="flex items-center gap-1.5">
-              {visibleUnadded.length > 0 && (
+              <button
+                type="button"
+                onClick={handleTestAllVisible}
+                disabled={testingVisible}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-surface-2 text-text-main border border-border hover:border-primary transition-colors cursor-pointer disabled:opacity-50"
+                title="Send a test request through the gateway for every filtered model"
+              >
+                <span className={`material-symbols-outlined text-[12px] leading-none ${testingVisible ? "animate-spin" : ""}`}>
+                  {testingVisible ? "progress_activity" : "network_check"}
+                </span>
+                {testingVisible ? "Testing…" : `Test All (${visibleModels.length})`}
+              </button>
+              {!closeOnSelect && visibleUnadded.length > 0 && (
                 <button
                   type="button"
                   onClick={handleSelectAllVisible}
@@ -697,7 +781,7 @@ export default function ModelSelectModal({
                   Select All ({visibleUnadded.length})
                 </button>
               )}
-              {visibleAdded.length > 0 && (
+              {!closeOnSelect && visibleAdded.length > 0 && (
                 <button
                   type="button"
                   onClick={handleDeselectAllVisible}
@@ -800,8 +884,8 @@ export default function ModelSelectModal({
                 const isSelected = selectedModel === model.value;
                 const isPlaceholder = model.isPlaceholder;
                 return (
+                  <span key={model.value} className="group inline-flex items-center gap-0.5">
                   <button
-                    key={model.value}
                     onClick={() => handleSelect(model)}
                     title={isPlaceholder ? "Select to pre-fill, then edit model ID in the input" : undefined}
                     className={`
@@ -839,6 +923,17 @@ export default function ModelSelectModal({
                       )}
                     </span>
                   </button>
+                  {!isPlaceholder && (testResultBadge(model.value) || (
+                    <button
+                      type="button"
+                      onClick={() => runModelTest(model.value)}
+                      title="Test this model through the gateway"
+                      className="shrink-0 p-0.5 rounded text-text-muted opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-primary cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined leading-none" style={{ fontSize: "13px" }}>network_check</span>
+                    </button>
+                  ))}
+                  </span>
                 );
               })}
             </div>
