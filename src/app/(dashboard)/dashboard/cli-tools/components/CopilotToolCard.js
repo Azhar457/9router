@@ -345,6 +345,14 @@ export default function CopilotToolCard({ tool, isExpanded, onToggle, baseUrl, a
           onDeselect={(model) => {
             setSelectedModels(selectedModels.filter(m => m !== model.value));
           }}
+          onSelectBatch={(items) => {
+            const vals = items.map((m) => m?.value || m?.name || m).filter(Boolean);
+            setSelectedModels((prev) => [...new Set([...prev, ...vals])]);
+          }}
+          onDeselectBatch={(items) => {
+            const vals = new Set(items.map((m) => m?.value || m?.name || m).filter(Boolean));
+            setSelectedModels((prev) => prev.filter((m) => !vals.has(m)));
+          }}
           selectedModel={null}
           activeProviders={activeProviders}
           modelAliases={modelAliases}
