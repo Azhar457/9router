@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
  * The Penetration tab loads this into an editable textarea so the user can
  * read exactly what ships into the model's system prompt before sending.
  *
- * GET /api/developer/strix-payload  (no id) → all 23 rows, metadata only.
+ * GET /api/developer/strix-payload  (no id) → all rows, metadata only.
  */
 export async function GET(request) {
   if (!(await assertPayloadAuth(request))) {

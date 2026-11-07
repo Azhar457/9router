@@ -1,4 +1,4 @@
-import { getGodmodePrompt, pickGodmodeVariant } from "open-sse/payload/godmodePayloads.js";
+import { getGodmodePrompt } from "open-sse/payload/godmodePayloads.js";
 import { getPlinianPrompt } from "open-sse/payload/plinianPrompts.js";
 import { spliceCarrier } from "open-sse/payload/payloadCatalog.js";
 import { detect, estimateTokenSaver, classifyPrompt } from "@/shared/lib/injectionDetect.js";
@@ -12,7 +12,7 @@ export const runtime = "nodejs";
  * injection/leak detection on the outbound request.
  *
  * Accepts the unified `injection` shape:
- *   { enabled, level, godmodeLevel, godmodeCustom, identity, model? }
+ *   { enabled, level, godmodeLevel, godmodeCustom, identity }
  * Falls back to the legacy separate `godmode` + `plinian` objects for
  * any caller that has not been migrated yet.
  */
@@ -24,7 +24,7 @@ export async function POST(request) {
     return Response.json({ error: { message: "Invalid JSON body" } }, { status: 400 });
   }
 
-  // Unified shape: body.injection = { enabled, level, godmodeLevel, godmodeCustom, identity, model? }
+  // Unified shape: body.injection = { enabled, level, godmodeLevel, godmodeCustom, identity }
   // Legacy: body.godmode + body.plinian
   const unified = body?.injection;
   const legacy = {
@@ -37,7 +37,6 @@ export async function POST(request) {
   let identity = "";
   let godmodeLevel = "classic";
   let godmodeCustom = "";
-  let model = "";
 
   if (unified && typeof unified === "object") {
     enabled = !!unified.enabled;
@@ -45,7 +44,6 @@ export async function POST(request) {
     identity = typeof unified.identity === "string" ? unified.identity : "";
     godmodeLevel = typeof unified.godmodeLevel === "string" ? unified.godmodeLevel : "classic";
     godmodeCustom = typeof unified.godmodeCustom === "string" ? unified.godmodeCustom : "";
-    model = typeof unified.model === "string" ? unified.model : "";
   } else {
     enabled = !!legacy.godmode?.enabled || !!legacy.plinian?.enabled;
     registerLevel = legacy.plinian?.level || "standard";
@@ -76,14 +74,10 @@ export async function POST(request) {
     }
   }
 
-  // Build the G0DM0D3 payload text — auto-pick per model when "classic" (default)
+  // Build the G0DM0D3 payload text — exactly the selected variant.
   let godmodeText = "";
   if (enabled && godmodeLevel) {
-    const effectiveLevel =
-      (godmodeLevel === "classic" || !godmodeLevel) && model
-        ? pickGodmodeVariant(model)
-        : godmodeLevel;
-    godmodeText = getGodmodePrompt(effectiveLevel, godmodeCustom);
+    godmodeText = getGodmodePrompt(godmodeLevel, godmodeCustom);
   }
 
   // v0.6.0 rework: carrier warp lives in the persona text (identity).

@@ -4,7 +4,9 @@ const sessionStartStore = new Map();
 const MAX_SESSION_STARTS = 5000;
 
 function clone(value) {
-  return value == null ? value : JSON.parse(JSON.stringify(value));
+  if (value == null) return value;
+  if (typeof globalThis.structuredClone === "function") return globalThis.structuredClone(value);
+  return JSON.parse(JSON.stringify(value));
 }
 
 function sessionKey(connectionId, conversationId) {

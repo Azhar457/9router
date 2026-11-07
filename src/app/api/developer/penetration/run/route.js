@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
  * Penetration skill-execution endpoint (Phase 2, design §3.3).
  *
  * Body: { skillId, target, scope }
- *   - skillId must be one of the 23 ids in STRIX_FLAT (400 otherwise).
+ *   - skillId must be one of the ids in STRIX_FLAT (400 otherwise).
  *   - Auth: assertPenetrationAuth (AND-gated: valid dashboard JWT cookie AND
  *     the local CLI token) → 401 when either check fails. Stricter than
  *     assertPayloadAuth because this is an execution surface, not browse.
@@ -32,7 +32,7 @@ export async function POST(request) {
   const skillId = String(body?.skillId ?? "");
   if (!STRIX_FLAT.some((s) => s.id === skillId)) {
     return Response.json(
-      { error: "Unknown skillId — must be one of the 23 Strix manifest ids" },
+      { error: "Unknown skillId — must be one of the Strix manifest ids" },
       { status: 400 }
     );
   }

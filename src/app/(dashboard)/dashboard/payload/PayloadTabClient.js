@@ -10,6 +10,7 @@ import {
   recordConsent,
   revokeConsent,
 } from "@/shared/lib/tabConfig";
+import { translate } from "@/i18n/runtime";
 import GlobalInjectionClient from "./GlobalInjectionClient";
 
 // ── Consent gate ──────────────────────────────────────────────────────────────
@@ -124,12 +125,31 @@ export default function PayloadTabClient() {
   // preview, carrier composition, and the full registry).
   const [catalog, setCatalog] = useState([]);
 
-  useEffect(() => {
-    fetch("/api/developer/payload-catalog")
+  const loadCatalog = useCallback(() => {
+    fetch("/api/developer/payload-catalog", { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => setCatalog(d.catalog || []))
       .catch((e) => console.warn("payload-catalog fetch failed", e));
   }, []);
+
+  useEffect(() => {
+    loadCatalog();
+    // Custom payloads can be deleted or renamed on /dashboard/custom-payloads
+    // (or from another window). Re-read on focus/visibility so the selector
+    // never keeps offering a payload that no longer exists — the catalog route
+    // drops its memo as soon as the registry changes, so this read is cheap
+    // and current.
+    const onFocus = () => loadCatalog();
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") loadCatalog();
+    };
+    globalThis.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      globalThis.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [loadCatalog]);
 
   // ── Disabled env state ─────────────────────────────────────────────────────
   if (flags.payload?.disabled) {
@@ -163,9 +183,10 @@ export default function PayloadTabClient() {
   // ── Consent audit banner dates ─────────────────────────────────────────────
   const fmt = (ms) => (ms ? new Date(ms).toLocaleDateString("en-US") : "—");
   const consentBannerDates = consented
-    ? `${fmt(consent.consentAt)} · expires ${
-        consent.expiresAt ? fmt(consent.expiresAt) : "90 days"
-      }`
+    ? translate("{at} · expires {expiry}", {
+        at: fmt(consent.consentAt),
+        expiry: consent.expiresAt ? fmt(consent.expiresAt) : translate("90 days"),
+      })
     : "";
 
   return (

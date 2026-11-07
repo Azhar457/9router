@@ -183,6 +183,14 @@ const COLLECTIONS = [
     autoscan: true,
     files: [],
   },
+  {
+    // Upstream-novel — imported by scripts/import-upstream.mjs in the
+    // payloads repo (one subfolder per source repo). Auto-scanned.
+    prefix: "up",
+    root: join(BASE_DIR, "Upstream-novel"),
+    autoscan: true,
+    files: [],
+  },
 ];
 
 // "Claude/Opus 4.7/tut.txt" → "claude-opus-4-7-tut"
@@ -200,13 +208,25 @@ function walkAutoscan(dir, rel = [], out) {
   for (const name of readdirSync(dir, { withFileTypes: true })) {
     const sub = rel.concat(name.name);
     if (name.isDirectory()) walkAutoscan(join(dir, name.name), sub, out);
-    else if (/\.md|\.txt/i.test(name.name) && !/^readme|license|^1#$/i.test(name.name)) out.push({ path: sub.join("/"), id: slugify(sub.join("/")) });
+    else if (/\.(md|txt)$/i.test(name.name) && !/^readme|license|^1#$/i.test(name.name)) out.push({ path: sub.join("/"), id: slugify(sub.join("/")) });
   }
   return out;
 }
 
 const registry = new Map(); // id → payload string
 const categories = new Map(); // id → category key
+
+// Bumped on every registry refresh (custom payload create / rename / delete /
+// recategorize). The payload-catalog route memoizes its response for a few
+// seconds; without a version check a payload deleted right after a catalog
+// read would keep appearing in the selector — a selection that no longer
+// resolves anywhere — until that TTL expired.
+let registryVersion = 0;
+let externalPayloadsCache = { version: -1, rows: null };
+const carrierFlags = new Map();
+export function getPayloadRegistryVersion() {
+  return registryVersion;
+}
 
 function readPayload(absPath) {
   try {
@@ -217,6 +237,39 @@ function readPayload(absPath) {
   } catch {
     return null;
   }
+}
+
+// The first-line `cat: <key>` flag is loader metadata, not payload text. The
+// registry parses it into `categories`, and every caller that wants the
+// payload body (prompt injection, the dashboard editor, the size shown in the
+// table) must see the file WITHOUT it — otherwise `cat: general` rides along
+// inside the prompt sent to the model. Strip it on read; the file on disk
+// keeps the flag so the category survives a restart.
+//
+// Declared above loadRegistry() on purpose: the loader calls this at module
+// evaluation time, and a `const` further down would be in its TDZ (the throw
+// would be swallowed by the custom-dir try/catch and every custom payload
+// would silently vanish from the registry).
+//
+// Only a real category key counts as the flag — a payload whose first lines
+// happen to read "cat: …" as prose must survive untouched.
+const CAT_FLAG_LINE = new RegExp(
+  `^\\s*cat:\\s*(${Object.keys(PAYLOAD_CATEGORIES).join("|")})\\s*$`,
+  "i"
+);
+
+function stripCategoryFlag(text) {
+  if (!text) return "";
+  const eol = text.includes("\r\n") ? "\r\n" : "\n";
+  const lines = text.split(/\r?\n/);
+  // The loader accepts the flag within the first three lines; strip it from
+  // the same window so write + read stay symmetric.
+  const idx = lines.slice(0, 3).findIndex((l) => CAT_FLAG_LINE.test(l));
+  if (idx === -1) return text;
+  lines.splice(idx, 1);
+  // A flag on its own line usually leaves a blank separator behind.
+  if (idx === 0 && lines.length && lines[0].trim() === "") lines.shift();
+  return lines.join(eol);
 }
 
 function loadRegistry() {
@@ -244,7 +297,7 @@ function loadRegistry() {
         if (!text) continue;
         const m = text.split(/\r?\n/, 3).find((l) => /^cat:\s*\w+/i.test(l));
         const id = `f:custom:${f.id}`;
-        registry.set(id, text);
+        registry.set(id, stripCategoryFlag(text));
         categories.set(id, m?.toLowerCase().match(/cat:\s*(\w+)/)?.[1] || "general");
       }
     }
@@ -261,20 +314,26 @@ loadRegistry();
 // payloads-only — the shipped collections keep whatever they loaded at import.
 export function refreshCustomPayloadRegistry() {
   const customDir = getCustomDir();
-  for (const id of Array.from(registry.keys())) {
-    if (id.startsWith("f:custom:")) {
-      registry.delete(id);
-      categories.delete(id);
-    }
+  // Count the refresh even if the re-scan below fails: the registry did change
+  // (entries were dropped), so any cached catalog built from it is stale.
+  registryVersion += 1;
+  externalPayloadsCache = { version: -1, rows: null };
+  // Avoid Array.from on the live map: delete while iterating via for..of keys.
+  for (const id of registry.keys()) {
+    if (!id.startsWith("f:custom:")) continue;
+    registry.delete(id);
+    categories.delete(id);
+    carrierFlags.delete(id);
   }
   try {
     if (existsSync(customDir)) {
       for (const f of walkAutoscan(customDir, [], [])) {
         const text = readPayload(join(customDir, f.path));
         if (!text) continue;
+        // One strip pass: reuse result for body, size, and category detection.
         const m = text.split(/\r?\n/, 3).find((l) => /^cat:\s*\w+/i.test(l));
         const id = `f:custom:${f.id}`;
-        registry.set(id, text);
+        registry.set(id, stripCategoryFlag(text));
         categories.set(id, m?.toLowerCase().match(/cat:\s*(\w+)/)?.[1] || "general");
       }
     }
@@ -295,6 +354,8 @@ function resolveDataDir() {
 export function getCustomDir() {
   return join(resolveDataDir(), "custom-payloads");
 }
+
+export { stripCategoryFlag as stripCustomPayloadFlag };
 export { slugify as customSlugify };
 
 
@@ -305,10 +366,12 @@ export function getCustomPayloads() {
   const out = [];
   for (const f of walkAutoscan(dir, [], [])) {
     const abs = join(dir, f.path);
-    let text = "";
-    try { text = readPayload(abs) || ""; } catch { continue; }
-    if (!text) continue;
-    const m = text.split(/\r?\n/, 3).find((l) => /^cat:\s*\w+/i.test(l));
+    let raw = "";
+    try { raw = readPayload(abs) || ""; } catch { continue; }
+    if (!raw) continue;
+    // Parse the flag from the raw file, report the size of the payload body.
+    const m = raw.split(/\r?\n/, 3).find((l) => /^cat:\s*\w+/i.test(l));
+    const text = stripCategoryFlag(raw);
     out.push({
       id: `f:custom:${f.id}`,
       file: f.path,
@@ -321,24 +384,67 @@ export function getCustomPayloads() {
   return out.sort((a, b) => a.id.localeCompare(b.id));
 }
 
-export function getCustomPayload(id) {
-  const row = getCustomPayloads().find((r) => r.id === id);
+function findCustomRow(id) {
+  const needle = String(id || "");
+  if (!needle.startsWith("f:custom:")) return null;
+  const rel = needle.slice("f:custom:".length);
+  if (!rel) return null;
+  const dir = getCustomDir();
+  for (const ext of [".md", ".txt"]) {
+    const abs = join(dir, `${rel}${ext}`);
+    if (!existsSync(abs)) continue;
+    let raw = "";
+    try { raw = readPayload(abs) || ""; } catch { return null; }
+    if (!raw) return null;
+    const m = raw.split(/\r?\n/, 3).find((l) => /^cat:\s*\w+/i.test(l));
+    const text = stripCategoryFlag(raw);
+    return {
+      id: needle,
+      file: `${rel}${ext}`,
+      chars: text.length,
+      updated: statSync(abs).mtimeMs,
+      cat: m?.toLowerCase().match(/cat:\s*(\w+)/)?.[1] || "general",
+      abs,
+      text,
+    };
+  }
+  // Fallback for nested/legacy paths: scan once only when direct lookup misses.
+  const row = getCustomPayloads().find((r) => r.id === needle);
   if (!row) return null;
-  return { ...row, text: readPayload(join(getCustomDir(), row.file)) || "" };
+  const abs = join(dir, row.file);
+  let raw = "";
+  try { raw = readPayload(abs) || ""; } catch { raw = ""; }
+  return { ...row, abs, text: stripCategoryFlag(raw) };
+}
+
+export function getCustomPayload(id) {
+  const row = findCustomRow(id);
+  if (!row) return null;
+  const { abs, ...rest } = row;
+  void abs;
+  return rest;
 }
 
 export function deleteCustomPayload(id) {
   if (!String(id).startsWith("f:custom:")) return false;
-  const row = getCustomPayloads().find((r) => r.id === id);
+  const row = findCustomRow(id);
   if (!row) return false;
-  try { unlinkSync(join(getCustomDir(), row.file)); return true; } catch { return false; }
+  try { unlinkSync(row.abs || join(getCustomDir(), row.file)); return true; } catch { return false; }
 }
 export function getExternalPayloads() {
-  return Array.from(registry.entries()).map(([id, text]) => ({
-    id,
-    chars: text.length,
-    cat: categories.get(id) || "general",
-  }));
+  if (externalPayloadsCache.version === registryVersion && externalPayloadsCache.rows) {
+    return externalPayloadsCache.rows;
+  }
+  const rows = [];
+  for (const [id, text] of registry.entries()) {
+    rows.push({ id, chars: text.length, cat: categories.get(id) || "general" });
+  }
+  externalPayloadsCache = { version: registryVersion, rows };
+  return rows;
+}
+
+export function getPayloadCategory(id) {
+  return categories.get(id) || "general";
 }
 
 export function getExternalPayload(id) {
@@ -351,7 +457,6 @@ export function getExternalPayload(id) {
 // change — memoizing it keeps the catalog route from re-scanning all payloads
 // on every request. `detect` is injected by the caller because
 // payloadCatalog.js imports this module and would otherwise form a cycle.
-const carrierFlags = new Map();
 export function isExternalPayloadCarrier(id, detect) {
   if (carrierFlags.has(id)) return carrierFlags.get(id);
   const marker = detect(registry.get(id) || "");
@@ -370,9 +475,9 @@ const CUSTOM_WIN_RESERVED = /^(con|prn|aux|nul|com[1-9]\d*|lpt[1-9]\d*)$/i;
 const CUSTOM_CATS = new Set(Object.keys(PAYLOAD_CATEGORIES));
 
 function findCustomFile(id) {
-  const row = getCustomPayloads().find((r) => r.id === id);
+  const row = findCustomRow(id);
   if (!row) return null;
-  return { row, abs: join(getCustomDir(), ...row.file.split("/")) };
+  return { row, abs: row.abs || join(getCustomDir(), ...row.file.split("/")) };
 }
 
 // Rename f:custom:<x> → f:custom:<new>. Returns the new id, or null when the

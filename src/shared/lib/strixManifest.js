@@ -1,7 +1,7 @@
 // ── Strix manifest ────────────────────────────────────────────────────────────
 // Static presentation manifest for the Penetration + Jailbreak tabs.
 //
-// The 23 skill ids are a fixed, shipped set (see strix-payloads/INTEGRATION.md
+// The 26 skill ids are a fixed, shipped set (see strix-payloads/INTEGRATION.md
 // Phase 1). This file is imported by client components, so it must stay a
 // plain data module — no node:fs, no dynamic reads. The live text of each
 // payload is fetched on demand from /api/developer/strix-payload (server-side,
@@ -55,6 +55,9 @@ export const STRIX_GROUPS = [
       { id: "strix:top-level:owasp-top-10-testing", name: "owasp-top-10-testing", cat: "top-level", size: "6k" },
       { id: "strix:top-level:penetration-testing-with-strix", name: "penetration-testing-with-strix", cat: "top-level", size: "10k" },
       { id: "strix:top-level:web-app-penetration-testing", name: "web-app-penetration-testing", cat: "top-level", size: "4k" },
+      { id: "strix:top-level:cve_lookup", name: "cve_lookup", cat: "top-level", size: "3k" },
+      { id: "strix:top-level:cvss_scoring", name: "cvss_scoring", cat: "top-level", size: "3k" },
+      { id: "strix:top-level:proof_of_concept", name: "proof_of_concept", cat: "top-level", size: "4k" },
     ],
   },
 ];

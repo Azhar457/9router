@@ -367,7 +367,6 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
       carrierEnabled: injectionCarrierEnabled,
       carrierLevel: injectionCarrierLevel,
       carrierCustom: injectionCarrierCustom,
-      model: upstreamModel,
       skillRouterCustom: injectionSkillRouterCustom,
     });
     const est = estimateGlobalInjection({
@@ -379,7 +378,6 @@ export async function handleChatCore({ body, modelInfo, credentials, log, onCred
       carrierEnabled: injectionCarrierEnabled,
       carrierLevel: injectionCarrierLevel,
       carrierCustom: injectionCarrierCustom,
-      model: upstreamModel,
       skillRouterCustom: injectionSkillRouterCustom,
     });
     const skillTok = String(injectionSkillRouterCustom || "").trim()

@@ -1,5 +1,5 @@
 import { buildPayloadCatalog, isCarrierPayload, estTokensFromChars, spliceCarrier, CARRIER_SLOT } from "open-sse/payload/payloadCatalog.js";
-import { getExternalPayload, getExternalPayloads } from "open-sse/payload/jailbreakPayloads.js";
+import { getExternalPayloads, getPayloadRegistryVersion, isExternalPayloadCarrier } from "open-sse/payload/jailbreakPayloads.js";
 import { getGodmodePrompt, GODMODE_LEVELS } from "open-sse/payload/godmodePayloads.js";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 // loader registry refreshes on each CRUD write, and a 60s cache would show
 // the stale list until the process effectively forgets it.
 const CATALOG_CACHE_TTL_MS = 10_000;
-let catalogCache = { at: 0, body: null };
+let catalogCache = { at: 0, version: -1, body: null };
 
 // GET /api/developer/payload-catalog
 // Metadata catalog for the payload selector: every payload row with
@@ -24,7 +24,11 @@ let catalogCache = { at: 0, body: null };
 // any sorting/ranking from this, not from re-scanning payload files.
 export async function GET() {
   const now = Date.now();
-  if (catalogCache.body && now - catalogCache.at < CATALOG_CACHE_TTL_MS) {
+  // Registry version, not just age: a delete/rename/recategorize invalidates
+  // the memo immediately, so the selector cannot keep offering a payload the
+  // user just removed (and the client can then detach that selection).
+  const version = getPayloadRegistryVersion();
+  if (catalogCache.body && catalogCache.version === version && now - catalogCache.at < CATALOG_CACHE_TTL_MS) {
     return Response.json(catalogCache.body, {
       headers: { "Cache-Control": "private, max-age=10" },
     });
@@ -33,11 +37,11 @@ export async function GET() {
   try {
     const catalog = buildPayloadCatalog();
 
-    // Resolve live carrier flags + real size for file rows.
+    // Resolve file rows without a second catalog-time text sweep. The registry
+    // already holds the text; isExternalPayloadCarrier memoizes detection per id.
     for (const row of catalog) {
-      const text = row.source === "file" ? getExternalPayload(row.id) : null;
       if (row.source === "file") {
-        row.isCarrier = isCarrierPayload(text || "");
+        row.isCarrier = isExternalPayloadCarrier(row.id, isCarrierPayload);
       }
       // Builtins already carry sizeChars from getGodmodePrompt.
       if (!row.estTokens && row.sizeChars) row.estTokens = estTokensFromChars(row.sizeChars);
@@ -55,7 +59,7 @@ export async function GET() {
         return acc;
       }, {}),
     };
-    catalogCache = { at: Date.now(), body };
+    catalogCache = { at: Date.now(), version, body };
     return Response.json(body, {
       headers: { "Cache-Control": "private, max-age=10" },
     });

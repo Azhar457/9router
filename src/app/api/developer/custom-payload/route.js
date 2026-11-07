@@ -3,21 +3,25 @@
 // GET               → list all custom payloads (id, file, chars, cat, updated)
 // GET ?id=f:custom:x → full text
 // POST {name, text}  → save one .md/.txt file (name ≤80 chars sanitized)
-// POST {url}         → import from GitHub: raw .md file or a whole public
-//                      repo (codeload tarball, .md/.txt only, README/LICENSE
-//                      skipped, ≤512 KB/file, ≤200 files)
+// POST {url, preview}  → scan GitHub repo (codeload tarball) and return a
+//                      map/tree of .md/.txt files (no content import yet)
+// POST {url, files}    → import selected repo files by relative path (from preview)
+// POST {url}           → legacy: import repo/raw file (repo capped to 200 files)
 // PATCH {id, name?}  → rename file (id = filename slug, so id changes)
 // PATCH {id, cat?}   → set category (coding|pentest|creative|general|nsfw;
 //                      default general — first-line `cat:` flag)
 // DELETE ?id=        → delete by id
 // DELETE {ids:[..]}  → batch delete (dashboard checkbox multi-select)
-import { mkdirSync, readdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, rmSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { execSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import {
   assertPayloadAuth,
 } from "@/lib/auth/payloadAuth";
+import { getSettings, updateSettings } from "@/lib/localDb";
+import { DEFAULT_PAYLOAD_LEVEL } from "@/shared/lib/payloadDefaults";
 import {
   getCustomDir, getCustomPayload, getCustomPayloads, deleteCustomPayload,
   refreshCustomPayloadRegistry, renameCustomPayload, setCustomPayloadCat,
@@ -33,6 +37,26 @@ const ALLOWED_HOSTS = new Set([
 ]);
 
 function ids() { return getCustomPayloads(); }
+
+// A deleted custom payload must not stay selected: settings would keep the
+// orphaned f:custom:* id, the preview endpoint would silently answer with the
+// Classic payload, and every surface (payload tab selector, shield indicator)
+// would name a payload that no longer exists while the editor shows another
+// one. Detaching here keeps the persisted state honest whichever tab the user
+// opens next.
+async function detachDeletedPayload(deletedIds) {
+  if (!deletedIds || !deletedIds.length) return false;
+  try {
+    const settings = await getSettings();
+    const current = settings.injectionGodmodeLevel || "";
+    if (!deletedIds.includes(current)) return false;
+    await updateSettings({ injectionGodmodeLevel: DEFAULT_PAYLOAD_LEVEL });
+    return true;
+  } catch {
+    // Best-effort: the payload tab also validates the selection when it opens.
+    return false;
+  }
+}
 
 export async function GET(request) {
   if (!(await assertPayloadAuth(request))) {
@@ -60,7 +84,7 @@ export async function POST(request) {
   const dir = getCustomDir();
   mkdirSync(dir, { recursive: true });
 
-  // Single file import from a GitHub raw/plain URL.
+  // GitHub URL: scan/preview (tree+checkbox map), selective import, or legacy full import.
   if (body?.url && !body?.text) {
     let u;
     try { u = new URL(String(body.url)); } catch {
@@ -69,47 +93,79 @@ export async function POST(request) {
     if (u.protocol !== "https:" || !ALLOWED_HOSTS.has(u.hostname)) {
       return Response.json({ error: "Only github.com / raw.githubusercontent.com / codeload.github.com / gist URLs are allowed" }, { status: 400 });
     }
-    // repo URL → walk the codeload tarball; single raw .md/.txt → direct fetch
     const isRepo = /github\.com$/.test(u.hostname) && !/\/(raw|gist)/.test(u.pathname);
     if (isRepo) {
       const tmp = join(tmpdir(), `9r-custom-${Date.now()}`);
+      const preview = !!body?.preview;
+      const selected = Array.isArray(body?.files) ? new Set(body.files.map(String)) : null;
       try {
-        // Filesystem ops via Node (portable); only the download+untar runs in a
-        // shell — `curl | tar` works in cmd.exe (Win10+ ships curl.exe + tar.exe
-        // in System32) and on macOS/Linux sh. JSON.stringify provides safe
-        // quoting for both (backslashes need no escaping inside cmd.exe quotes).
         mkdirSync(tmp, { recursive: true });
         execSync(`curl -sL ${JSON.stringify(`https://codeload.github.com${u.pathname}/tar.gz/refs/heads/main`)} | tar -xz -C ${JSON.stringify(tmp)} --strip-components=1`, { stdio: "pipe" });
+        // Walk full depth; collect candidates without reading file content (stat only).
         const walk = (d, base = "") => {
           const out = [];
           for (const e of readdirSync(d, { withFileTypes: true })) {
             if (e.isDirectory()) out.push(...walk(join(d, e.name), base + e.name + "/"));
-            else if (/\.md$|\.txt$/i.test(e.name) && !/^readme|license|^.#$/i.test(e.name)) out.push({ base, name: e.name });
+            else if (/\.(md|txt)$/i.test(e.name) && !/^readme|license|^.#$/i.test(e.name)) {
+              out.push({ base, name: e.name, src: join(d, e.name) });
+            }
           }
           return out;
         };
-        const files = walk(tmp);
-        const totalFiles = files.length;
-        const kept = files.slice(0, MAX_FILES);
-        if (!kept.length) {
-          return Response.json({ error: "No .md/.txt payloads found in that repo" }, { status: 400 });
+        const candidates = [];
+        for (const f of walk(tmp)) {
+          const target = repoFileTarget(dir, f.base, f.name, { mkdir: false });
+          if (!target) continue;
+          let bytes = 0;
+          try { bytes = statSync(f.src).size; } catch { continue; }
+          candidates.push({ rel: target.rel, src: f.src, bytes, depth: f.base ? f.base.replace(/\/+$/, "").split("/").length : 0 });
+        }
+        candidates.sort((a, b) => a.rel.localeCompare(b.rel));
+
+        if (preview) {
+          return Response.json({
+            preview: true,
+            repo: u.pathname.replace(/^\/+/, ""),
+            total: candidates.length,
+            files: candidates.map(({ rel, bytes, depth }) => ({
+              rel, bytes, depth,
+              importable: bytes > 0 && bytes <= MAX_FILE,
+              reason: bytes > MAX_FILE ? "too_large" : undefined,
+            })),
+          });
+        }
+
+        const pool = selected
+          ? candidates.filter((c) => selected.has(c.rel))
+          : candidates.slice(0, MAX_FILES);
+        if (!pool.length) {
+          return Response.json({ error: selected ? "No selected files found to import" : "No .md/.txt payloads found in that repo" }, { status: 400 });
         }
         const saved = [];
         let skipped = 0;
-        for (const f of kept) {
-          const text = readFileSync(join(tmp, f.base, f.name), "utf8");
-          if (!text.trim() || Buffer.byteLength(text) > MAX_FILE) { skipped++; continue; }
-          const target = repoFileTarget(dir, f.base, f.name);
-          if (!target) { skipped++; continue; }
-          writeFileSync(target.abs, text);
-          saved.push(target.rel);
+        for (const c of pool) {
+          if (c.bytes > MAX_FILE || c.bytes <= 0) { skipped++; continue; }
+          let text = "";
+          try { text = readFileSync(c.src, "utf8"); } catch { skipped++; continue; }
+          if (!text.trim()) { skipped++; continue; }
+          // c.rel was already sanitized/hashed for the preview — writing at that
+          // exact path keeps the checkbox selection, the tree and the saved
+          // file in sync (re-running repoFileTarget would hash the hash).
+          const rel = c.rel;
+          const segs = rel.split("/");
+          mkdirSync(join(dir, ...segs.slice(0, -1)), { recursive: true });
+          const abs = join(dir, ...segs);
+          writeFileSync(abs, text);
+          saved.push(rel);
         }
         if (saved.length) refreshCustomPayloadRegistry();
         const response = { saved: saved.length, names: saved };
-        if (totalFiles > MAX_FILES) response.truncated = true;
-        response.note = totalFiles > MAX_FILES
-          ? `Imported ${saved.length} of ${totalFiles} files (limit ${MAX_FILES} reached)`
-          : (skipped ? `Imported ${saved.length}, skipped ${skipped} (empty or too large)` : undefined);
+        if (!selected && candidates.length > MAX_FILES) {
+          response.truncated = true;
+          response.note = `Imported ${saved.length} of ${candidates.length} files (limit ${MAX_FILES} reached)`;
+        } else if (skipped) {
+          response.note = `Imported ${saved.length}, skipped ${skipped} (empty or too large)`;
+        }
         return Response.json(response);
       } catch (e) {
         return Response.json({ error: `Import failed: ${String(e.message).slice(0, 120)}` }, { status: 400 });
@@ -126,6 +182,11 @@ export async function POST(request) {
         return Response.json({ error: "Empty or too large (>512 KB)" }, { status: 400 });
       }
       const name = sanitizeName(decodeURIComponent(u.pathname.split("/").pop()) || `import-${Date.now()}.md`);
+      // The loader never surfaces README/LICENSE files, so importing one would
+      // report success while the payload stays invisible in every list.
+      if (/^readme|license/i.test(name)) {
+        return Response.json({ error: "README/LICENSE files are skipped" }, { status: 400 });
+      }
       writeFileSync(join(dir, name), text);
       refreshCustomPayloadRegistry();
       return Response.json({ saved: 1, names: [name] });
@@ -186,6 +247,18 @@ export async function PATCH(request) {
     return Response.json({ error: "nothing to update — provide name and/or cat" }, { status: 400 });
   }
   refreshCustomPayloadRegistry();
+  // A rename changes the id, so a selection pointing at the old one would be
+  // orphaned exactly like a deletion. Follow the rename in settings.
+  if (out.id && out.id !== id) {
+    try {
+      const settings = await getSettings();
+      if ((settings.injectionGodmodeLevel || "") === id) {
+        await updateSettings({ injectionGodmodeLevel: out.id });
+      }
+    } catch {
+      // best-effort
+    }
+  }
   const row = getCustomPayload(out.id || id);
   return Response.json({ ok: true, ...out, chars: row?.chars, file: row?.file });
 }
@@ -208,8 +281,14 @@ export async function DELETE(request) {
       (deleteCustomPayload(one) ? deleted : missing).push(one);
     }
     if (deleted.length) refreshCustomPayloadRegistry();
+    const detached = await detachDeletedPayload(deleted);
     return Response.json(
-      { ok: missing.length === 0, deleted: deleted.length, missing },
+      {
+        ok: missing.length === 0,
+        deleted: deleted.length,
+        missing,
+        ...(detached ? { detachedSelection: true, payloadLevel: DEFAULT_PAYLOAD_LEVEL } : {}),
+      },
       { status: deleted.length ? 200 : 404 },
     );
   }
@@ -219,7 +298,11 @@ export async function DELETE(request) {
   if (!id) return Response.json({ error: "id is required" }, { status: 400 });
   const ok = deleteCustomPayload(id);
   if (ok) refreshCustomPayloadRegistry();
-  return Response.json({ ok }, { status: ok ? 200 : 404 });
+  const detached = await detachDeletedPayload([id]);
+  return Response.json(
+    { ok, ...(detached ? { detachedSelection: true, payloadLevel: DEFAULT_PAYLOAD_LEVEL } : {}) },
+    { status: ok ? 200 : 404 },
+  );
 }
 
 // "My Great Prompt!.md" → "my-great-prompt.md"; reject everything else.
@@ -238,17 +321,25 @@ function sanitizeName(raw) {
 // Returns { rel, abs } — rel is always platform-neutral ("/" separators) so it
 // matches walkAutoscan's id scheme on every OS (path.relative would emit "\\"
 // on Windows).
-function repoFileTarget(dir, base, name) {
-  const segs = base.replace(/\/+$/, "")
-    .split("/").map(sanitizeSeg).filter(Boolean).slice(0, 4);
-  if (base.replace(/\/+$/, "").split("/").length > 4) return null;
+const MAX_REPO_DEPTH = 16;
+
+function repoFileTarget(dir, base, name, { mkdir = true } = {}) {
+  const rawSegs = base.replace(/\/+$/, "").split("/").filter(Boolean);
+  if (rawSegs.length > MAX_REPO_DEPTH) return null;
+  const segs = rawSegs.map(sanitizeSeg).filter(Boolean).slice(0, MAX_REPO_DEPTH);
   let stem = cleanSeg(name.replace(/\.(md|txt)$/i, ""));
   if (!stem || !/[a-z0-9]/i.test(stem)) return null;
+  // cleanSeg lowercases, replaces chars and truncates at 48; two repo files can
+  // collapse to the same target (e.g. "Opus 4.7" vs "Opus-4.7", long names
+  // sharing a prefix) and silently overwrite each other. Append a short source
+  // hash whenever the transform was lossy so every file gets a unique target.
+  const rawStem = name.replace(/\.(md|txt)$/i, "").toLowerCase();
+  if (rawStem !== stem) stem += `-${createHash("sha1").update(rawStem).digest("hex").slice(0, 6)}`;
   if (WIN_RESERVED.test(stem)) stem = `${stem}-file`;
   const ext = (name.match(/\.(md|txt)$/i)?.[0] || ".md").toLowerCase();
   const rel = [...segs, `${stem}${ext}`].join("/");
   if (!rel) return null;
-  mkdirSync(join(dir, ...segs), { recursive: true });
+  if (mkdir) mkdirSync(join(dir, ...segs), { recursive: true });
   return { rel, abs: join(dir, ...rel.split("/")) };
 }
 

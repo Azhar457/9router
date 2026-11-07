@@ -27,7 +27,7 @@ export function formatTok(n) {
 // any request: register (plinian preset or custom) + identity + godmode
 // variant. Same text selection as injectGlobal() in globalInject.js.
 import { getPlinianPrompt } from "../payload/plinianPrompts.js";
-import { getGodmodePrompt, pickGodmodeVariant } from "../payload/godmodePayloads.js";
+import { getGodmodePrompt } from "../payload/godmodePayloads.js";
 import { getExternalPayload } from "../payload/jailbreakPayloads.js";
 import { CARRIER_SLOT, spliceCarrier } from "../payload/payloadCatalog.js";
 
@@ -37,16 +37,15 @@ export function estimateGlobalInjection({
   identity = "",
   godmodeLevel = "classic",
   godmodeCustom = "",
-  model = "",
   carrierEnabled = false,
   carrierLevel = "",
   carrierCustom = "",
 } = {}) {
   const regText = registerCustom ? registerCustom : getPlinianPrompt(registerLevel);
   const reg = `${String(identity || "").trim()}\n\n${regText}`.trim();
-  // Mirror injectGodmode(): "classic" is the auto-pick sentinel.
-  const autoPicked = !godmodeLevel || godmodeLevel === "classic";
-  const effectiveLevel = autoPicked && model ? pickGodmodeVariant(model) : (godmodeLevel || "classic");
+  // Mirror injectGodmode(): the selected level is what ships — no per-model
+  // routing exists any more, so the estimate follows the user's choice.
+  const effectiveLevel = godmodeLevel || "classic";
   const god = getGodmodePrompt(effectiveLevel, godmodeCustom);
   // Mirror injectGlobal() v0.6.0 rework: the carrier warp now lives inside
   // the persona text (identity). When identity carries the [YOUR JAILBREAK
@@ -74,6 +73,5 @@ export function estimateGlobalInjection({
     effectiveLevel,
     carrier: finalCarrier ? estimateTokens(finalCarrier) : 0,
     carrierSpliced: !!(finalCarrier && finalCarrier.includes(CARRIER_SLOT)),
-    autoPicked,
   };
 }

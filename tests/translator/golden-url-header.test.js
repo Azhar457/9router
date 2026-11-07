@@ -26,6 +26,12 @@ const SPECIALIZED = new Set([
 // Per-process / per-request values: kimi's random device name, minimax's session UUID.
 const VOLATILE_HEADERS = new Set(["x-msh-device-name", "x-mavis-session-id"]);
 
+// Request-scoped UUIDs (X-Request-ID, X-Conversation-ID, …) are minted fresh on
+// every buildHeaders() call, so a raw snapshot can never stay stable — a golden
+// test that fails on every run teaches nothing. Normalize the UUID shape instead
+// of the header name, so new UUID-bearing headers are covered automatically.
+const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+
 // Sanitize header: khử token + field thời gian động (kimi X-Msh-Device-Id) để snapshot ổn định.
 function sanitize(headers) {
   const out = {};
@@ -35,6 +41,10 @@ function sanitize(headers) {
       ? v.replace(/Bearer .+/, "Bearer <TOK>")
           .replace(/sk-test-APIKEY|tok-test-ACCESS/g, "<CRED>")
           .replace(/kimi-\d{10,}/g, "kimi-<TS>")
+          .replace(UUID_RE, "<UUID>")
+          // cline sends process.version — different Node runtime, different
+          // snapshot, so pin the shape instead of the installed version.
+          .replace(/^v\d+\.\d+\.\d+(?:[-+].*)?$/, "v<NODE>")
       : v;
   }
   return out;

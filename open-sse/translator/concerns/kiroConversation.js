@@ -22,7 +22,9 @@ export function kiroEmptyUserContent(hasToolResults) {
 const TOOL_NAME_PATTERN = /[^a-zA-Z0-9_-]/g;
 
 function clone(value) {
-  return value == null ? value : JSON.parse(JSON.stringify(value));
+  if (value == null) return value;
+  if (typeof globalThis.structuredClone === "function") return globalThis.structuredClone(value);
+  return JSON.parse(JSON.stringify(value));
 }
 
 function text(value) {

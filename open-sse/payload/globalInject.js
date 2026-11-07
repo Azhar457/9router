@@ -27,10 +27,8 @@
 // injectionCarrier* keys are auto-migrated to injectionIdentity on first
 // load (one-time, in the UI).
 //
-// Model-aware: when a model string is provided and the level is not pinned,
-// pickGodmodeVariant picks the best-fit payload — including the adaptive
-// thinking payload for modern Claude Fable 5.1 / Opus 5 / GPT-6 / Grok 4.5+
-// models that no longer fall for the classic jailbreak template shapes.
+// The jailbreak payload is exactly the variant the user selected. There is no
+// per-model routing: "classic" means the classic payload, not a sentinel.
 
 import { injectPlinian } from "./plinian.js";
 import { injectGodmode } from "./godmode.js";
@@ -47,7 +45,6 @@ export function injectGlobal(body, format, opts = {}) {
     identity = "",
     godmodeLevel = "classic",
     godmodeCustom = "",
-    model = "",
     skillRouterCustom = "",
     // Legacy (one-time migration only, not read at runtime):
     // carrierEnabled / carrierLevel / carrierCustom are retained in the
@@ -70,7 +67,7 @@ export function injectGlobal(body, format, opts = {}) {
     } else if (registerLevel) {
       injectPlinian(body, format, registerLevel, identity);
     }
-    // 2. Jailbreak payload — selected or auto-picked per model.
+    // 2. Jailbreak payload — the variant the user selected, as-is.
     //
     // Carrier warp (v0.6.0 rework): the persona text (identity) may contain
     // a carrier frame with the [YOUR JAILBREAK HERE] slot marker. When it

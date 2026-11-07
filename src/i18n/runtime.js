@@ -32,13 +32,30 @@ async function loadTranslations(locale) {
   }
 }
 
-// Translate text - exported for use in components
-export function translate(text) {
+// Translate text - exported for use in components.
+//
+// `params` fills `{name}` placeholders in the translated string, so a sentence
+// with a value inside it stays one dictionary key instead of being split into
+// fragments the runtime can never match:
+//   translate("Deleted {name}.", { name: "nyx" })
+//
+// Leading/trailing whitespace is preserved on purpose: JSX routinely renders a
+// sentence across several text nodes (`... expires after {n} days.`), and
+// dropping the surrounding spaces would jam the fragments together.
+export function translate(text, params) {
   if (!text || typeof text !== "string") return text;
-  const trimmed = text.trim();
-  if (!trimmed) return text;
-  if (currentLocale === "en") return text;
-  return translationMap[trimmed] || text;
+  const parts = text.match(/^(\s*)([\s\S]*?)(\s*)$/);
+  if (!parts) return text;
+  const [, lead, core, trail] = parts;
+  if (!core) return text;
+  let out = currentLocale === "en" ? core : translationMap[core];
+  if (out == null) return text;
+  if (params && typeof params === "object") {
+    out = out.replace(/\{(\w+)\}/g, (whole, key) =>
+      Object.prototype.hasOwnProperty.call(params, key) ? String(params[key]) : whole,
+    );
+  }
+  return lead + out + trail;
 }
 
 // Get current locale - exported for use in components

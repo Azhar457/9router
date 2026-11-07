@@ -148,8 +148,8 @@ export function confirmPentestPayloadRisk() {
   return window.confirm(PENTEST_PAYLOAD_WARNING);
 }
 // ── Model-family targeting + effectiveness tiers ────────────────────────────
-// Mirrors the MODEL_VARIANT_MAP families in open-sse/payload/godmodePayloads.js so
-// the payload selector can show a "targets X family" badge + a tier chip.
+// Model-family groups for the "targets X family" badge + tier chip in the
+// payload selector. Informational only — nothing is selected per model.
 
 export const MODEL_FAMILIES = [
   { id: "any", label: "Any family", match: () => true },

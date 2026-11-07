@@ -36,7 +36,7 @@ export function isCarrierPayload(text) {
 }
 
 // effectiveness tier map. "legacy" = known-weak on modern model families,
-// kept for reference / control. "current" = actively used by MODEL_VARIANT_MAP.
+// kept for reference / control. "current" = still lands on current models.
 const LEGACY_IDS = new Set([
   "f:bf:s-dan", // classic S-DAN — 2022 era, no longer lands on Claude 4+/GPT-5+/Grok 4.5+
 ]);
@@ -105,11 +105,10 @@ export function buildPayloadCatalog() {
       modelFamilies: id.startsWith("f:ai:") ? [] : ["*"], // AI-Jailbreaks are model-specific
       effectiveness: LEGACY_IDS.has(id) ? "legacy" : "current",
       estTokens: estTokensFromChars(chars),
-      // Carrier flag resolved eagerly — getExternalPayload is a local map
-      // lookup (loadRegistry() already read the files into memory at import).
-      // The regex sweep itself is memoized per id in jailbreakPayloads.js, so
-      // repeated buildPayloadCatalog() calls do not re-scan every payload.
-      isCarrier: isExternalPayloadCarrier(id, isCarrierPayload),
+      // Carrier flag resolved lazily by callers that need text. buildPayloadCatalog
+      // is metadata-first; forcing a regex sweep over every payload defeats memo
+      // caching and makes cold catalog requests O(total payload bytes).
+      isCarrier: undefined,
     });
   }
 

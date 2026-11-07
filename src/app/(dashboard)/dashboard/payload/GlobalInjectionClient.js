@@ -13,6 +13,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/shared/components";
 import { getPersonaTemplate, PERSONA_TEMPLATES } from "@/shared/constants/developerPresets";
 import { SETTINGS_CHANGED_EVENT } from "@/shared/lib/outboundManifest";
+import { DEFAULT_PAYLOAD_LEVEL } from "@/shared/lib/payloadDefaults";
 import { confirmPentestPayloadRisk, hasScopeAcknowledgement } from "@/shared/lib/tabConfig";
 import { getCurrentLocale, onLocaleChange, translate } from "@/i18n/runtime";
 
@@ -153,7 +154,11 @@ export default function GlobalInjectionClient({ payloadCatalog }) {
   const [injectLevel, setInjectLevel] = useState("standard");
   const [injectIdentity, setInjectIdentity] = useState("");
   const [injectPreview, setInjectPreview] = useState({ chars: 0, estTokens: 0, text: "" });
-  const [godmodeLevel, setGodmodeLevel] = useState("classic");
+  const [godmodeLevel, setGodmodeLevel] = useState(DEFAULT_PAYLOAD_LEVEL);
+  // Settings hydrated at least once — the payload validation below must not
+  // fire on the pre-hydration default (it would rewrite the persisted choice
+  // before we ever read it).
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [godmodeCustom, setGodmodeCustom] = useState("");
   const [godmodePreview, setGodmodePreview] = useState({ chars: 0, estTokens: 0, text: "" });
   const [savedGodmodePresets, setSavedGodmodePresets] = useState({});
@@ -183,6 +188,14 @@ export default function GlobalInjectionClient({ payloadCatalog }) {
     () => [...GODMODE_VARIANTS, ...customVariants],
     [customVariants],
   );
+
+  // Every id the payload registry currently serves. A selection that is not in
+  // here no longer exists (custom payload deleted or renamed).
+  const catalogIds = useMemo(
+    () => new Set((payloadCatalog || []).map((row) => row?.id).filter(Boolean)),
+    [payloadCatalog],
+  );
+  const catalogLoaded = catalogIds.size > 0;
 
 
   // i18n: re-render when the locale changes so translate() picks up the
@@ -319,6 +332,7 @@ export default function GlobalInjectionClient({ payloadCatalog }) {
       })
       .catch(() => {})
       .finally(() => {
+        if (!cancelled) setSettingsLoaded(true);
         try {
           const raw = globalThis.localStorage.getItem(STORAGE_KEYS.personas);
           if (raw) setSavedPersonas(safeParse(raw, {}));
@@ -356,6 +370,33 @@ export default function GlobalInjectionClient({ payloadCatalog }) {
       // Settings persist best-effort; UI state already reflects intent.
     }
   }
+
+  // The selected custom payload is gone (deleted from /dashboard/custom-
+  // payloads, or its file was renamed while settings still pointed at the old
+  // id). The preview endpoint resolves an unknown level to the Classic payload,
+  // so leaving the selection alone makes the two disagree: the selector names
+  // a payload that no longer exists while the editor shows something else.
+  // Detach the selection and land on the default payload, persisting the
+  // correction so the shield/status read what the editor shows.
+  // Only f:custom:* ids are validated: the shipped f:ai/f:bf collections are
+  // deployment-dependent (they can be legitimately absent), while a custom id
+  // missing from the catalog can only mean it was removed.
+  useEffect(() => {
+    if (!settingsLoaded || !catalogLoaded) return;
+    if (!godmodeLevel.startsWith("f:custom:")) return;
+    if (catalogIds.has(godmodeLevel)) return;
+    // Deferred past the render so the setState calls are not synchronous-
+    // within-effect (house rule in this file); the payload preview effect keyed
+    // on godmodeLevel then refills the editor with the default payload's text.
+    let cancelled = false;
+    const t = setTimeout(() => {
+      if (cancelled) return;
+      setGodmodeLevel(DEFAULT_PAYLOAD_LEVEL);
+      setGodmodePreview({ chars: 0, estTokens: 0, text: "" });
+      patchSetting({ injectionGodmodeLevel: DEFAULT_PAYLOAD_LEVEL });
+    }, 0);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [settingsLoaded, catalogLoaded, catalogIds, godmodeLevel]);
 
   function toggleInject(value) {
     // Pentest-mode interaction guard: with a live Penetration scope
