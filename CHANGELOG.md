@@ -1,3 +1,11 @@
+# v0.6.6 (2026-11-07)
+
+## Features
+- **CLI Tools (all tools)**: the shared model picker now has **Test All** and a per-model probe button. Every CLI tool card, combo and key-access picker gets model health checks for free; results show ✓ + latency or ✗ + upstream error, keyed by model id and preserved while filtering. Probes reuse `/api/models/test`, which disables Global Injection so they do not ship the payload.
+
+## Fixes
+- **Model test**: raise the LLM probe timeout from 15s to 90s. Slow reasoning models (NVIDIA `minimax-m3.1-flash` measured ~65s with `max_tokens: 1024`) were reported as failed while the gateway answered 200; other probe kinds keep their 15s/30s budgets.
+
 # v0.6.5 (2026-11-07)
 
 ## Features
