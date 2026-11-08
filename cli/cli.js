@@ -793,24 +793,26 @@ function startServer(updatePromise) {
   });
 
   // Initialize tray icon (runs alongside TUI)
-  const initTrayIcon = () => {
+  const initTrayIcon = (callbacks = {}) => {
     try {
       const { initTray } = require("./src/cli/tray/tray");
-        initTray({
-          port,
-          onQuit: () => {
-            isShuttingDown = true;
-            console.log("\n👋 Shutting down from tray...");
-            cleanup();
-            setTimeout(() => process.exit(0), 100);
-          },
-          onOpenDashboard: () => openBrowser(url)
-        });
-      } catch (err) {
-        // Tray not available - keep running headless instead of failing silently
-        console.error(`[9router] system tray unavailable: ${err.message}`);
-      }
-    };
+      initTray({
+        port,
+        onQuit: () => {
+          isShuttingDown = true;
+          console.log("\n👋 Shutting down from tray...");
+          cleanup();
+          setTimeout(() => process.exit(0), 100);
+        },
+        onOpenDashboard: () => openBrowser(url),
+        ...callbacks
+      });
+    } catch (err) {
+      // Tray not available - keep running headless instead of failing silently
+      console.error(`[9router] system tray unavailable: ${err.message}`);
+      if (typeof callbacks.onError === "function") callbacks.onError(err);
+    }
+  };
 
   // Tray-only mode: no TUI, just tray icon
   if (trayMode) {
@@ -828,9 +830,20 @@ function startServer(updatePromise) {
     bootSpinner.start();
     waitServerReady(port).then(() => {
       bootSpinner.stop();
-      initTrayIcon();
-      console.log("\n💡 Router is now running in system tray. Close this terminal if you want.");
-      console.log("   Right-click tray icon to open dashboard or quit.\n");
+      // Only claim the tray is running once the tray process actually became
+      // ready. Reporting it up front hid every failure (missing
+      // libappindicator, EACCES, wrong architecture) behind a success message.
+      initTrayIcon({
+        onReady: () => {
+          console.log("\n💡 Router is now running in system tray. Close this terminal if you want.");
+          console.log("   Right-click tray icon to open dashboard or quit.\n");
+        },
+        onError: (err) => {
+          console.log("\n⚠️  No tray icon — the server keeps running.");
+          if (err?.message) console.log(`   ${err.message.split("\n").join("\n   ")}`);
+          console.log(`   Dashboard: http://${displayHost}:${port}\n`);
+        }
+      });
     });
 
     return;
