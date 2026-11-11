@@ -21,6 +21,7 @@ import { resolveZedModels } from "open-sse/shared/zedAuth.js";
 import { updateProviderCredentials } from "@/sse/services/tokenRefresh";
 import { resolveConnectionProxyConfig } from "@/lib/network/connectionProxy";
 import { capabilitiesFromServiceKind, getCapabilitiesForModel, aggregateComboCapabilities } from "open-sse/providers/capabilities.js";
+import { getThinkingLevels } from "open-sse/providers/thinkingLevels.js";
 
 // noAuth free providers (no DB connection row, but exposed in /v1/models) ──
 // These providers ship their catalog via a static fetch endpoint + a filter,
@@ -807,6 +808,11 @@ export async function buildModelsList(kindFilter, options = {}) {
           }
           if (Number.isFinite(contextWindow)) model.context_length = contextWindow;
           if (Number.isFinite(maxOutput)) model.max_completion_tokens = maxOutput;
+          // Selectable reasoning levels (the set the dashboard picker shows) so clients
+          // can build their effort selector from the gateway instead of keeping a
+          // per-model table. Omitted when the model has no reasoning.
+          const thinkingLevels = getThinkingLevels(providerId, modelId);
+          if (Array.isArray(thinkingLevels) && thinkingLevels.length > 0) model.thinking_levels = thinkingLevels;
         }
         models.push(model);
       }
