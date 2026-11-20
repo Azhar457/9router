@@ -20,6 +20,7 @@ describe("Codex Refresh Token", () => {
 
   afterEach(() => {
     global.fetch = originalFetch;
+    vi.doUnmock("undici");
   });
 
   function mockFetchWithJson(payload) {
@@ -28,6 +29,10 @@ describe("Codex Refresh Token", () => {
       json: () => Promise.resolve(payload),
     });
     global.fetch = fetchMock;
+vi.doMock("undici", async () => {
+    const actual = await vi.importActual("undici");
+    return { ...actual, fetch: fetchMock };
+  });
     return fetchMock;
   }
 

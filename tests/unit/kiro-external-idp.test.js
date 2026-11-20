@@ -21,6 +21,7 @@ describe("Kiro external_idp (CLIProxyAPI) import and refresh", () => {
     vi.doUnmock("next/server");
     vi.doUnmock("@/models");
     vi.doUnmock("../../open-sse/utils/proxyFetch.js");
+    vi.doUnmock("undici");
     global.fetch = originalFetch;
   });
 
@@ -34,6 +35,10 @@ describe("Kiro external_idp (CLIProxyAPI) import and refresh", () => {
       }),
     });
     global.fetch = fetchMock;
+vi.doMock("undici", async () => {
+    const actual = await vi.importActual("undici");
+    return { ...actual, fetch: fetchMock };
+  });
 
     const { refreshKiroToken } = await import("../../open-sse/services/tokenRefresh.js");
     const result = await refreshKiroToken("old-refresh-token", {

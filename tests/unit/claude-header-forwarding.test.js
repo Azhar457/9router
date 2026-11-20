@@ -266,6 +266,7 @@ describe("DefaultExecutor.buildHeaders() — anthropic-compatible stripping", ()
 describe("proxyAwareFetch — api.anthropic.com routing", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.doUnmock("undici");
   });
 
   it("routes api.anthropic.com through native fetch (TLS path disabled) and returns ok response", async () => {
@@ -284,6 +285,11 @@ describe("proxyAwareFetch — api.anthropic.com routing", () => {
     const fetchSpy = vi.fn().mockResolvedValue(fakeRes);
     const originalFetch = globalThis.fetch;
     globalThis.fetch = fetchSpy;
+    // proxyFetch resolves undici's own fetch instance, so mock that too.
+    vi.doMock("undici", async () => {
+      const actual = await vi.importActual("undici");
+      return { ...actual, fetch: fetchSpy };
+    });
 
     try {
       vi.resetModules();
@@ -316,7 +322,7 @@ describe("proxyAwareFetch — api.anthropic.com routing", () => {
     });
 
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = vi.fn().mockResolvedValue({
+    const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
       statusText: "OK",
@@ -324,6 +330,12 @@ describe("proxyAwareFetch — api.anthropic.com routing", () => {
       body: null,
       text: async () => "{}",
       json: async () => ({}),
+    });
+    globalThis.fetch = fetchMock;
+    // proxyFetch resolves undici's own fetch instance, so mock that too.
+    vi.doMock("undici", async () => {
+      const actual = await vi.importActual("undici");
+      return { ...actual, fetch: fetchMock };
     });
 
     vi.resetModules();
@@ -343,7 +355,7 @@ describe("proxyAwareFetch — api.anthropic.com routing", () => {
     const gotScrapingMock = vi.fn();
     vi.doMock("got-scraping", () => ({ gotScraping: gotScrapingMock }));
 
-    globalThis.fetch = vi.fn().mockResolvedValue({
+    const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
       statusText: "OK",
@@ -351,6 +363,12 @@ describe("proxyAwareFetch — api.anthropic.com routing", () => {
       body: null,
       text: async () => "{}",
       json: async () => ({}),
+    });
+    globalThis.fetch = fetchMock;
+    // proxyFetch resolves undici's own fetch instance, so mock that too.
+    vi.doMock("undici", async () => {
+      const actual = await vi.importActual("undici");
+      return { ...actual, fetch: fetchMock };
     });
 
     vi.resetModules();

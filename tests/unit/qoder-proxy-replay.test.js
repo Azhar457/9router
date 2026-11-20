@@ -30,7 +30,12 @@ async function loadExecutor(fetchMock, useProxy = true) {
   }
   if (useProxy) vi.stubEnv("HTTPS_PROXY", "http://proxy.test:3128");
   // Exercise the real proxyAwareFetch: it captures fetch when imported.
+  // proxyFetch resolves undici's own instance, so mock that too.
   vi.stubGlobal("fetch", fetchMock);
+vi.doMock("undici", async () => {
+    const actual = await vi.importActual("undici");
+    return { ...actual, fetch: fetchMock };
+  });
   const { QoderExecutor } = await import("../../open-sse/executors/qoder.js");
   return new QoderExecutor();
 }
@@ -38,6 +43,7 @@ async function loadExecutor(fetchMock, useProxy = true) {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
+  vi.doUnmock("undici");
 });
 
 describe("Qoder signed inference transport", () => {
@@ -81,7 +87,14 @@ describe("Qoder signed inference transport", () => {
     expect(result.response.ok).toBe(true);
     await result.response.text();
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(!!fetchMock.mock.calls[0][1].dispatcher).toBe(useProxy);
+    // proxyFetch always resolves a dispatcher now: the proxy dispatcher when
+    // one is configured, otherwise the shared direct/fresh-retry pair. Assert
+    // which kind is used rather than whether one exists at all.
+    const { getDirectDispatcher } = await import("../../open-sse/utils/proxyFetch.js");
+    const directDispatcher = await getDirectDispatcher(false);
+    const used = fetchMock.mock.calls[0][1].dispatcher;
+    expect(used).toBeTruthy();
+    expect(useProxy ? used !== directDispatcher : used === directDispatcher).toBe(true);
   });
 
   it("preserves caller cancellation without replaying the request", async () => {
