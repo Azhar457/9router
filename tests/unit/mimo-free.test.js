@@ -45,38 +45,38 @@ beforeEach(() => {
 });
 
 describe("generateSessionId", () => {
-  it("uses the ses_ prefix and a 24-char random suffix", () => {
+  it("uses the ses_ prefix and a 24-char random suffix", async () => {
     const id = generateSessionId();
     expect(id.startsWith(SESSION_AFFINITY_PREFIX)).toBe(true);
     expect(id.length).toBe(SESSION_AFFINITY_PREFIX.length + 24);
   });
 
-  it("only emits lowercase alphanumeric characters in the suffix", () => {
+  it("only emits lowercase alphanumeric characters in the suffix", async () => {
     expect(generateSessionId().slice(SESSION_AFFINITY_PREFIX.length)).toMatch(/^[a-z0-9]{24}$/);
   });
 
-  it("produces a fresh id on each call", () => {
+  it("produces a fresh id on each call", async () => {
     expect(generateSessionId()).not.toBe(generateSessionId());
   });
 });
 
 describe("generateFingerprint", () => {
-  it("returns a 64-char hex sha256 digest", () => {
+  it("returns a 64-char hex sha256 digest", async () => {
     expect(generateFingerprint()).toMatch(/^[a-f0-9]{64}$/);
   });
 
-  it("is stable per machine (deterministic across calls)", () => {
+  it("is stable per machine (deterministic across calls)", async () => {
     expect(generateFingerprint()).toBe(generateFingerprint());
   });
 });
 
 describe("parseJwtExp", () => {
-  it("derives the expiry from the JWT exp claim (ms)", () => {
+  it("derives the expiry from the JWT exp claim (ms)", async () => {
     const expSec = Math.floor(Date.now() / 1000) + 3600;
     expect(parseJwtExp(makeJwt(expSec))).toBe(expSec * 1000);
   });
 
-  it("falls back to a future timestamp when the JWT is unparseable", () => {
+  it("falls back to a future timestamp when the JWT is unparseable", async () => {
     const before = Date.now();
     const result = parseJwtExp("not-a-jwt");
     expect(result).toBeGreaterThan(before);
@@ -84,18 +84,18 @@ describe("parseJwtExp", () => {
 });
 
 describe("injectSystemMarker", () => {
-  it("prepends a system message with the marker when none is present", () => {
+  it("prepends a system message with the marker when none is present", async () => {
     const out = injectSystemMarker({ messages: [{ role: "user", content: "hi" }] });
     expect(out.messages[0].role).toBe("system");
     expect(out.messages[0].content).toContain(MIMO_SYSTEM_MARKER);
   });
 
-  it("preserves the original user message after injection", () => {
+  it("preserves the original user message after injection", async () => {
     const out = injectSystemMarker({ messages: [{ role: "user", content: "write a haiku" }] });
     expect(out.messages.find((m) => m.role === "user").content).toBe("write a haiku");
   });
 
-  it("keeps a caller-provided system prompt alongside the marker", () => {
+  it("keeps a caller-provided system prompt alongside the marker", async () => {
     const out = injectSystemMarker({
       messages: [
         { role: "system", content: "You are a pirate." },
@@ -107,7 +107,7 @@ describe("injectSystemMarker", () => {
     expect(sys).toContain("You are a pirate.");
   });
 
-  it("does not duplicate the marker when already present", () => {
+  it("does not duplicate the marker when already present", async () => {
     const out = injectSystemMarker({
       messages: [
         { role: "system", content: `${MIMO_SYSTEM_MARKER}\nExtra.` },
@@ -120,7 +120,7 @@ describe("injectSystemMarker", () => {
     expect(count).toBe(1);
   });
 
-  it("leaves a body without a messages array untouched", () => {
+  it("leaves a body without a messages array untouched", async () => {
     const body = { prompt: "legacy" };
     expect(injectSystemMarker(body)).toBe(body);
   });
@@ -174,18 +174,18 @@ describe("bootstrapJwt", () => {
 describe("MimoFreeExecutor", () => {
   const exec = new MimoFreeExecutor();
 
-  it("buildUrl returns the free-ai chat endpoint", () => {
+  it("buildUrl returns the free-ai chat endpoint", async () => {
     expect(exec.buildUrl()).toBe(CHAT_URL);
   });
 
-  it("buildHeaders includes the MiMo source and session affinity", () => {
+  it("buildHeaders includes the MiMo source and session affinity", async () => {
     const h = exec.buildHeaders({}, true);
     expect(h["X-Mimo-Source"]).toBe("mimocode-cli-free");
     expect(h["x-session-affinity"]).toMatch(/^ses_/);
     expect(h["Accept"]).toBe("text/event-stream");
   });
 
-  it("transformRequest injects the system marker", () => {
+  it("transformRequest injects the system marker", async () => {
     const out = exec.transformRequest("mimo-auto", { messages: [{ role: "user", content: "hi" }] });
     expect(out.messages[0].content).toContain(MIMO_SYSTEM_MARKER);
   });
@@ -225,25 +225,25 @@ describe("MimoFreeExecutor", () => {
 });
 
 describe("MiMo Free provider registration", () => {
-  it("registers a specialized executor for mimo-free and the mmf alias", () => {
-    expect(getExecutor("mimo-free")).toBeInstanceOf(MimoFreeExecutor);
-    expect(getExecutor("mmf")).toBeInstanceOf(MimoFreeExecutor);
+  it("registers a specialized executor for mimo-free and the mmf alias", async () => {
+    expect(await getExecutor("mimo-free")).toBeInstanceOf(MimoFreeExecutor);
+    expect(await getExecutor("mmf")).toBeInstanceOf(MimoFreeExecutor);
   });
 
-  it("registers mimo-free as a no-auth provider in open-sse config", () => {
+  it("registers mimo-free as a no-auth provider in open-sse config", async () => {
     expect(PROVIDERS["mimo-free"]?.noAuth).toBe(true);
     expect(PROVIDERS.mmf?.noAuth).toBe(true);
   });
 
-  it("exposes only mimo-auto (the sole free-channel model)", () => {
+  it("exposes only mimo-auto (the sole free-channel model)", async () => {
     expect(PROVIDER_MODELS.mmf.map((m) => m.id)).toEqual(["mimo-auto"]);
   });
 
-  it("maps the mimo-free alias to mmf", () => {
+  it("maps the mimo-free alias to mmf", async () => {
     expect(PROVIDER_ID_TO_ALIAS["mimo-free"]).toBe("mmf");
   });
 
-  it("lists mimo-free in the dashboard FREE_PROVIDERS catalog", () => {
+  it("lists mimo-free in the dashboard FREE_PROVIDERS catalog", async () => {
     expect(FREE_PROVIDERS["mimo-free"]?.alias).toBe("mmf");
     expect(FREE_PROVIDERS["mimo-free"]?.noAuth).toBe(true);
   });

@@ -18,6 +18,12 @@ const PROFILE_CREDS = {
   providerSpecificData: { profile: "sso", region: "eu-central-1" },
 };
 
+// Executors load lazily now; describe callbacks are synchronous, so resolve the
+// shared singletons once at module scope instead of awaiting inside them.
+const BEDROCK_EXECUTOR = await getExecutor("bedrock");
+const BEDROCK_BR_EXECUTOR = await getExecutor("br");
+const BEDROCK_XAI_EXECUTOR = await getExecutor("bedrock-xai");
+
 /** Wrap an Anthropic streaming event the way Bedrock does: base64 inside a `chunk` frame. */
 function chunkFrame(anthropicEvent) {
   return encodeEventFrame(
@@ -55,8 +61,8 @@ describe("Bedrock provider registration", () => {
   it("exposes a specialised executor under both the id and the br alias", () => {
     expect(hasSpecializedExecutor("bedrock")).toBe(true);
     expect(hasSpecializedExecutor("br")).toBe(true);
-    expect(getExecutor("bedrock").constructor.name).toBe("BedrockExecutor");
-    expect(getExecutor("br").constructor.name).toBe("BedrockExecutor");
+    expect(BEDROCK_EXECUTOR.constructor.name).toBe("BedrockExecutor");
+    expect(BEDROCK_BR_EXECUTOR.constructor.name).toBe("BedrockExecutor");
   });
 
   it("lists curated models but accepts any id, since the catalogue is region-dependent", () => {
@@ -76,7 +82,7 @@ describe("Bedrock provider registration", () => {
 });
 
 describe("Bedrock request shaping", () => {
-  const executor = getExecutor("bedrock");
+  const executor = BEDROCK_EXECUTOR;
 
   it("targets the regional runtime host and the streaming action", () => {
     expect(executor.buildUrl(MODEL, true, 0, PROFILE_CREDS)).toBe(
@@ -155,7 +161,7 @@ describe("Bedrock request shaping", () => {
 });
 
 describe("Bedrock EventStream to Claude SSE", () => {
-  const executor = getExecutor("bedrock");
+  const executor = BEDROCK_EXECUTOR;
 
   it("unwraps base64 chunk payloads into named Claude SSE events", async () => {
     const sse = await readAll(
@@ -272,7 +278,7 @@ describe("Bedrock EventStream to Claude SSE", () => {
 
 // Regression tests for findings from the pre-merge adversarial review.
 describe("Bedrock hardening (adversarial review regressions)", () => {
-  const executor = getExecutor("bedrock");
+  const executor = BEDROCK_EXECUTOR;
 
   it("refuses to build a URL for a region that would change the host", () => {
     // "evil.com/x" previously produced host "bedrock-runtime.evil.com", sending the signed
@@ -407,7 +413,7 @@ describe("Bedrock hardening (adversarial review regressions)", () => {
 });
 
 describe("Bedrock body shaping hardening", () => {
-  const executor = getExecutor("bedrock");
+  const executor = BEDROCK_EXECUTOR;
 
   it("keeps the Bedrock anthropic_version even when the client sends its own", () => {
     // A claude-format client may carry anthropic_version: "2023-06-01"; letting that through
@@ -423,7 +429,7 @@ describe("Bedrock body shaping hardening", () => {
 });
 
 describe("Bedrock model family guard", () => {
-  const executor = getExecutor("bedrock");
+  const executor = BEDROCK_EXECUTOR;
 
   it("accepts every Anthropic profile shape AWS actually serves", () => {
     for (const id of [
@@ -454,7 +460,7 @@ describe("Bedrock model family guard", () => {
 // xAI Grok on Bedrock speaks OpenAI Chat Completions, not the Anthropic Messages format. It gets
 // its own registry entry sharing this executor, the way vertex / vertex-partner do.
 describe("Bedrock xAI entry (OpenAI wire)", () => {
-  const xai = getExecutor("bedrock-xai");
+  const xai = BEDROCK_XAI_EXECUTOR;
   const XAI_MODEL = "us.xai.grok-4.6";
   const CREDS = { providerSpecificData: { profile: "sso", region: "us-west-2" } };
 
@@ -498,7 +504,7 @@ describe("Bedrock xAI entry (OpenAI wire)", () => {
     // Sending an Anthropic id to the OpenAI wire, or vice versa, would fail mid-stream after the
     // upstream call was billed, so each entry rejects the other's family upfront.
     expect(() => xai.buildUrl(MODEL, true, 0, CREDS)).toThrow(/not supported by the bedrock-xai/);
-    expect(() => getExecutor("bedrock").buildUrl(XAI_MODEL, true, 0, CREDS)).toThrow(
+    expect(() => BEDROCK_EXECUTOR.buildUrl(XAI_MODEL, true, 0, CREDS)).toThrow(
       /not supported by the bedrock/,
     );
     expect(() => xai.buildUrl(XAI_MODEL, true, 0, CREDS)).not.toThrow();

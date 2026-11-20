@@ -14,16 +14,16 @@ describe("xiaomi-mimo executor", () => {
     ex = new XiaomiMimoExecutor();
   });
 
-  it("is registered for xiaomi-mimo", () => {
-    expect(getExecutor("xiaomi-mimo")).toBeInstanceOf(XiaomiMimoExecutor);
+  it("is registered for xiaomi-mimo", async () => {
+    expect(await getExecutor("xiaomi-mimo")).toBeInstanceOf(XiaomiMimoExecutor);
   });
 
-  it("keeps the sourceFormat-matched endpoint for cloud models", () => {
+  it("keeps the sourceFormat-matched endpoint for cloud models", async () => {
     expect(ex.buildUrl("mimo-v2.5-pro", true, 0, CLAUDE_T)).toBe(CLAUDE_T.runtimeTransport.baseUrl);
     expect(ex.buildUrl("mimo-v2.5-pro", true, 0, OPENAI_T)).toBe(OPENAI_T.runtimeTransport.baseUrl);
   });
 
-  it("routes v2.6 models to account route when desktop credentials are present", () => {
+  it("routes v2.6 models to account route when desktop credentials are present", async () => {
     // No region → SGP default
     const expected = "https://mimo-server-sgp.xiaomimimo.com/api/route/chat/completions";
     const credsWithToken = { providerSpecificData: { mimoPassToken: "token123" } };
@@ -34,12 +34,12 @@ describe("xiaomi-mimo executor", () => {
     expect(ex.buildUrl("xiaomi/mimo-v2.6-flash", true, 0, credsWithToken)).toBe(expected);
   });
 
-  it("routes v2.6 models to cloud API when no desktop credentials are present", () => {
+  it("routes v2.6 models to cloud API when no desktop credentials are present", async () => {
     expect(ex.buildUrl("mimo-v2.6-flash", true, 0, OPENAI_T)).toBe(OPENAI_T.runtimeTransport.baseUrl);
     expect(ex.buildUrl("mimo-v2.6-pro", true, 0, CLAUDE_T)).toBe(CLAUDE_T.runtimeTransport.baseUrl);
   });
 
-  it("resolves the account-service cluster per connection region", () => {
+  it("resolves the account-service cluster per connection region", async () => {
     const cn = "https://mimo-server-cn.xiaomimimo.com/api/route/chat/completions";
     const sgp = "https://mimo-server-sgp.xiaomimimo.com/api/route/chat/completions";
     const ams = "https://mimo-server-ams.xiaomimimo.com/api/route/chat/completions";
@@ -57,7 +57,7 @@ describe("xiaomi-mimo executor", () => {
     expect(ex.buildUrl("mimo-v2.6-pro", true, 0, { providerSpecificData: { region: "eu", mimoPassToken: "t" } })).toBe(sgp);
   });
 
-  it("authenticates v2.6 calls with account cookie when on account route", () => {
+  it("authenticates v2.6 calls with account cookie when on account route", async () => {
     const headers = ex.buildHeaders(
       { [COOKIE_KEY]: "serviceToken=abc", accessToken: "sk-x" },
       true,
@@ -68,13 +68,13 @@ describe("xiaomi-mimo executor", () => {
     expect(headers.Authorization).toBeUndefined();
   });
 
-  it("authenticates cloud calls with the bearer key", () => {
+  it("authenticates cloud calls with the bearer key", async () => {
     const headers = ex.buildHeaders({ accessToken: "sk-x" }, true, "u", "mimo-v2.5-pro");
     expect(headers.Authorization).toBe("Bearer sk-x");
     expect(headers.Cookie).toBeUndefined();
   });
 
-  it("preserves content-part arrays for multimodal inputs", () => {
+  it("preserves content-part arrays for multimodal inputs", async () => {
     const parts = [{ type: "image_url", image_url: { url: "data:image/png;base64,xyz" } }, { type: "text", text: "hi" }];
     const out = ex.transformRequest(
       "mimo-v2.6-pro",
@@ -85,7 +85,7 @@ describe("xiaomi-mimo executor", () => {
     expect(out.messages[0].content).toEqual(parts);
   });
 
-  it("bridges reasoning_effort to official output_config.effort", () => {
+  it("bridges reasoning_effort to official output_config.effort", async () => {
     const creds = { providerSpecificData: { mimoPassToken: "token" } };
     const body = {
       messages: [{ role: "user", content: "solve" }],
@@ -96,7 +96,7 @@ describe("xiaomi-mimo executor", () => {
     expect(out.output_config).toEqual({ effort: "high" });
   });
 
-  it("normalizes xhigh reasoning_effort to high in output_config.effort", () => {
+  it("normalizes xhigh reasoning_effort to high in output_config.effort", async () => {
     const creds = { providerSpecificData: { mimoPassToken: "token" } };
     const body = {
       messages: [{ role: "user", content: "complex" }],
@@ -107,7 +107,7 @@ describe("xiaomi-mimo executor", () => {
     expect(out.output_config).toEqual({ effort: "high" });
   });
 
-  it("applies defaults without overriding explicit values", () => {
+  it("applies defaults without overriding explicit values", async () => {
     const creds = { providerSpecificData: { mimoPassToken: "token" } };
     const body = { messages: [{ role: "user", content: "hi" }], temperature: 0.2 };
     const out = ex.transformRequest("mimo-v2.6-pro", body, true, creds);
@@ -115,13 +115,13 @@ describe("xiaomi-mimo executor", () => {
     expect(out.top_p).toBe(0.95);
   });
 
-  it("leaves cloud bodies free of account defaults", () => {
+  it("leaves cloud bodies free of account defaults", async () => {
     const out = ex.transformRequest("mimo-v2.5-pro", { messages: [{ role: "user", content: "hi" }] }, true, {});
     expect(out.output_config).toBeUndefined();
     expect(out.temperature).toBeUndefined();
   });
 
-  it("strips a provider/model prefix when testing model ids", () => {
+  it("strips a provider/model prefix when testing model ids", async () => {
     expect(bareModel("xiaomi/mimo-v2.6-pro")).toBe("mimo-v2.6-pro");
     expect(bareModel("mimo-v2.6-flash")).toBe("mimo-v2.6-flash");
   });

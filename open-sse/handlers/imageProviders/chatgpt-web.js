@@ -12,7 +12,7 @@ export default {
   buildBody: () => ({}),
 
   async executeViaExecutor(model, body, credentials, log) {
-    const executor = getExecutor("chatgpt-web");
+    const executor = await getExecutor("chatgpt-web");
     if (!executor) throw new Error("ChatGPT Web executor not found");
 
     const media = await executor.generateMedia({

@@ -47,24 +47,24 @@ const BATCH = [
 describe.each(BATCH)("$id provider", (p) => {
   const entry = REGISTRY.find((e) => e.id === p.id);
 
-  it("is registered with the expected category and base URL", () => {
+  it("is registered with the expected category and base URL", async () => {
     expect(entry).toBeDefined();
     expect(entry.category).toBe(p.category);
     expect(PROVIDERS[p.id].baseUrl).toBe(p.baseUrl);
     expect(PROVIDERS[p.id].format).toBe("openai");
   });
 
-  it("exposes its aliases and a UI display name", () => {
+  it("exposes its aliases and a UI display name", async () => {
     for (const a of p.aliases) expect(entry.aliases).toContain(a);
     expect(entry.display?.name).toBeTruthy();
     expect(entry.display?.textIcon).toBeTruthy();
   });
 
-  it("routes through the shared DefaultExecutor", () => {
-    expect(getExecutor(p.id)).toBeInstanceOf(DefaultExecutor);
+  it("routes through the shared DefaultExecutor", async () => {
+    expect(await getExecutor(p.id)).toBeInstanceOf(DefaultExecutor);
   });
 
-  it("accepts arbitrary model ids via passthrough", () => {
+  it("accepts arbitrary model ids via passthrough", async () => {
     expect(entry.passthroughModels).toBe(true);
   });
 });
@@ -72,11 +72,11 @@ describe.each(BATCH)("$id provider", (p) => {
 describe("Atria Dawn specifics", () => {
   const entry = REGISTRY.find((e) => e.id === "atria");
 
-  it("is named after the service, not just the host", () => {
+  it("is named after the service, not just the host", async () => {
     expect(entry.display.name).toBe("Atria Dawn");
   });
 
-  it("pins the single documented preview model", () => {
+  it("pins the single documented preview model", async () => {
     expect(entry.models.map((m) => m.id)).toEqual(["Atria-Dawn-Preview"]);
   });
 });
@@ -85,7 +85,7 @@ describe("provider icons", () => {
   // This file lives in tests/unit/, so resolve icons against the repo root.
   const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
-  it("ships a /public/providers/{id}.png for every provider in the batch", () => {
+  it("ships a /public/providers/{id}.png for every provider in the batch", async () => {
     // getProviderIconSrc() resolves /providers/{id}.png and falls back to the
     // textIcon tile when the file 404s, so a missing icon is silent in the UI.
     for (const p of BATCH.map((x) => x.id)) {
@@ -101,7 +101,7 @@ describe("authenticated model discovery", () => {
   );
   const source = readFileSync(ROUTE, "utf8");
 
-  it("registers every batch provider in the /models resolver", () => {
+  it("registers every batch provider in the /models resolver", async () => {
     // Without an entry here the route answers
     // 400 "Provider X does not support models listing" and live discovery
     // silently fails once a key is saved.
@@ -110,7 +110,7 @@ describe("authenticated model discovery", () => {
     }
   });
 
-  it("points each entry at that provider's own /models URL", () => {
+  it("points each entry at that provider's own /models URL", async () => {
     for (const p of BATCH) {
       const line = source.split("\n").find((l) => l.trim().startsWith(`${p.id}: createOpenAIModelsConfig(`));
       expect(line, `no models entry for ${p.id}`).toBeTruthy();
@@ -120,12 +120,12 @@ describe("authenticated model discovery", () => {
 });
 
 describe("batch invariants", () => {
-  it("keeps every registry id unique", () => {
+  it("keeps every registry id unique", async () => {
     const ids = REGISTRY.map((e) => e.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("does not claim vision for any provider in the batch", () => {
+  it("does not claim vision for any provider in the batch", async () => {
     // These aggregators relay third-party models; none of them has documented
     // image input, so no registry entry may assert it.
     for (const p of BATCH) {

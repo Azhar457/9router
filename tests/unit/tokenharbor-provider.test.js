@@ -9,7 +9,7 @@ import { DefaultExecutor } from "../../open-sse/executors/default.js";
 describe("Token Harbor provider", () => {
   const entry = REGISTRY.find((e) => e.id === "tokenharbor");
 
-  it("is registered as an OpenAI-compatible apikey provider", () => {
+  it("is registered as an OpenAI-compatible apikey provider", async () => {
     expect(entry).toBeDefined();
     expect(entry.category).toBe("apikey");
     expect(entry.authType).toBe("apikey");
@@ -17,21 +17,21 @@ describe("Token Harbor provider", () => {
     expect(entry.aliases).toContain("th");
   });
 
-  it("points at the verified OpenAI-compatible base URL", () => {
+  it("points at the verified OpenAI-compatible base URL", async () => {
     expect(PROVIDERS.tokenharbor.baseUrl).toBe("https://tokenharbor.ai/v1/chat/completions");
     expect(PROVIDERS.tokenharbor.validateUrl).toBe("https://tokenharbor.ai/v1/models");
     // transport.format defaults to "openai" via the shared provider default
     expect(PROVIDERS.tokenharbor.format).toBe("openai");
   });
 
-  it("declares no provider-wide thinkingFormat so each model resolves its own", () => {
+  it("declares no provider-wide thinkingFormat so each model resolves its own", async () => {
     // Token Harbor forwards bodies verbatim. A provider-wide thinkingFormat
     // would override capabilities.js and force one wire format (e.g.
     // claude-adaptive) onto every model, which an OpenAI endpoint rejects.
     expect(PROVIDERS.tokenharbor.thinkingFormat).toBeUndefined();
   });
 
-  it("enables dynamic model discovery and passthrough", () => {
+  it("enables dynamic model discovery and passthrough", async () => {
     expect(entry.passthroughModels).toBe(true);
     expect(entry.modelsFetcher).toMatchObject({
       url: "https://tokenharbor.ai/v1/models",
@@ -39,7 +39,7 @@ describe("Token Harbor provider", () => {
     });
   });
 
-  it("exposes a small seed of bare (unprefixed) model ids", () => {
+  it("exposes a small seed of bare (unprefixed) model ids", async () => {
     const ids = (PROVIDER_MODELS.tokenharbor || []).map((m) => m.id);
     expect(ids.length).toBeGreaterThan(0);
     expect(ids).toContain("claude-opus-5.5");
@@ -47,11 +47,11 @@ describe("Token Harbor provider", () => {
     expect(ids.every((id) => !id.includes("/"))).toBe(true);
   });
 
-  it("routes through the shared DefaultExecutor (no custom adapter)", () => {
-    expect(getExecutor("tokenharbor")).toBeInstanceOf(DefaultExecutor);
+  it("routes through the shared DefaultExecutor (no custom adapter)", async () => {
+    expect(await getExecutor("tokenharbor")).toBeInstanceOf(DefaultExecutor);
   });
 
-  it("resolves per-model capabilities from the shared tables", () => {
+  it("resolves per-model capabilities from the shared tables", async () => {
     // Bare ids must still reach the canonical family patterns.
     expect(getCapabilitiesForModel("tokenharbor", "claude-opus-5.5")).toMatchObject({
       vision: true,
@@ -64,7 +64,7 @@ describe("Token Harbor provider", () => {
     });
   });
 
-  it("does not invent capabilities for an uncatalogued model", () => {
+  it("does not invent capabilities for an uncatalogued model", async () => {
     // Vision/reasoning must not be blanket-granted across the provider.
     const caps = getCapabilitiesForModel("tokenharbor", "some-unknown-model-x");
     expect(caps.vision).toBe(false);
@@ -72,7 +72,7 @@ describe("Token Harbor provider", () => {
     expect(caps.thinkingFormat).toBeNull();
   });
 
-  it("keeps every registry id unique after adding tokenharbor", () => {
+  it("keeps every registry id unique after adding tokenharbor", async () => {
     const ids = REGISTRY.map((e) => e.id);
     expect(new Set(ids).size).toBe(ids.length);
   });

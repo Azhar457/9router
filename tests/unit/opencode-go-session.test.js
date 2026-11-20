@@ -49,8 +49,8 @@ beforeEach(() => {
 });
 
 describe("OpenCode Go x-opencode-session", () => {
-  it("uses a dedicated executor with request-local session credentials", () => {
-    const executor = getExecutor("opencode-go");
+  it("uses a dedicated executor with request-local session credentials", async () => {
+    const executor = await getExecutor("opencode-go");
     const { credentials, prepared } = prepare(executor);
 
     expect(executor.constructor.name).toBe("OpenCodeGoExecutor");
@@ -61,8 +61,8 @@ describe("OpenCode Go x-opencode-session", () => {
     expect(executor).not.toHaveProperty("_opencodeGoSession");
   });
 
-  it("preserves a valid native session header case-insensitively", () => {
-    const executor = getExecutor("opencode-go");
+  it("preserves a valid native session header case-insensitively", async () => {
+    const executor = await getExecutor("opencode-go");
     const { prepared } = prepare(executor, {
       credentials: makeCredentials({ rawHeaders: { "X-OpenCode-Session": " native-session-a " } }),
     });
@@ -70,8 +70,8 @@ describe("OpenCode Go x-opencode-session", () => {
     expect(prepared._opencodeGoSession).toBe("native-session-a");
   });
 
-  it("ignores an oversized native session and uses the translated identity", () => {
-    const executor = getExecutor("opencode-go");
+  it("ignores an oversized native session and uses the translated identity", async () => {
+    const executor = await getExecutor("opencode-go");
     const { prepared } = prepare(executor, {
       credentials: makeCredentials({ rawHeaders: { "x-opencode-session": "x".repeat(257) } }),
     });
@@ -79,8 +79,8 @@ describe("OpenCode Go x-opencode-session", () => {
     expect(prepared._opencodeGoSession).toMatch(/^ses_[0-9a-f]{32}$/);
   });
 
-  it("keeps the same translated conversation stable across all transports", () => {
-    const executor = getExecutor("opencode-go");
+  it("keeps the same translated conversation stable across all transports", async () => {
+    const executor = await getExecutor("opencode-go");
     const values = TRANSPORTS.map((runtimeTransport) => {
       const { prepared } = prepare(executor, {
         credentials: makeCredentials({ runtimeTransport }),
@@ -93,24 +93,24 @@ describe("OpenCode Go x-opencode-session", () => {
     expect(values[0]).not.toContain("conversation-a");
   });
 
-  it("isolates different conversations", () => {
-    const executor = getExecutor("opencode-go");
+  it("isolates different conversations", async () => {
+    const executor = await getExecutor("opencode-go");
     const a = prepare(executor, { providerSessionId: "conversation-a" }).prepared._opencodeGoSession;
     const b = prepare(executor, { providerSessionId: "conversation-b" }).prepared._opencodeGoSession;
 
     expect(a).not.toBe(b);
   });
 
-  it("isolates different downstream agents that reuse the same raw id", () => {
-    const executor = getExecutor("opencode-go");
+  it("isolates different downstream agents that reuse the same raw id", async () => {
+    const executor = await getExecutor("opencode-go");
     const claude = prepare(executor, { clientTool: "claude" }).prepared._opencodeGoSession;
     const codex = prepare(executor, { clientTool: "codex" }).prepared._opencodeGoSession;
 
     expect(claude).not.toBe(codex);
   });
 
-  it("uses a stable opaque connection fallback when no session is supplied", () => {
-    const executor = getExecutor("opencode-go");
+  it("uses a stable opaque connection fallback when no session is supplied", async () => {
+    const executor = await getExecutor("opencode-go");
     const options = {
       credentials: makeCredentials({ connectionId: "fallback-connection" }),
       providerSessionId: null,
@@ -126,7 +126,7 @@ describe("OpenCode Go x-opencode-session", () => {
   });
 
   it("adds the prepared session to the actual fetch headers", async () => {
-    const executor = getExecutor("opencode-go");
+    const executor = await getExecutor("opencode-go");
     const credentials = makeCredentials();
     const result = await executor.execute({
       model: "glm-5.2",
@@ -143,14 +143,14 @@ describe("OpenCode Go x-opencode-session", () => {
     expect(credentials).not.toHaveProperty("_opencodeGoSession");
   });
 
-  it("does not add the header to unrelated default executors", () => {
+  it("does not add the header to unrelated default executors", async () => {
     const headers = new DefaultExecutor("openai").buildHeaders({ apiKey: "test-key" }, false);
     expect(headers["x-opencode-session"]).toBeUndefined();
   });
 });
 
 describe("chatCore provider session forwarding", () => {
-  it("passes the original provider session and client tool on initial and retry execution", () => {
+  it("passes the original provider session and client tool on initial and retry execution", async () => {
     const source = readFileSync(
       fileURLToPath(new URL("../../open-sse/handlers/chatCore.js", import.meta.url)),
       "utf8",

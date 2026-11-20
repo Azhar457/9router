@@ -21,7 +21,7 @@ function pickTransport(provider, sourceFormat, alias, model) {
 }
 
 describe("ocg/muse-spark-1.3-contributor catalog", () => {
-  it("is registered responses-only", () => {
+  it("is registered responses-only", async () => {
     const entry = (PROVIDER_MODELS["opencode-go"] || []).find((m) => m.id === MODEL);
     expect(entry).toBeDefined();
     expect(entry.targetFormat).toBe("openai-responses");
@@ -30,14 +30,14 @@ describe("ocg/muse-spark-1.3-contributor catalog", () => {
     expect(getModelTargetFormat("opencode-go", MODEL)).toBe(FORMATS.OPENAI_RESPONSES);
   });
 
-  it("never takes the sourceFormat-matched transport (always translates)", () => {
+  it("never takes the sourceFormat-matched transport (always translates)", async () => {
     expect(pickTransport(PROVIDER, "openai", "opencode-go", MODEL)).toBeNull();
     expect(pickTransport(PROVIDER, "claude", "opencode-go", MODEL)).toBeNull();
     expect(pickTransport(PROVIDER, "openai-responses", "opencode-go", MODEL)?.baseUrl)
       .toBe("https://opencode.ai/zen/go/v1/responses");
   });
 
-  it("advertises reasoning via the shared muse-spark pattern", () => {
+  it("advertises reasoning via the shared muse-spark pattern", async () => {
     expect(getCapabilitiesForModel(PROVIDER, MODEL)).toMatchObject({
       vision: true,
       reasoning: true,
@@ -48,7 +48,7 @@ describe("ocg/muse-spark-1.3-contributor catalog", () => {
 });
 
 describe("OpenCodeGoExecutor routing + sanitization", () => {
-  it("routes gpt-5.6-luna to /responses", () => {
+  it("routes gpt-5.6-luna to /responses", async () => {
     const ex = new OpenCodeGoExecutor();
     expect(ex.buildUrl("gpt-5.6-luna")).toBe("https://opencode.ai/zen/go/v1/responses");
     expect(ex.buildUrl("gpt-5.6-luna(high)", true, 0, {
@@ -56,7 +56,7 @@ describe("OpenCodeGoExecutor routing + sanitization", () => {
     })).toBe("https://opencode.ai/zen/go/v1/responses");
   });
 
-  it("routes every responses-only registry model (grok-4.6) to /responses", () => {
+  it("routes every responses-only registry model (grok-4.6) to /responses", async () => {
     const ex = new OpenCodeGoExecutor();
     expect(ex.buildUrl("grok-4.6")).toBe("https://opencode.ai/zen/go/v1/responses");
     expect(ex.buildUrl("grok-4.6(high)", true, 0, {
@@ -64,8 +64,8 @@ describe("OpenCodeGoExecutor routing + sanitization", () => {
     })).toBe("https://opencode.ai/zen/go/v1/responses");
   });
 
-  it("is wired for opencode-go and routes muse-spark to /responses", () => {
-    expect(getExecutor("opencode-go")).toBeInstanceOf(OpenCodeGoExecutor);
+  it("is wired for opencode-go and routes muse-spark to /responses", async () => {
+    expect(await getExecutor("opencode-go")).toBeInstanceOf(OpenCodeGoExecutor);
     const ex = new OpenCodeGoExecutor();
     expect(ex.buildUrl(MODEL)).toBe("https://opencode.ai/zen/go/v1/responses");
     // Even a stale runtimeTransport must not drag muse-spark onto chat/messages
@@ -74,7 +74,7 @@ describe("OpenCodeGoExecutor routing + sanitization", () => {
     })).toBe("https://opencode.ai/zen/go/v1/responses");
   });
 
-  it("leaves non-muse models on the default/runtime transport", () => {
+  it("leaves non-muse models on the default/runtime transport", async () => {
     const ex = new OpenCodeGoExecutor();
     expect(ex.buildUrl("kimi-k2.6")).toBe("https://opencode.ai/zen/go/v1/chat/completions");
     expect(ex.buildUrl("minimax-m3", true, 0, {
@@ -82,7 +82,7 @@ describe("OpenCodeGoExecutor routing + sanitization", () => {
     })).toBe("https://opencode.ai/zen/go/v1/messages");
   });
 
-  it("normalizes caps + reasoning and coerces tool items exactly once", () => {
+  it("normalizes caps + reasoning and coerces tool items exactly once", async () => {
     const ex = new OpenCodeGoExecutor();
     const args = { path: "a\"b\nc\\d", emoji: "🚀 ü", nested: { q: "x'y\"z" } };
     const body = {
@@ -122,7 +122,7 @@ describe("OpenCodeGoExecutor routing + sanitization", () => {
     expect(outputs[1].output).toBe("");
   });
 
-  it("fills in properties for object tool schemas missing them", () => {
+  it("fills in properties for object tool schemas missing them", async () => {
     const ex = new OpenCodeGoExecutor();
     const body = {
       model: MODEL,
@@ -137,7 +137,7 @@ describe("OpenCodeGoExecutor routing + sanitization", () => {
     expect(out.tools.find((t) => t.name === "full").parameters).toEqual({ type: "object", properties: { a: { type: "string" } } });
   });
 
-  it("strips prior-turn reasoning items carrying encrypted_content from input", () => {
+  it("strips prior-turn reasoning items carrying encrypted_content from input", async () => {
     const ex = new OpenCodeGoExecutor();
     const body = {
       model: MODEL,
@@ -163,7 +163,7 @@ describe("OpenCodeGoExecutor routing + sanitization", () => {
 describe("chat/claude clients translate to Responses without breaking tools", () => {
   const tricky = { cmd: "echo \"hi\"\nnewline\ttab\\slash", emoji: "🎉 café naïve", nested: { a: [1, "x'y"] } };
 
-  it("openai chat → responses keeps arguments parseable", () => {
+  it("openai chat → responses keeps arguments parseable", async () => {
     const translated = translateRequest(
       FORMATS.OPENAI,
       FORMATS.OPENAI_RESPONSES,
@@ -190,7 +190,7 @@ describe("chat/claude clients translate to Responses without breaking tools", ()
     expect(JSON.parse(fco.output)).toEqual(tricky);
   });
 
-  it("claude messages → responses double-hop keeps tool input intact", () => {
+  it("claude messages → responses double-hop keeps tool input intact", async () => {
     const viaOpenAI = translateRequest(FORMATS.CLAUDE, FORMATS.OPENAI, MODEL, {
       system: "be terse",
       messages: [

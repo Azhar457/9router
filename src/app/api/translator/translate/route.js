@@ -72,7 +72,7 @@ export async function POST(request) {
           providerSpecificData: connection.providerSpecificData
         };
 
-        const executor = getExecutor(provider);
+        const executor = await getExecutor(provider);
         const url = executor.buildUrl(model, stream, 0, credentials);
         const headers = executor.buildHeaders(credentials, stream);
         const finalBody = executor.transformRequest(model, translated, stream, credentials);

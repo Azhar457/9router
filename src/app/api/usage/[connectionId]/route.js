@@ -27,7 +27,7 @@ export async function refreshAndUpdateCredentials(connection, force = false, pro
   const latest = connection.id ? await getProviderConnectionById(connection.id) : null;
   if (latest) connection = latest;
 
-  const executor = getExecutor(connection.provider);
+  const executor = await getExecutor(connection.provider);
 
   // Build credentials object from connection
   const credentials = {

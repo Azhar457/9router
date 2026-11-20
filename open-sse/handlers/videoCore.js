@@ -63,7 +63,7 @@ async function executeExecutorDrivenVideo({ provider, rawBody, credentials, sign
     .filter((ref) => typeof ref === "string" && ref);
 
   const { getExecutor } = await import("../executors/index.js");
-  const executor = getExecutor(provider);
+  const executor = await getExecutor(provider);
   if (!executor?.generateMedia) {
     return createErrorResult(HTTP_STATUS.BAD_REQUEST, `[${provider}] has no executor video support`);
   }

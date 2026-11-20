@@ -31,7 +31,7 @@ const { getExecutor } = await import("../../open-sse/executors/index.js");
 const { refreshMiniMaxCodeToken } = await vi.importActual("../../open-sse/services/tokenRefresh.js");
 
 describe("minimax-code registry wiring", () => {
-  it("declares claude transport with adaptive thinking and combined bearer auth", () => {
+  it("declares claude transport with adaptive thinking and combined bearer auth", async () => {
     const t = PROVIDERS["minimax-code"];
     expect(t.format).toBe("claude");
     expect(t.thinkingFormat).toBe("claude-adaptive");
@@ -44,7 +44,7 @@ describe("minimax-code registry wiring", () => {
     expect(t.headers["X-Mavis-Agent-Id"]).toBe("main");
   });
 
-  it("global site points at agent.minimax.io with its own alias", () => {
+  it("global site points at agent.minimax.io with its own alias", async () => {
     const t = PROVIDERS["minimax-code-global"];
     expect(t.baseUrl).toBe("https://agent.minimax.io/mavis/api/v1/llm/v1/messages");
     expect(t.thinkingFormat).toBe("claude-adaptive");
@@ -55,7 +55,7 @@ describe("minimax-code registry wiring", () => {
 });
 
 describe("minimax-code capabilities + thinking levels", () => {
-  it("M3.1-Flash-Preview is forced-adaptive with the five efforts and vision", () => {
+  it("M3.1-Flash-Preview is forced-adaptive with the five efforts and vision", async () => {
     const caps = getCapabilitiesForModel("minimax-code", "MiniMax-M3.1-Flash-Preview");
     expect(caps.reasoning).toBe(true);
     expect(caps.thinkingFormat).toBe("claude-adaptive");
@@ -66,19 +66,19 @@ describe("minimax-code capabilities + thinking levels", () => {
     ]);
   });
 
-  it("M3 is switchable (none allowed), M2.7 pair cannot disable", () => {
+  it("M3 is switchable (none allowed), M2.7 pair cannot disable", async () => {
     expect(getThinkingLevels("minimax-code", "MiniMax-M3")).toEqual(["none", "high"]);
     expect(getCapabilitiesForModel("minimax-code", "MiniMax-M2.7").thinkingCanDisable).toBe(false);
     expect(getThinkingLevels("minimax-code", "MiniMax-M2.7")).not.toContain("none");
   });
 
-  it("global provider shares the capability table", () => {
+  it("global provider shares the capability table", async () => {
     expect(getCapabilitiesForModel("minimax-code-global", "MiniMax-M3.1-Flash-Preview").thinkingFormat).toBe("claude-adaptive");
   });
 });
 
 describe("minimax-code thinking → wire body (claude-adaptive)", () => {
-  it("maps an effort level to the permanent-adaptive wire shape (effort only)", () => {
+  it("maps an effort level to the permanent-adaptive wire shape (effort only)", async () => {
     // M3.1 cannot disable thinking (like Fable 5.1): the claude-adaptive branch
     // drops the thinking object and sends output_config.effort alone — the
     // same shape MiniMax Code's own client puts on the wire.
@@ -88,20 +88,20 @@ describe("minimax-code thinking → wire body (claude-adaptive)", () => {
     expect(body.output_config.effort).toBe("xhigh");
   });
 
-  it("keeps an advertised level verbatim (xhigh is in M3.1's efforts)", () => {
+  it("keeps an advertised level verbatim (xhigh is in M3.1's efforts)", async () => {
     const body = { model: "MiniMax-M3.1-Flash-Preview", messages: [] };
     applyThinking("claude", "MiniMax-M3.1-Flash-Preview(xhigh)", body, "minimax-code");
     expect(body.output_config.effort).toBe("xhigh");
   });
 
-  it("maps none on a switchable model to disabled thinking without effort", () => {
+  it("maps none on a switchable model to disabled thinking without effort", async () => {
     const body = { model: "MiniMax-M3", messages: [] };
     applyThinking("claude", "MiniMax-M3(none)", body, "minimax-code");
     expect(body.thinking).toEqual({ type: "disabled" });
     expect(body.output_config).toBeUndefined();
   });
 
-  it("a switchable model's effort keeps the adaptive switch on the wire", () => {
+  it("a switchable model's effort keeps the adaptive switch on the wire", async () => {
     // canDisable → thinking {type:"adaptive"} rides along with effort
     const body = { model: "MiniMax-M3", messages: [] };
     applyThinking("claude", "MiniMax-M3(high)", body, "minimax-code");
@@ -185,7 +185,7 @@ describe("minimax-code OAuth device flow module", () => {
     expect(bodies[1].get("grant_type")).toBe("urn:ietf:params:oauth:grant-type:device_code");
   });
 
-  it("mapTokens normalizes the token answer", () => {
+  it("mapTokens normalizes the token answer", async () => {
     const t = provider.mapTokens({ access_token: "at", refresh_token: "rt", expires_in: 3600 });
     expect(t).toEqual({ accessToken: "at", refreshToken: "rt", expiresIn: 3600 });
   });
@@ -197,7 +197,7 @@ describe("minimax-code refresh handler", () => {
   afterEach(() => { globalThis.fetch = originalFetch; vi.restoreAllMocks(); });
 
   it("routes both providers through the single-use-token handler", async () => {
-    const ex = getExecutor("minimax-code-global");
+    const ex = await getExecutor("minimax-code-global");
     refreshMiniMaxMock.mockResolvedValue({ accessToken: "a2", refreshToken: "r2", expiresIn: 3600 });
     const out = await ex.refreshCredentials({ refreshToken: "r1" });
     expect(refreshMiniMaxMock).toHaveBeenCalledWith("minimax-code-global", "r1", undefined);
@@ -298,10 +298,10 @@ describe("minimax-code executor quota normalization", () => {
     expect(res.status).toBe(500);
   });
 
-  it("executor delegates refresh to the deduped handler by provider id", () => {
-    const ex = getExecutor("minimax-code");
+  it("executor delegates refresh to the deduped handler by provider id", async () => {
+    const ex = await getExecutor("minimax-code");
     expect(ex.constructor.name).toBe("MinimaxCodeExecutor");
     expect(ex.provider).toBe("minimax-code");
-    expect(getExecutor("minimax-code")).toBe(ex); // shared instance per provider
+    expect(await getExecutor("minimax-code")).toBe(ex); // shared instance per provider
   });
 });

@@ -13,7 +13,7 @@ export default {
   normalize: (responseBody) => responseBody,
 
   async executeViaExecutor(model, body, credentials, log) {
-    const executor = getExecutor("veoaifree-web");
+    const executor = await getExecutor("veoaifree-web");
     if (!executor) throw new Error("veoaifree-web executor not found");
 
     const media = await executor.generateMedia({

@@ -122,7 +122,7 @@ export async function handleImageGenerationCore({
   }
 
   // Handle 401/403 — try token refresh (skipped for noAuth providers)
-  const executor = getExecutor(provider);
+  const executor = await getExecutor(provider);
   if (
     !executor?.noAuth &&
     !adapter.noAuth &&

@@ -14,7 +14,7 @@ export default {
   buildBody: () => ({}),
 
   async executeViaExecutor(model, body, credentials, log) {
-    const executor = getExecutor("muse-web");
+    const executor = await getExecutor("muse-web");
     if (!executor) throw new Error("Muse Web executor not found");
 
     const media = await executor.generateMedia({

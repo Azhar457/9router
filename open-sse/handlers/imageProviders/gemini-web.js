@@ -12,7 +12,7 @@ export default {
   buildBody: () => ({}),
 
   async executeViaExecutor(model, body, credentials, log) {
-    const executor = getExecutor("gemini-web");
+    const executor = await getExecutor("gemini-web");
     if (!executor) throw new Error("Gemini Web executor not found");
 
     const media = await executor.generateMedia({

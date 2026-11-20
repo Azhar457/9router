@@ -13,7 +13,7 @@ export default {
   normalize: (responseBody) => responseBody,
 
   async executeViaExecutor(model, body, credentials, log) {
-    const executor = getExecutor("uc-web");
+    const executor = await getExecutor("uc-web");
     if (!executor) throw new Error("uc-web executor not found");
 
     const media = await executor.generateMedia({

@@ -59,7 +59,7 @@ export async function POST(request) {
       providerSpecificData: connection.providerSpecificData
     };
 
-    const executor = getExecutor(provider);
+    const executor = await getExecutor(provider);
     const stream = body.stream !== false;
 
     let { response } = await executor.execute({ model, body, stream, credentials });

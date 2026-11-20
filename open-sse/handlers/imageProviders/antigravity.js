@@ -47,7 +47,7 @@ export default {
   buildBody: () => ({}),
 
   async executeViaExecutor(model, body, credentials, log) {
-    const executor = getExecutor("antigravity");
+    const executor = await getExecutor("antigravity");
     if (!executor) throw new Error("Antigravity executor not found");
 
     // Ensure we use an image model for image generation

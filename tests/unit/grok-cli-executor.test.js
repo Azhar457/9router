@@ -15,7 +15,7 @@ import { getModelInfoCore, resolveProviderAlias } from "../../open-sse/services/
 import { OAUTH_PROVIDERS } from "../../src/shared/constants/providers.js";
 
 describe("grok-cli registry", () => {
-  it("registers transport + oauth + models", () => {
+  it("registers transport + oauth + models", async () => {
     const cfg = PROVIDERS["grok-cli"];
     expect(cfg).toBeTruthy();
     expect(cfg.baseUrl).toBe("https://cli-chat-proxy.grok.com/v1/responses");
@@ -33,12 +33,12 @@ describe("grok-cli registry", () => {
     expect(PROVIDER_MODELS.gcli?.some((m) => m.id === "grok-build")).toBe(true);
   });
 
-  it("is listed as oauth provider for dashboard", () => {
+  it("is listed as oauth provider for dashboard", async () => {
     expect(OAUTH_PROVIDERS["grok-cli"]).toBeTruthy();
     expect(OAUTH_PROVIDERS["grok-cli"].name).toMatch(/Grok CLI/i);
   });
 
-  it("resolves aliases to provider id", () => {
+  it("resolves aliases to provider id", async () => {
     expect(resolveProviderAlias("gcli")).toBe("grok-cli");
     expect(resolveProviderAlias("gb")).toBe("grok-cli");
     expect(resolveProviderAlias("grok-build")).toBe("grok-cli");
@@ -52,7 +52,7 @@ describe("grok-cli registry", () => {
     });
   });
 
-  it("maps effort virtual models to upstream grok-4.5", () => {
+  it("maps effort virtual models to upstream grok-4.5", async () => {
     expect(getModelUpstreamId("gcli", "grok-4.5-high")).toBe("grok-4.5");
     expect(getModelUpstreamId("gcli", "grok-4.5-medium")).toBe("grok-4.5");
     expect(getModelUpstreamId("gcli", "grok-4.5-low")).toBe("grok-4.5");
@@ -68,18 +68,18 @@ describe("GrokCliExecutor", () => {
     executor = new GrokCliExecutor();
   });
 
-  it("is registered on executor map (id + aliases)", () => {
+  it("is registered on executor map (id + aliases)", async () => {
     expect(hasSpecializedExecutor("grok-cli")).toBe(true);
-    expect(getExecutor("grok-cli")).toBeInstanceOf(GrokCliExecutor);
-    expect(getExecutor("gcli")).toBeInstanceOf(GrokCliExecutor);
-    expect(getExecutor("gb")).toBeInstanceOf(GrokCliExecutor);
+    expect(await getExecutor("grok-cli")).toBeInstanceOf(GrokCliExecutor);
+    expect(await getExecutor("gcli")).toBeInstanceOf(GrokCliExecutor);
+    expect(await getExecutor("gb")).toBeInstanceOf(GrokCliExecutor);
   });
 
-  it("buildUrl points at cli-chat-proxy responses", () => {
+  it("buildUrl points at cli-chat-proxy responses", async () => {
     expect(executor.buildUrl()).toBe("https://cli-chat-proxy.grok.com/v1/responses");
   });
 
-  it("buildHeaders sets CLI fingerprint + session headers", () => {
+  it("buildHeaders sets CLI fingerprint + session headers", async () => {
     executor._currentSessionId = "sess-abc";
     executor._currentReqId = "req-xyz";
     executor._agentId = "agent-1";
@@ -111,7 +111,7 @@ describe("GrokCliExecutor", () => {
     expect(headers["x-authenticateresponse"]).toBeUndefined();
   });
 
-  it("buildHeaders falls back to top-level email/userId (OAuth mapTokens shape)", () => {
+  it("buildHeaders falls back to top-level email/userId (OAuth mapTokens shape)", async () => {
     executor._currentSessionId = "sess-top";
     executor._currentReqId = "req-top";
 
@@ -129,7 +129,7 @@ describe("GrokCliExecutor", () => {
     expect(headers["x-userid"]).toBeUndefined();
   });
 
-  it("transformRequest normalizes Responses body like official CLI", () => {
+  it("transformRequest normalizes Responses body like official CLI", async () => {
     const body = {
       model: "grok-4.5-high",
       messages: [{ role: "user", content: "hi" }],
@@ -180,7 +180,7 @@ describe("GrokCliExecutor", () => {
     expect(out.tools[2]).toEqual({ type: "x_search" });
   });
 
-  it("transformRequest keeps role:system (HAR parity) and strips server ids", () => {
+  it("transformRequest keeps role:system (HAR parity) and strips server ids", async () => {
     const body = {
       model: "grok-4.5",
       input: [
@@ -200,7 +200,7 @@ describe("GrokCliExecutor", () => {
     expect(out.reasoning.effort).toBe("medium");
   });
 
-  it("normalizes Codex cross-provider tool and reasoning history", () => {
+  it("normalizes Codex cross-provider tool and reasoning history", async () => {
     const out = executor.transformRequest("grok-4.5", {
       model: "grok-4.5",
       input: [
@@ -254,7 +254,7 @@ describe("GrokCliExecutor", () => {
     });
   });
 
-  it("stringifies structured outputs and removes orphaned output items", () => {
+  it("stringifies structured outputs and removes orphaned output items", async () => {
     const out = executor.transformRequest("grok-4.5", {
       model: "grok-4.5",
       input: [
@@ -275,7 +275,7 @@ describe("GrokCliExecutor", () => {
     expect(out.input.some((item) => item.call_id === "call-invalid")).toBe(false);
   });
 
-  it("preserves native Grok encrypted reasoning and item ids", () => {
+  it("preserves native Grok encrypted reasoning and item ids", async () => {
     const reasoningId = "rs_3e3f6187-892a-96db-893b-904eff019e19";
     const messageId = "msg_3e3f6187-892a-96db-893b-904eff019e19";
     const functionId = "fc_3e3f6187-892a-96db-893b-904eff019e19";
@@ -307,7 +307,7 @@ describe("GrokCliExecutor", () => {
     expect(out.input[2].id).toBe(functionId);
   });
 
-  it("normalizes official effort aliases", () => {
+  it("normalizes official effort aliases", async () => {
     expect(normalizeGrokCliEffort("none")).toBe("high");
     expect(normalizeGrokCliEffort("minimal")).toBe("high");
     expect(normalizeGrokCliEffort("max")).toBe("xhigh");
@@ -322,7 +322,7 @@ describe("GrokCliExecutor", () => {
     expect(out.reasoning).toEqual({ effort: "xhigh", summary: "detailed" });
   });
 
-  it("omits reasoning effort for models that reject it", () => {
+  it("omits reasoning effort for models that reject it", async () => {
     expect(supportsGrokCliReasoningEffort("grok-4.5")).toBe(true);
     expect(supportsGrokCliReasoningEffort("grok-build")).toBe(false);
     expect(supportsGrokCliReasoningEffort("grok-composer-2.5-fast")).toBe(false);
@@ -338,7 +338,7 @@ describe("GrokCliExecutor", () => {
     }
   });
 
-  it("drops stale tool_choice and normalizes converted custom choices", () => {
+  it("drops stale tool_choice and normalizes converted custom choices", async () => {
     const noTools = executor.transformRequest("grok-build", {
       model: "grok-build",
       input: "hi",
@@ -358,7 +358,7 @@ describe("GrokCliExecutor", () => {
     expect(custom.tool_choice).toEqual({ type: "function", name: "apply_patch" });
   });
 
-  it("increments x-grok-turn-idx from user-message count and stays monotonic", () => {
+  it("increments x-grok-turn-idx from user-message count and stays monotonic", async () => {
     const creds = {
       connectionId: "turn-conn",
       rawHeaders: { "x-session-id": "stable-session-xyz" },
@@ -419,7 +419,7 @@ describe("GrokCliExecutor", () => {
     expect(executor._currentTurnIdx).toBe(3);
   });
 
-  it("countGrokCliUserTurns / resolveGrokCliTurnIdx helpers", () => {
+  it("countGrokCliUserTurns / resolveGrokCliTurnIdx helpers", async () => {
     expect(countGrokCliUserTurns(null)).toBe(1);
     expect(
       countGrokCliUserTurns([
@@ -441,7 +441,7 @@ describe("GrokCliExecutor", () => {
     expect(resolveGrokCliTurnIdx("s1", [{ role: "user", type: "message", content: "a" }])).toBe(2);
   });
 
-  it("keeps fallback session stable when assistant history appears", () => {
+  it("keeps fallback session stable when assistant history appears", async () => {
     const creds = { connectionId: "fallback-conn", rawHeaders: {} };
     executor.transformRequest("grok-build", {
       model: "grok-build",
@@ -461,7 +461,7 @@ describe("GrokCliExecutor", () => {
     expect(executor._currentTurnIdx).toBe(2);
   });
 
-  it("does not advance turn index when retrying the same request body", () => {
+  it("does not advance turn index when retrying the same request body", async () => {
     const body = {
       model: "grok-build",
       input: [{ type: "message", role: "user", content: "retry me" }],
@@ -473,14 +473,14 @@ describe("GrokCliExecutor", () => {
     expect(executor._currentTurnIdx).toBe(firstTurn);
   });
 
-  it("bounds per-session turn state", () => {
+  it("bounds per-session turn state", async () => {
     for (let i = 0; i < 5100; i += 1) {
       resolveGrokCliTurnIdx(`session-${i}`, [{ role: "user", content: "hi" }]);
     }
     expect(_getGrokCliTurnStoreSize()).toBe(5000);
   });
 
-  it("parseError surfaces 402 spending-limit", () => {
+  it("parseError surfaces 402 spending-limit", async () => {
     const err = executor.parseError(
       { status: 402 },
       JSON.stringify({

@@ -34,6 +34,32 @@ import { capabilitiesFromServiceKind, getCapabilitiesForModel, aggregateComboCap
 const NOAUTH_CACHE_TTL_MS = 60_000;
 const noAuthCatalogCache = new Map();
 
+// Live provider catalogs are fetched from upstream on every call, which measured
+// ~835 ms of the ~890 ms this endpoint takes (the rest — DB reads plus capability
+// aggregation over ~6.4k models — is ~53 ms). Memoize the built list so clients
+// polling /v1/models on connect stop paying that on every call.
+//
+// The cache key carries a fingerprint of everything that shapes the list, so
+// adding/removing a provider or model invalidates it immediately; the TTL only
+// bounds how long an upstream-published model can stay invisible.
+const MODELS_LIST_TTL_MS = Number(process.env.MODELS_LIST_TTL_MS) > 0
+  ? Number(process.env.MODELS_LIST_TTL_MS)
+  : 60_000;
+const MODELS_LIST_CACHE_MAX = 32;
+const modelsListCache = new Map();
+
+function modelsListFingerprint({ connections, nodes, combos, customModels, modelAliases, disabledByAlias }) {
+  const parts = [];
+  for (const c of connections) parts.push(`${c.id}:${c.provider}:${c.updatedAt}`);
+  for (const n of nodes) parts.push(`${n.id}:${n.type}:${n.updatedAt}`);
+  for (const c of combos) parts.push(`${c.id}:${c.updatedAt}`);
+  for (const m of customModels) parts.push(`${m.providerAlias}|${m.id}:${m.type || m.kind || "llm"}`);
+  parts.push(JSON.stringify(modelAliases || {}));
+  parts.push(JSON.stringify(disabledByAlias || {}));
+  return parts.join("|");
+}
+
+
 const NOAUTH_RESOLVERS = {
   opencode: async () => {
     try {
@@ -378,9 +404,10 @@ export async function buildModelsList(kindFilter, options = {}) {
   // Custom node kinds: not in AI_PROVIDERS, so providerMatchesKinds would
   // otherwise default them to llm-only and hide their image/tts/etc models.
   let customNodeKinds = {};
+  let providerNodes = [];
   try {
-    const nodes = await getProviderNodes();
-    for (const node of nodes) {
+    providerNodes = await getProviderNodes();
+    for (const node of providerNodes) {
       if (!node?.id) continue;
       const extra = Array.isArray(node.serviceKinds) ? node.serviceKinds : [];
       customNodeKinds[node.id] = node.type === "custom-embedding"
@@ -419,6 +446,28 @@ export async function buildModelsList(kindFilter, options = {}) {
     console.log("Could not fetch disabled models");
   }
   const isDisabled = (alias, modelId) => Array.isArray(disabledByAlias[alias]) && disabledByAlias[alias].includes(modelId);
+
+  // Everything above is cheap (SQLite reads). Everything below fans out to live
+  // upstream catalogs and rebuilds capabilities for the whole catalog — so serve
+  // it from the memo when nothing that shapes the list has changed.
+  const nodesForFingerprint = providerNodes;
+  const listCacheKey = [
+    Array.isArray(kindFilter) ? kindFilter.join(",") : String(kindFilter),
+    skipDynamicFetch ? "1" : "0",
+    modelsListFingerprint({
+      connections,
+      nodes: nodesForFingerprint,
+      combos,
+      customModels,
+      modelAliases,
+      disabledByAlias,
+    }),
+  ].join("\u0001");
+  const cachedList = modelsListCache.get(listCacheKey);
+  if (cachedList && Date.now() - cachedList.at < MODELS_LIST_TTL_MS) {
+    return [...cachedList.value];
+  }
+
 
   const activeConnectionByProvider = new Map();
   for (const conn of connections) {
@@ -915,6 +964,13 @@ export async function buildModelsList(kindFilter, options = {}) {
     const count = providerId ? connectionCountByProvider.get(providerId) : 0;
     if (count > 0) model.connections = count;
   }
+
+  // Bound the memo: kindFilter varies per route, and a long-lived process would
+  // otherwise retain one entry per distinct configuration seen.
+  if (modelsListCache.size >= MODELS_LIST_CACHE_MAX) {
+    modelsListCache.delete(modelsListCache.keys().next().value);
+  }
+  modelsListCache.set(listCacheKey, { at: Date.now(), value: dedupedModels });
 
   return dedupedModels;
 }

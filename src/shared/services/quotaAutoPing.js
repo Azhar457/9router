@@ -154,7 +154,7 @@ async function drainResponseBody(response) {
 }
 
 async function sendCodexPing(connection, providerConfig, proxyOptions, deps) {
-  const executor = deps.getExecutor("codex");
+  const executor = await deps.getExecutor("codex");
   const { response } = await executor.execute({
     model: providerConfig.pingModel,
     stream: true,

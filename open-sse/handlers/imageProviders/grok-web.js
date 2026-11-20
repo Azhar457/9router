@@ -14,7 +14,7 @@ export default {
   normalize: (responseBody) => responseBody,
 
   async executeViaExecutor(model, body, credentials, log) {
-    const executor = getExecutor("grok-web");
+    const executor = await getExecutor("grok-web");
     if (!executor) throw new Error("Grok Web executor not found");
 
     const media = await executor.generateMedia({
