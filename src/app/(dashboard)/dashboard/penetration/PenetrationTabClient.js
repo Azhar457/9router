@@ -73,7 +73,7 @@ function ScopeBanner({ acked, onAcknowledge, onRevoke }) {
             {translate("expires in")} {SCOPE_ACK_EXPIRY_DAYS}
           </span>
         </div>
-        <Button variant="ghost" size="sm" icon="revert" onClick={onRevoke}>
+        <Button variant="ghost" size="sm" icon="undo" onClick={onRevoke}>
           {translate("Revoke")}
         </Button>
       </div>
@@ -753,7 +753,7 @@ export default function PenetrationTabClient() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      icon="revert"
+                      icon="undo"
                       onClick={() => {
                         setPayloadEditing(false);
                         setPayloadText("");

@@ -46,6 +46,11 @@ const STRIP_RULES = [
   // Current OpenAI models (gpt-5.x / gpt-6.x) reject `max_tokens` with HTTP 400
   // ("Use 'max_completion_tokens' instead"). Clients send `max_tokens`, so rename it.
   { provider: "openai", renameParams: { max_tokens: "max_completion_tokens" } },
+  // Groq caps every chat model's max_completion_tokens at 16384. Models like
+  // qwen3.8-27b advertise a huge contextWindow, so the capabilities ceiling
+  // is far above Groq's real limit. Pin the upstream cap here; the strip step
+  // clamps max_tokens / max_completion_tokens / max_output_tokens to 16384.
+  { provider: "groq", baseUrlOverrides: { "https://api.groq.com": 16384 } },
 ];
 
 // Test a rule's match (regex or predicate) against the model id.
@@ -61,10 +66,17 @@ function clampNumber(body, key, ceiling) {
 }
 
 // Remove unsupported params from body in place; returns body.
-export function stripUnsupportedParams(provider, model, body) {
+//
+// `effectiveProvider` (optional) is the upstream identity of the destination
+// (e.g. "groq" when the request rides a user's openai-compatible node whose
+// baseUrl points at Groq). Provider-bound strip/rename/drop rules match on it,
+// while provider-agnostic rules (model-pattern clamps) always apply.
+export function stripUnsupportedParams(provider, model, body, effectiveProvider = provider) {
   if (!model || !body || typeof body !== "object") return body;
   for (const rule of STRIP_RULES) {
-    if (rule.provider && rule.provider !== provider) continue;
+    // Provider-bound rules match the effective (upstream) provider; rules
+    // without a `provider` field are model-pattern driven and apply to everyone.
+    if (rule.provider && rule.provider !== effectiveProvider) continue;
     if (!matches(rule, model)) continue;
     // Rename params (keeps an explicit target value if the client already sent one).
     for (const [from, to] of Object.entries(rule.renameParams || {})) {
@@ -100,6 +112,16 @@ export function stripUnsupportedParams(provider, model, body) {
             .map(b => (b?.type === "text" && typeof b.text === "string") ? b.text : "")
             .join("");
         }
+      }
+    }
+    // Provider-specific output ceiling overrides (e.g. Groq's 16384 cap on
+    // every chat model). These win over the model's advertised ceiling.
+    if (rule.baseUrlOverrides) {
+      for (const [base, cap] of Object.entries(rule.baseUrlOverrides)) {
+        if (!Number.isFinite(cap) || cap <= 0) continue;
+        clampNumber(body, "max_tokens", cap);
+        clampNumber(body, "max_completion_tokens", cap);
+        clampNumber(body, "max_output_tokens", cap);
       }
     }
     if (rule.clampToModelMaxOutput || Number.isFinite(rule.maxOutputCap)) {

@@ -2313,7 +2313,7 @@ export default function DeveloperPageClient() {
                   <div className="flex flex-wrap items-center gap-2 text-sm">
                     <span className="font-mono text-xs text-text-muted">#{index + 1}</span>
                     {heurWinner && item.key === heurWinner.key && item.status === "done" && (
-                      <span className="material-symbols-outlined text-[18px] text-green-500">emoji_events</span>
+                      <span className="material-symbols-outlined text-[18px] text-green-500">trophy</span>
                     )}
                     <span className="font-medium text-text-main">{item.model.name}</span>
                     <span className="text-xs text-text-muted">{item.model.providerName}</span>

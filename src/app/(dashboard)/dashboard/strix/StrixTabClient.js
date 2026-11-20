@@ -326,7 +326,7 @@ export default function StrixTabClient() {
       <Card
         title="Strix Security Payloads"
         subtitle="Click a skill to read its full text — never inlined into your agent"
-        icon="security_update"
+        icon="verified_user"
         elev
       >
         <div className="flex flex-col gap-4">

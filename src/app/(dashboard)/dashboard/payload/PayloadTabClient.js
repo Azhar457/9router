@@ -223,7 +223,7 @@ export default function PayloadTabClient() {
               variant="ghost"
               size="sm"
               onClick={revoke}
-              icon="revert"
+              icon="undo"
             >
               Revoke
             </Button>

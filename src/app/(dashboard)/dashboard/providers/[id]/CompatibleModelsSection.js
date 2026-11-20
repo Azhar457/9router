@@ -4,7 +4,8 @@ import { useState } from "react";
 import PropTypes from "prop-types";
 import { Button } from "@/shared/components";
 import { getProviderCustomModelRows } from "@/shared/utils/providerCustomModels";
-function CompatibleModelRow({ modelId, fullModel, copied, onCopy, onDeleteAlias, onTest, testStatus, isTesting }) {
+
+function CompatibleModelRow({ modelId, fullModel, copied, onCopy, onDeleteAlias, onTest, onDisable, testStatus, isTesting }) {
   const borderColor = testStatus === "ok"
     ? "border-green-500/40"
     : testStatus === "error"
@@ -60,6 +61,15 @@ function CompatibleModelRow({ modelId, fullModel, copied, onCopy, onDeleteAlias,
           )}
         </div>
       </div>
+      {onDisable && (
+        <button
+          onClick={onDisable}
+          className="p-1 hover:bg-black/5 dark:hover:bg-white/10 rounded text-text-muted hover:text-text-main"
+          title="Disable model"
+        >
+          <span className="material-symbols-outlined text-sm">block</span>
+        </button>
+      )}
       <button
         onClick={onDeleteAlias}
         className="p-1 hover:bg-red-50 rounded text-red-500"
@@ -71,37 +81,51 @@ function CompatibleModelRow({ modelId, fullModel, copied, onCopy, onDeleteAlias,
   );
 }
 
-export default function CompatibleModelsSection({ providerStorageAlias, providerDisplayAlias, modelAliases, customModels, copied, onCopy, onDeleteAlias, onAddCustomModel, onDeleteCustomModel, connections, isAnthropic }) {
+CompatibleModelRow.propTypes = {
+  modelId: PropTypes.string.isRequired,
+  fullModel: PropTypes.string.isRequired,
+  copied: PropTypes.string,
+  onCopy: PropTypes.func.isRequired,
+  onDeleteAlias: PropTypes.func.isRequired,
+  onTest: PropTypes.func,
+  onDisable: PropTypes.func,
+  testStatus: PropTypes.oneOf(["ok", "error"]),
+  isTesting: PropTypes.bool,
+};
+
+export default function CompatibleModelsSection({
+  providerStorageAlias,
+  providerDisplayAlias,
+  modelAliases,
+  customModels,
+  copied,
+  onCopy,
+  onDeleteAlias,
+  onAddCustomModel,
+  onDeleteCustomModel,
+  connections,
+  isAnthropic,
+  // Test/disable state is owned by the provider page so the header toolbar
+  // (Test All / Disable All Failed) and these rows share one source of truth.
+  testResults = {},
+  testingIds = new Set(),
+  disabledIds = [],
+  onTest,
+  onDisable,
+}) {
   const [newModel, setNewModel] = useState("");
   const [adding, setAdding] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [testingModelId, setTestingModelId] = useState(null);
-  const [modelTestResults, setModelTestResults] = useState({});
-
-  const handleTestModel = async (modelId) => {
-    if (testingModelId) return;
-    setTestingModelId(modelId);
-    try {
-      const res = await fetch("/api/models/test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: `${providerDisplayAlias}/${modelId}` }),
-      });
-      const data = await res.json();
-      setModelTestResults((prev) => ({ ...prev, [modelId]: data.ok ? "ok" : "error" }));
-    } catch {
-      setModelTestResults((prev) => ({ ...prev, [modelId]: "error" }));
-    } finally {
-      setTestingModelId(null);
-    }
-  };
 
   const allModels = getProviderCustomModelRows({
     customModels,
     modelAliases,
     providerAlias: providerStorageAlias,
     type: "llm",
+    disabledModelIds: disabledIds,
   });
+
+  const canTest = connections.length > 0;
 
   const handleAdd = async () => {
     if (!newModel.trim() || adding) return;
@@ -203,9 +227,10 @@ export default function CompatibleModelsSection({ providerStorageAlias, provider
               copied={copied}
               onCopy={onCopy}
               onDeleteAlias={() => source === "custom" ? onDeleteCustomModel(id) : onDeleteAlias(alias)}
-              onTest={connections.length > 0 ? () => handleTestModel(id) : undefined}
-              testStatus={modelTestResults[id]}
-              isTesting={testingModelId === id}
+              onTest={canTest && onTest ? () => onTest(id) : undefined}
+              onDisable={onDisable ? () => onDisable(id) : undefined}
+              testStatus={testResults[id]}
+              isTesting={testingIds.has(id)}
             />
           ))}
         </div>
@@ -229,4 +254,9 @@ CompatibleModelsSection.propTypes = {
     isActive: PropTypes.bool,
   })).isRequired,
   isAnthropic: PropTypes.bool,
+  testResults: PropTypes.objectOf(PropTypes.oneOf(["ok", "error"])),
+  testingIds: PropTypes.instanceOf(Set),
+  disabledIds: PropTypes.arrayOf(PropTypes.string),
+  onTest: PropTypes.func,
+  onDisable: PropTypes.func,
 };

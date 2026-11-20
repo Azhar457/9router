@@ -151,3 +151,4 @@ debug.log
 # payload collections live in the sibling repo / special/9router-payloads (or ~/.9router/payloads via payloads:sync)
 /AI-Jailbreaks/
 /BlackFriday-GPTs-Prompts/
+scripts/.icon-subset.json

@@ -539,7 +539,7 @@ export const PATTERN_CAPABILITIES = [
   { pattern: "*gpt-4-turbo*",   caps: { vision: true, contextWindow: 128000 } },
   { pattern: "*gpt-4*",         caps: { contextWindow: 128000 } },
   { pattern: "*gpt-3.5*",       caps: { contextWindow: 16385, maxOutput: 4096 } },
-  { pattern: "*gpt-oss*",       caps: { reasoning: true, thinkingFormat: "openai", contextWindow: 128000 } },
+  { pattern: "*gpt-oss*",       caps: { reasoning: true, thinkingFormat: "openai", contextWindow: 131072, maxOutput: 16384 } },
 
   // ── OpenAI o-series (reasoning, vision) ──────────────────────────
   { pattern: "*o1-mini*",       caps: { reasoning: true, thinkingFormat: "openai", contextWindow: 128000 } },

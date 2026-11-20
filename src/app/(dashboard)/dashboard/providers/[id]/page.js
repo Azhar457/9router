@@ -1418,6 +1418,11 @@ export default function ProviderDetailPage() {
           onDeleteCustomModel={(modelId) => handleDeleteCustomModel(modelId, "llm", providerStorageAlias)}
           connections={connections}
           isAnthropic={isAnthropicCompatible}
+          testResults={modelTestResults}
+          testingIds={testingModelIds}
+          disabledIds={disabledModelIds}
+          onTest={handleTestModel}
+          onDisable={handleDisableModel}
         />
       );
     }
@@ -2206,21 +2211,28 @@ export default function ProviderDetailPage() {
               </select>
             )}
           </div>
-          {!isCompatible && (() => {
+          {(() => {
+            // Compatible nodes have no built-in catalog: their rows are the
+            // custom/aliased models, so the same bulk actions apply there too.
             const customLlmIds = getProviderCustomModelRows({
               customModels,
               modelAliases,
               providerAlias: providerStorageAlias,
-              builtInModels: models,
+              builtInModels: isCompatible ? [] : models,
               type: "llm",
               disabledModelIds,
             }).map((r) => r.id);
-            const allIds = [
-              ...models,
-              ...kiloFreeModels.filter((fm) => !models.some((m) => m.id === fm.id)),
-            ].filter((m) => { const k = getModelKind(m); return !k || k === "llm"; }).map((m) => m.id)
-              .concat(customLlmIds);
+            const allIds = isCompatible
+              ? customLlmIds
+              : [
+                  ...models,
+                  ...kiloFreeModels.filter((fm) => !models.some((m) => m.id === fm.id)),
+                ].filter((m) => { const k = getModelKind(m); return !k || k === "llm"; }).map((m) => m.id)
+                  .concat(customLlmIds);
             const activeIds = allIds.filter((id) => !disabledModelIds.includes(id));
+            const canTest = isCompatible
+              ? connections.length > 0
+              : (connections.length > 0 || isFreeNoAuth);
             return (
               <div className="flex gap-2">
                 {disabledModelIds.length > 0 && (
@@ -2233,13 +2245,13 @@ export default function ProviderDetailPage() {
                     Disable All
                   </Button>
                 )}
-                {(connections.length > 0 || isFreeNoAuth) && activeIds.length > 0 && (
+                {canTest && activeIds.length > 0 && (
                   <Button size="sm" variant="secondary" icon="science" onClick={() => handleTestAll(activeIds)}>
                     {testingAll ? "Testing…" : "Test All"}
                   </Button>
                 )}
                 {Object.values(modelTestResults).some((s) => s === "error") && (
-                  <Button size="sm" variant="secondary" icon="filter_off" onClick={handleDisableAllFailed}>
+                  <Button size="sm" variant="secondary" icon="filter_alt_off" onClick={handleDisableAllFailed}>
                     Disable All Failed ({Object.values(modelTestResults).filter((s) => s === "error").length})
                   </Button>
                 )}

@@ -525,6 +525,23 @@ async function intercept(req, res, bodyBuffer, mappedModel) {
     }
     
     const body = JSON.parse(bodyBuffer.toString());
+    // Strip unsupported 'reasoning_content' from any assistant messages in the request
+    function stripReasoning(msg) {
+      if (msg && typeof msg === 'object') {
+        delete msg.reasoning_content;
+        if (Array.isArray(msg.toolCalls)) {
+          msg.toolCalls.forEach(stripReasoning);
+        }
+        if (msg.assistantResponseMessage) stripReasoning(msg.assistantResponseMessage);
+        if (msg.userInputMessage) stripReasoning(msg.userInputMessage);
+      }
+    }
+    if (body.conversationState && Array.isArray(body.conversationState.history)) {
+      body.conversationState.history.forEach(item => {
+        if (item.assistantResponseMessage) stripReasoning(item.assistantResponseMessage);
+      });
+    }
+
 
     // 1 + 2: CodeWhisperer → OpenAI messages + tools
     const messages = codeWhispererToMessages(body);

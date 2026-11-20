@@ -1,6 +1,6 @@
 {
   "name": "9router-app",
-  "version": "0.6.7",
+  "version": "0.6.8",
   "description": "9Router-Plinian web dashboard (based on 9Router 0.5.112)",
   "private": true,
   "scripts": {
@@ -8,6 +8,8 @@
     "payloads:sync": "node scripts/etl-payloads.mjs",
     "dev:webpack": "next dev --webpack --port 20127",
     "build": "next build --webpack",
+    "prebuild": "python3 scripts/subset-icons.py || echo '[subset-icons] skipped (python3 unavailable)'",
+    "icons:subset": "python3 scripts/subset-icons.py",
     "postbuild": "node scripts/copy-standalone-assets.mjs",
     "postbuild:bun": "node scripts/copy-standalone-assets.mjs",
     "start": "node custom-server.js --port 20127",

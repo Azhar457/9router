@@ -10,6 +10,27 @@ import { injectReasoningContent } from "../utils/reasoningContentInjector.js";
 import { stripUnsupportedParams } from "../translator/concerns/paramSupport.js";
 import { extractClaudeSessionIdFromUserId } from "../utils/claudeCloaking.js";
 
+// OpenAI-compatible nodes can front a provider with its own parameter limits
+// (e.g. Groq's 16384 max_completion_tokens ceiling). Detect the upstream by
+// baseUrl so provider-bound strip/rename/clamp rules still apply even when the
+// provider id is the node's ("openai-compatible-…"), not the upstream's.
+const UPSTREAM_BASE_OVERRIDES = [
+  { base: "https://api.groq.com", provider: "groq" },
+];
+function detectUpstreamProvider(provider, credentials) {
+  if (!provider.startsWith?.("openai-compatible-")) return provider;
+  const raw = credentials?.providerSpecificData?.baseUrl?.trim()
+    || PROVIDERS[provider]?.baseUrl?.trim();
+  if (!raw) return provider;
+  let host = null;
+  try { host = new URL(raw).hostname.toLowerCase(); } catch { /* keep raw */ }
+  for (const o of UPSTREAM_BASE_OVERRIDES) {
+    const oHost = o.base.replace(/^https:\/\//, "").replace(/\/.*$/, "").toLowerCase();
+    if (host === oHost || oHost.includes(host) || host.includes(oHost)) return o.provider;
+  }
+  return provider;
+}
+
 // Auth header descriptors — derived from registry transport.auth, fallback to hardcoded defaults.
 const BEARER = { combined: true, header: "Authorization", scheme: "bearer" };
 const XAPIKEY = { combined: true, header: "x-api-key", scheme: "raw" };
@@ -103,7 +124,10 @@ export class DefaultExecutor extends BaseExecutor {
       if (this.config.quirks?.dropClientMetadata) {
         delete transformed.client_metadata;
       }
-      stripUnsupportedParams(this.provider, model, transformed);
+      // For openai-compatible nodes, strip/rename/clamp against the detected
+      // upstream (e.g. Groq) so its limits still apply.
+      const effectiveProvider = detectUpstreamProvider(this.provider, credentials);
+      stripUnsupportedParams(this.provider, model, transformed, effectiveProvider);
     }
 
     return injectReasoningContent({ provider: this.provider, model, body: transformed });
