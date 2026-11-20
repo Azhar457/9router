@@ -72,11 +72,13 @@ describe("SenseNova site split", () => {
     expect(PROVIDER_MEDIA[INTL].imageConfig.baseUrl).toBe(`https://${INTL_HOST}/v1/images/generations`);
   });
 
-  it("builds the chat URL from the registry host, ignoring providerSpecificData.baseUrl", () => {
+  it("builds the chat URL from the registry host, ignoring providerSpecificData.baseUrl", async () => {
     const creds = { apiKey: "k", providerSpecificData: { baseUrl: "https://evil.example/v1" } };
-    expect(getExecutor(INTL)).toBeInstanceOf(DefaultExecutor);
-    expect(host(getExecutor(INTL).buildUrl("sensenova-6.8-flash", true, 0, creds))).toBe(INTL_HOST);
-    expect(host(getExecutor(CN).buildUrl("sensenova-6.8-flash", true, 0, creds))).toBe(CN_HOST);
+    const intlExec = await getExecutor(INTL);
+    const cnExec = await getExecutor(CN);
+    expect(intlExec).toBeInstanceOf(DefaultExecutor);
+    expect(host(intlExec.buildUrl("sensenova-6.8-flash", true, 0, creds))).toBe(INTL_HOST);
+    expect(host(cnExec.buildUrl("sensenova-6.8-flash", true, 0, creds))).toBe(CN_HOST);
   });
 
   it("points each image adapter at its own site", () => {

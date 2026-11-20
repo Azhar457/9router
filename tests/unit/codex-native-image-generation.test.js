@@ -78,7 +78,8 @@ describe("native Codex OAuth image generation", () => {
       .mockResolvedValueOnce(Response.json({ error: { message: "Expired token" } }, { status: 401 }))
       .mockResolvedValueOnce(jsonResponse());
     vi.stubGlobal("fetch", fetchMock);
-    vi.spyOn(getExecutor("codex"), "refreshCredentials").mockResolvedValue({ accessToken: "refreshed-oauth-token" });
+    const codexExec = await getExecutor("codex");
+    vi.spyOn(codexExec, "refreshCredentials").mockResolvedValue({ accessToken: "refreshed-oauth-token" });
     const onCredentialsRefreshed = vi.fn();
     const result = await handleImageGenerationCore(request({ onCredentialsRefreshed }));
     expect(result.success).toBe(true);
