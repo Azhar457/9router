@@ -33,7 +33,7 @@ function ConsentModal({ onConsent, onDismiss }) {
       >
         <div className="flex items-center gap-3">
           <span className="material-symbols-outlined text-3xl text-red-500">
-            report_problem
+            report
           </span>
           <h2
             id="payload-consent-title"

@@ -598,7 +598,7 @@ export default function HermesToolCard({
                   </Button>
                 )}
                 <Button variant="outline" size="sm" onClick={handleReset} disabled={!hermesStatus?.has9Router && !hermesStatus?.has9RouterStt} loading={restoring} className="w-full sm:w-auto">
-                  <span className="material-symbols-outlined text-[14px] mr-1">restore</span>Reset
+                  <span className="material-symbols-outlined text-[14px] mr-1">restart_alt</span>Reset
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => setShowManualConfigModal(true)} className="w-full sm:w-auto">
                   <span className="material-symbols-outlined text-[14px] mr-1">content_copy</span>Manual Config

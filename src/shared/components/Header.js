@@ -132,7 +132,7 @@ const getPageInfo = (pathname, customNodeNames = {}) => {
     return {
       title: "Developer",
       description: "Single-model playground and multi-model race with scoring",
-      icon: "developer_mode",
+      icon: "terminal",
       breadcrumbs: [],
     };
   if (pathname.includes("/penetration"))
